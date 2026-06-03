@@ -1,18 +1,18 @@
 """
-Сборка FastAPI-приложения.
+FastAPI application entry point.
 
-Использование:
+Usage:
     uvicorn src.api.app:app --reload
-Переменные среды подгружаются из .env автоматически.
+
+Environment variables are loaded from .env automatically.
 """
 
 from __future__ import annotations
 
 import logging
 
-# Загрузить .env до любых importов, которые читают os.environ
 from dotenv import load_dotenv
-load_dotenv()  # ищет .env в текущей папке и выше
+load_dotenv()
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,7 +29,7 @@ logging.basicConfig(
 app = FastAPI(
     title="RCA Analyzer API",
     version="0.1.0",
-    description="Автоматический анализ корневых причин производственных инцидентов.",
+    description="Root cause analysis for industrial incidents.",
     docs_url="/docs",
     redoc_url="/redoc",
 )
@@ -51,14 +51,14 @@ async def methodology_error_handler(request: Request, exc: MethodologyNotSupport
 async def llm_error_handler(request: Request, exc: LLMResponseValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=502,
-        content={"detail": "LLM вернул невалидный ответ. Попробуйте позже."),
+        content={"detail": "LLM returned invalid response. Please try again later."},
     )
 
 
 @app.exception_handler(Exception)
 async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
     logging.getLogger(__name__).exception("Unhandled exception")
-    return JSONResponse(status_code=500, content={"detail": "Внутренняя ошибка сервера."})
+    return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
 
 app.include_router(analyze_router)
