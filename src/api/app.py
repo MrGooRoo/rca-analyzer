@@ -3,11 +3,16 @@
 
 Использование:
     uvicorn src.api.app:app --reload
+Переменные среды подгружаются из .env автоматически.
 """
 
 from __future__ import annotations
 
 import logging
+
+# Загрузить .env до любых importов, которые читают os.environ
+from dotenv import load_dotenv
+load_dotenv()  # ищет .env в текущей папке и выше
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -29,7 +34,6 @@ app = FastAPI(
     redoc_url="/redoc",
 )
 
-# CORS — разрешаем фронт на localhost при разработке
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000", "http://localhost:5173"],
@@ -37,9 +41,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ---------------------------------------------------------------------------
-# Глобальные обработчики ошибок
-# ---------------------------------------------------------------------------
 
 @app.exception_handler(MethodologyNotSupportedError)
 async def methodology_error_handler(request: Request, exc: MethodologyNotSupportedError) -> JSONResponse:
@@ -50,7 +51,7 @@ async def methodology_error_handler(request: Request, exc: MethodologyNotSupport
 async def llm_error_handler(request: Request, exc: LLMResponseValidationError) -> JSONResponse:
     return JSONResponse(
         status_code=502,
-        content={"detail": "LLM вернул невалидный ответ. Попробуйте позже."},
+        content={"detail": "LLM вернул невалидный ответ. Попробуйте позже."),
     )
 
 
@@ -60,14 +61,9 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
     return JSONResponse(status_code=500, content={"detail": "Внутренняя ошибка сервера."})
 
 
-# ---------------------------------------------------------------------------
-# Роутеры
-# ---------------------------------------------------------------------------
-
 app.include_router(analyze_router)
 
 
 @app.get("/health", tags=["infra"])
 async def health() -> dict:
-    """Healthcheck для Docker / k8s probe."""
     return {"status": "ok"}
