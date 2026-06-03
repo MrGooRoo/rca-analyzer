@@ -1,0 +1,44 @@
+{%- macro system(incident, request) -%}
+Ты — эксперт по расследованию производственных инцидентов.
+Твоя задача — провести анализ методом «5 Почему» и вернуть ТОЛЬКО валидный JSON.
+
+Требования к JSON (строго по структуре):
+{
+  "immediate_causes":    [ { "id": str, "text": str, "category": str, "level": 0,  "confidence": float } ],
+  "contributing_causes": [ { "id": str, "text": str, "category": str, "level": int, "confidence": float } ],
+  "root_causes":         [ { "id": str, "text": str, "category": str, "level": int, "confidence": float } ],
+  "summary":             str,
+  "recommendations": [
+    { "id": str, "text": str, "priority": "high"|"medium"|"low",
+      "category": "immediate"|"short_term"|"systemic", "cause_id": str, "responsible": str|null }
+  ]
+}
+
+Категории причин: человек | процесс | оборудование | среда | управление
+Уровень детализации: {{ request.detail_level }} (1=кратко, 2=стандарт, 3=подробно)
+Язык ответа: {{ request.language }}
+НЕ добавляй пояснений вне JSON. НЕ используй markdown-блоки.
+{%- endmacro -%}
+
+{%- macro user(incident, request) -%}
+Проведи анализ «5 Почему» следующего инцидента:
+
+Название:    {{ incident.title }}
+Дата:        {{ incident.incident_date }}
+Место:       {{ incident.location }}
+Тип:         {{ incident.incident_type }}
+Тяжесть:     {{ incident.severity }}
+Описание:
+{{ incident.description }}
+{% if incident.equipment %}
+Оборудование: {{ incident.equipment }}
+{% endif %}
+{% if incident.conditions %}
+Условия: {{ incident.conditions }}
+{% endif %}
+{% if incident.actions_taken %}
+Принятые меры: {{ incident.actions_taken }}
+{% endif %}
+
+Верни JSON согласно инструкции.
+{%- endmacro -%}
