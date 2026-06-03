@@ -1,4 +1,4 @@
-.PHONY: install dev test lint typecheck run docker-up docker-down
+.PHONY: install dev test lint typecheck run docker-up docker-down migrate
 
 install:
 	pip install -e '.[dev]'
@@ -8,9 +8,6 @@ dev:
 
 test:
 	pytest -v
-
-test-contracts:
-	pytest tests/contracts/ -v
 
 test-unit:
 	pytest tests/unit/ -v
@@ -32,3 +29,9 @@ docker-down:
 
 logs:
 	docker compose logs -f api
+
+migrate:
+	docker compose exec api alembic upgrade head
+
+migrate-new:
+	docker compose exec api alembic revision --autogenerate -m "$(name)"
