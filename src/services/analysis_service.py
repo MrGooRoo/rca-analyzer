@@ -7,12 +7,14 @@
       → OpenRouterClient (LLM вызов с retry)
       → MethodologyRunner (raw dict → RCAResult)
       → RCAResult
+Примечание по жизненному циклу httpx:
+    OpenRouterClient создаётся свежим на каждый запрос (через async with),
+    чтобы избежать повторного использования закрытого httpx.AsyncClient.
 """
 
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING
 
 from src.domain.models import (
     AnalysisRequest,
@@ -27,11 +29,8 @@ from src.services.prompt_renderer import PromptRenderer
 
 logger = logging.getLogger(__name__)
 
-# Реестр методик: MethodologyType → runner
 _RUNNERS: dict[MethodologyType, MethodologyRunner] = {
     MethodologyType.FIVE_WHY: FiveWhyRunner(),
-    # MethodologyType.ISHIKAWA: IshikawaRunner(),  # добавить по мере реализации
-    # MethodologyType.RCA_SYSTEMIC: RCASystemicRunner(),
 }
 
 
@@ -39,9 +38,9 @@ class AnalysisService:
     """
     Сервис анализа инцидентов.
 
-    Использование:
-        service = AnalysisService()
-        result = await service.analyze(request)
+    llm_client используется как фабрика: при None каждый вызов analyze()
+    создаёт новый OpenRouterClient. При передаче готового клиента
+    (например, в тестах) он будет использован напрямую.
     """
 
     def __init__(
@@ -49,23 +48,11 @@ class AnalysisService:
         llm_client:      OpenRouterClient | None = None,
         prompt_renderer: PromptRenderer | None   = None,
     ) -> None:
-        self._llm    = llm_client      or OpenRouterClient()
-        self._prompts = prompt_renderer or PromptRenderer()
+        # None → создавать новый клиент на каждый запрос
+        self._llm_factory = (lambda: llm_client) if llm_client else OpenRouterClient
+        self._prompts     = prompt_renderer or PromptRenderer()
 
     async def analyze(self, request: AnalysisRequest) -> RCAResult:
-        """
-        Запустить полный цикл анализа.
-
-        Args:
-            request: валидный AnalysisRequest (contracts.md раздел 2).
-
-        Returns:
-            RCAResult (contracts.md раздел 3).
-
-        Raises:
-            MethodologyNotSupportedError: если методика ещё не реализована.
-            LLMResponseValidationError: если LLM вернул невалидный ответ.
-        """
         runner = self._get_runner(request.methodology)
 
         system_prompt, user_prompt = self._prompts.render(
@@ -79,7 +66,8 @@ class AnalysisService:
             request.incident.severity,
         )
 
-        async with self._llm as client:
+        # Новый httpx-клиент на каждый запрос — безопасно закрывается после
+        async with self._llm_factory() as client:
             raw = await client.complete(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -96,10 +84,6 @@ class AnalysisService:
 
         return result
 
-    # ------------------------------------------------------------------
-    # Вспомогательные методы
-    # ------------------------------------------------------------------
-
     @staticmethod
     def _get_runner(methodology: MethodologyType) -> MethodologyRunner:
         runner = _RUNNERS.get(methodology)
@@ -112,5 +96,4 @@ class AnalysisService:
 
     @classmethod
     def supported_methodologies(cls) -> list[MethodologyType]:
-        """Список реализованных методик."""
         return list(_RUNNERS.keys())
