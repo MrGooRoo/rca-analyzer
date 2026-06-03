@@ -11,7 +11,7 @@ Algorithm:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.domain.models import (
     AnalysisRequest,
@@ -74,7 +74,7 @@ class FiveWhyRunner(MethodologyRunner):
             result_id=str(uuid.uuid4()),
             incident_id=str(request.incident.incident_date),
             methodology=MethodologyType.FIVE_WHY,
-            created_at=datetime.utcnow(),
+            created_at=datetime.now(timezone.utc),
             immediate_causes=immediate,
             contributing_causes=contributing,
             root_causes=root,
