@@ -1,7 +1,7 @@
 """
 Методика «5 Почему» (Five Why).
 
-Алгоритм:
+Algorithm:
 1. Получить сформированный ответ LLM (dict из contracts.md раздел 6)
 2. Построить линейную цепочку причин (каждый узел ссылается на предыдущий)
 3. Последний узел цепочки — корневая причина
@@ -35,7 +35,9 @@ class FiveWhyRunner(MethodologyRunner):
 
     @property
     def methodology_type(self) -> str:
-        return MethodologyType.FIVE_WHY
+        # Возвращаем значение enum (строку), а не сам объект
+        # Чтобы get_prompt_template_name() давал «five_why.j2», а не «MethodologyType.FIVE_WHY.j2»
+        return MethodologyType.FIVE_WHY.value
 
     async def run(
         self,
@@ -47,26 +49,22 @@ class FiveWhyRunner(MethodologyRunner):
 
         Ожидаемые ключи в raw_llm_response (contracts.md раздел 6):
             - immediate_causes: list[dict]   — обычно 1 элемент
-            - contributing_causes: list[dict] — цепочка «почему»
-            - root_causes: list[dict]         — последнее «почему» (1 элемент)
+            - contributing_causes: list[dict] — цепочка «pochemu»
+            - root_causes: list[dict]         — последнее «pochemu» (1 элемент)
             - summary: str
             - recommendations: list[dict]
         """
         self._validate_response(raw_llm_response)
 
-        immediate   = self._parse_nodes(raw_llm_response.get("immediate_causes", []), level_offset=0)
+        immediate    = self._parse_nodes(raw_llm_response.get("immediate_causes", []), level_offset=0)
         contributing = self._parse_nodes(raw_llm_response.get("contributing_causes", []), level_offset=1)
-        root        = self._parse_nodes(raw_llm_response.get("root_causes", []), level_offset=len(contributing) + 1)
+        root         = self._parse_nodes(raw_llm_response.get("root_causes", []), level_offset=len(contributing) + 1)
 
-        # Для методики 5 Почему строим явную линейную цепочку через parent_id
         all_chain = immediate + contributing + root
         all_chain = self._link_chain(all_chain)
 
-        causal_tree = all_chain
-
         recommendations = self._parse_recommendations(raw_llm_response.get("recommendations", []))
 
-        # Средняя уверенность по всем узлам цепочки
         confidence_avg = (
             sum(n.confidence for n in all_chain) / len(all_chain)
             if all_chain else 0.0
@@ -74,13 +72,13 @@ class FiveWhyRunner(MethodologyRunner):
 
         return RCAResult(
             result_id=str(uuid.uuid4()),
-            incident_id=str(request.incident.incident_date),  # заменить на реальный ID после добавления БД
+            incident_id=str(request.incident.incident_date),
             methodology=MethodologyType.FIVE_WHY,
             created_at=datetime.utcnow(),
             immediate_causes=immediate,
             contributing_causes=contributing,
             root_causes=root,
-            causal_tree=causal_tree,
+            causal_tree=all_chain,
             summary=raw_llm_response.get("summary", ""),
             recommendations=recommendations,
             model_used=raw_llm_response.get("_meta", {}).get("model", "unknown"),
@@ -89,11 +87,8 @@ class FiveWhyRunner(MethodologyRunner):
         )
 
     # ---------------------------------------------------------------------------
-    # Вспомогательные методы
-    # ---------------------------------------------------------------------------
 
     def _validate_response(self, response: dict) -> None:
-        """Проверить наличие обязательных ключей в ответе LLM."""
         required = {"immediate_causes", "root_causes", "summary", "recommendations"}
         missing = required - set(response.keys())
         if missing:
@@ -102,7 +97,6 @@ class FiveWhyRunner(MethodologyRunner):
             )
 
     def _parse_nodes(self, raw_nodes: list[dict], level_offset: int) -> list[CauseNode]:
-        """Распарсить список узлов из ответа LLM в CauseNode."""
         nodes = []
         for i, raw in enumerate(raw_nodes):
             try:
@@ -122,10 +116,6 @@ class FiveWhyRunner(MethodologyRunner):
         return nodes
 
     def _link_chain(self, nodes: list[CauseNode]) -> list[CauseNode]:
-        """
-        Выстроить линейную цепочку: каждый узел получает parent_id предыдущего.
-        Первый узел (непосредственная причина) — корень цепочки (parent_id=None).
-        """
         linked = []
         for i, node in enumerate(nodes):
             parent_id = nodes[i - 1].id if i > 0 else None
@@ -133,7 +123,6 @@ class FiveWhyRunner(MethodologyRunner):
         return linked
 
     def _parse_recommendations(self, raw_recs: list[dict]) -> list[Recommendation]:
-        """Распарсить список рекомендаций из ответа LLM."""
         result = []
         for raw in raw_recs:
             try:
