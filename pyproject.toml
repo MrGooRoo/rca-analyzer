@@ -26,6 +26,10 @@ dev = [
     "mypy>=1.10",
 ]
 
+# hatchling: явно указываем, какой каталог паковать
+[tool.hatch.build.targets.wheel]
+packages = ["src"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths  = ["tests"]
