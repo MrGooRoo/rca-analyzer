@@ -1,4 +1,20 @@
 services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: rca
+      POSTGRES_PASSWORD: secret
+      POSTGRES_DB: rca_analyzer
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U rca -d rca_analyzer"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build:
       context: .
@@ -6,15 +22,22 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - .:/app          # hot-reload в dev
+      - .:/app
     env_file:
       - .env
     environment:
       - PYTHONPATH=/app
+      - DATABASE_URL=postgresql+asyncpg://rca:secret@db:5432/rca_analyzer
+    depends_on:
+      db:
+        condition: service_healthy
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
       interval: 30s
       timeout: 5s
       retries: 3
-      start_period: 10s
+      start_period: 15s
+
+volumes:
+  pgdata:
