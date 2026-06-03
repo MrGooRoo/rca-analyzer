@@ -120,6 +120,10 @@ class OpenRouterClient:
                 max_tokens=max_tokens,
             )
         except RetryError as exc:
+            # Пробрасываем оригинальное сообщение, а не generic-обёртку tenacity
+            original = exc.last_attempt.exception()
+            if isinstance(original, LLMResponseValidationError):
+                raise LLMResponseValidationError(str(original)) from exc
             raise LLMResponseValidationError(
                 f"LLM не вернул валидный ответ после {self.max_retries} попыток."
             ) from exc
