@@ -24,6 +24,7 @@ from src.domain.models import (
 )
 from src.domain.methodologies.base import MethodologyRunner
 from src.domain.methodologies.five_why import FiveWhyRunner
+from src.domain.methodologies.ishikawa import IshikawaRunner
 from src.integrations.llm.openrouter import OpenRouterClient
 from src.services.prompt_renderer import PromptRenderer
 
@@ -31,6 +32,7 @@ logger = logging.getLogger(__name__)
 
 _RUNNERS: dict[MethodologyType, MethodologyRunner] = {
     MethodologyType.FIVE_WHY: FiveWhyRunner(),
+    MethodologyType.ISHIKAWA: IshikawaRunner(),
 }
 
 
