@@ -77,6 +77,10 @@ class IshikawaRunner(MethodologyRunner):
         # Дерево: все узлы объединяем, связи уже заданы через parent_id от LLM
         causal_tree = self._build_tree(immediate, contributing, root)
 
+        # Берём contributing_causes из патченного causal_tree, чтобы parent_id был актуальным
+        tree_node_map = {n.id: n for n in causal_tree}
+        contributing = [tree_node_map.get(c.id, c) for c in contributing]
+
         recommendations = self._parse_recommendations(
             raw_llm_response.get("recommendations", [])
         )

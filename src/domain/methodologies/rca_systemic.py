@@ -118,6 +118,9 @@ class RcaSystemicRunner(MethodologyRunner):
                 f"[RcaSystemic] Отсутствуют обязательные ключи: {missing}"
             )
 
+    # Публичный алиас для обратной совместимости с тестами
+    validate_response = _validate_response
+
     def _parse_nodes(self, raw_nodes: list[dict]) -> list[CauseNode]:
         nodes = []
         for raw in raw_nodes:
