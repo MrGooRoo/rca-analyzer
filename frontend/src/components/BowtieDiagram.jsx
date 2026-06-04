@@ -1,6 +1,7 @@
 /**
  * BowtieDiagram — Apple-style glass UI.
- * Исправлено: refs через data-атрибуты, нет циклических useRef в map().
+ * Фикс: double-rAF для гарантированного замера домъ после layout,
+ * align-items:stretch + justify-content:center для выравнивания колонок.
  */
 
 import React, { useRef, useState, useEffect } from 'react'
@@ -47,9 +48,8 @@ function parseBowtieData(result) {
   return { hazards, topEvents, threats, prevention, consequences, mitigation }
 }
 
-// Генерация bezier-пути между двумя точками
 function bezierPath(x1, y1, x2, y2) {
-  const dx = Math.abs(x2 - x1) * 0.55
+  const dx = Math.abs(x2 - x1) * 0.5
   return `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`
 }
 
@@ -63,11 +63,11 @@ export default function BowtieDiagram({ result }) {
   const [paths, setPaths] = useState([])
   const [tooltip, setTooltip] = useState(null)
 
-  // Пересчёт связей по data-атрибутам DOM-нодов
   function recalc() {
     const wrap = wrapRef.current
     if (!wrap) return
     const wRect = wrap.getBoundingClientRect()
+    if (wRect.width === 0) return   // ещё не отрисовано
 
     function mid(el, side) {
       if (!el) return null
@@ -88,31 +88,33 @@ export default function BowtieDiagram({ result }) {
     const topR = mid(topEl, 'right')
     const newPaths = []
 
+    // Левая сторона: угроза → [барьер] → топ-событие
     threats.forEach((_, i) => {
       const tEl = byId('threat', i)
-      const pEl = byId('prev', i) || byId('prev', 0)
       if (!tEl) return
       const tR = mid(tEl, 'right')
+      const pEl = byId('prev', i) ?? byId('prev', 0)
       if (pEl) {
         const pL = mid(pEl, 'left')
         const pR = mid(pEl, 'right')
-        if (tR && pL) newPaths.push({ d: bezierPath(tR.x, tR.y, pL.x, pL.y), side: 'L' })
+        if (tR && pL)   newPaths.push({ d: bezierPath(tR.x, tR.y, pL.x, pL.y), side: 'L' })
         if (pR && topL) newPaths.push({ d: bezierPath(pR.x, pR.y, topL.x, topL.y), side: 'L' })
       } else if (tR && topL) {
         newPaths.push({ d: bezierPath(tR.x, tR.y, topL.x, topL.y), side: 'L' })
       }
     })
 
+    // Правая сторона: топ-событие → [барьер] → последствие
     consequences.forEach((_, i) => {
       const cEl = byId('cons', i)
-      const mEl = byId('miti', i) || byId('miti', 0)
       if (!cEl) return
       const cL = mid(cEl, 'left')
+      const mEl = byId('miti', i) ?? byId('miti', 0)
       if (mEl) {
         const mL = mid(mEl, 'left')
         const mR = mid(mEl, 'right')
         if (topR && mL) newPaths.push({ d: bezierPath(topR.x, topR.y, mL.x, mL.y), side: 'R' })
-        if (mR && cL) newPaths.push({ d: bezierPath(mR.x, mR.y, cL.x, cL.y), side: 'R' })
+        if (mR && cL)   newPaths.push({ d: bezierPath(mR.x, mR.y, cL.x, cL.y), side: 'R' })
       } else if (topR && cL) {
         newPaths.push({ d: bezierPath(topR.x, topR.y, cL.x, cL.y), side: 'R' })
       }
@@ -122,13 +124,19 @@ export default function BowtieDiagram({ result }) {
   }
 
   useEffect(() => {
-    // Даём DOM отрисоваться
-    const id = requestAnimationFrame(() => {
-      recalc()
+    // double-rAF: ждём два фрейма — grid-layout + paint гарантированно завершён
+    let id1, id2
+    id1 = requestAnimationFrame(() => {
+      id2 = requestAnimationFrame(() => recalc())
     })
     const ro = new ResizeObserver(() => recalc())
     if (wrapRef.current) ro.observe(wrapRef.current)
-    return () => { cancelAnimationFrame(id); ro.disconnect() }
+    return () => {
+      cancelAnimationFrame(id1)
+      cancelAnimationFrame(id2)
+      ro.disconnect()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [threats.length, prevention.length, consequences.length, mitigation.length])
 
   function showTip(e, node) {
@@ -151,18 +159,29 @@ export default function BowtieDiagram({ result }) {
 
         {/* SVG-слой */}
         <svg className="bt-svg-layer" aria-hidden="true">
+          <defs>
+            <filter id="bt-glow-l">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+            <filter id="bt-glow-r">
+              <feGaussianBlur stdDeviation="2" result="blur" />
+              <feMerge><feMergeNode in="blur" /><feMergeNode in="SourceGraphic" /></feMerge>
+            </filter>
+          </defs>
           {paths.map((p, i) => (
             <path
               key={i}
               d={p.d}
               fill="none"
-              stroke={p.side === 'L' ? 'rgba(160,180,255,0.25)' : 'rgba(100,220,180,0.25)'}
-              strokeWidth={1.5}
+              stroke={p.side === 'L' ? 'rgba(160,180,255,0.35)' : 'rgba(80,220,170,0.35)'}
+              strokeWidth={1.8}
+              filter={`url(#bt-glow-${p.side === 'L' ? 'l' : 'r'})`}
             />
           ))}
         </svg>
 
-        {/* Колонка 1: Угрозы + Hazard */}
+        {/* Кол. 1: Угрозы + Hazard */}
         <div className="bt-col">
           {hazard && (
             <Card node={hazard} palette={PALETTE.hazard} isHazard
@@ -175,7 +194,7 @@ export default function BowtieDiagram({ result }) {
           ))}
         </div>
 
-        {/* Колонка 2: Барьеры предотвр. */}
+        {/* Кол. 2: Барьеры предотвр. */}
         <div className="bt-col">
           {prevention.map((n, i) => (
             <Card key={n?.id ?? i} node={n} palette={PALETTE.prevention} isBarrier
@@ -184,7 +203,7 @@ export default function BowtieDiagram({ result }) {
           ))}
         </div>
 
-        {/* Колонка 3: Топ-событие */}
+        {/* Кол. 3: Топ-событие */}
         <div className="bt-col bt-col--center">
           <Card
             node={topEvent || { text: 'Топ-событие', confidence: 1 }}
@@ -196,7 +215,7 @@ export default function BowtieDiagram({ result }) {
           />
         </div>
 
-        {/* Колонка 4: Барьеры смягч. */}
+        {/* Кол. 4: Барьеры смягч. */}
         <div className="bt-col">
           {mitigation.map((n, i) => (
             <Card key={n?.id ?? i} node={n} palette={PALETTE.mitigation} isBarrier
@@ -205,7 +224,7 @@ export default function BowtieDiagram({ result }) {
           ))}
         </div>
 
-        {/* Колонка 5: Последствия */}
+        {/* Кол. 5: Последствия */}
         <div className="bt-col">
           {consequences.map((n, i) => (
             <Card key={n?.id ?? i} node={n} palette={PALETTE.consequence}
@@ -256,7 +275,6 @@ export default function BowtieDiagram({ result }) {
   )
 }
 
-// Карточка — обычный компонент, нет forwardRef
 function Card({ node, palette, isCenter, isBarrier, isHazard, dataId, onHover, onLeave }) {
   const degraded = node?.confidence != null && node.confidence < 0.3
   return (

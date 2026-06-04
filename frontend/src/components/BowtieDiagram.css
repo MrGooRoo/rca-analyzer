@@ -1,16 +1,15 @@
 /* ═══════════════════════════════════════════════════════════════
    BowtieDiagram — Apple-style glass UI
-   Токены: --surface, --border, --muted, --text — из App.css
    ═══════════════════════════════════════════════════════════════ */
 
-/* ── Shell ────────────────────────────────────────────────────── */
+/* ── Shell ─────────────────────────────────────────────── */
 .bt-shell {
   display: flex;
   flex-direction: column;
   gap: 16px;
 }
 
-/* ── Легенда ──────────────────────────────────────────────────── */
+/* ── Легенда ──────────────────────────────────────────── */
 .bt-legend {
   display: flex;
   flex-wrap: wrap;
@@ -26,13 +25,14 @@
 .bt-legend-item { display: flex; align-items: center; gap: 6px; }
 .bt-legend-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 
-/* ── Диаграмма-контейнер ──────────────────────────────────────── */
+/* ── Диаграмма-контейнер ────────────────────────────── */
 .bt-diagram {
   position: relative;
   display: grid;
   grid-template-columns: 1.1fr 0.85fr 1fr 0.85fr 1.1fr;
   gap: 0 20px;
-  align-items: center;
+  /* Колонки растягиваются на всю высоту грида, центральная выравнивается через margin:auto */
+  align-items: stretch;
   min-height: 280px;
   padding: 28px 20px;
   background: rgba(12, 14, 22, 0.72);
@@ -42,7 +42,7 @@
   box-shadow:
     0 2px 0 rgba(255,255,255,0.04) inset,
     0 20px 60px rgba(0,0,0,0.45);
-  overflow: hidden;
+  overflow: visible;
 }
 
 /* SVG-слой поверх grid */
@@ -53,9 +53,10 @@
   height: 100%;
   pointer-events: none;
   z-index: 0;
+  overflow: visible;
 }
 
-/* ── Колонки ──────────────────────────────────────────────────── */
+/* ── Колонки ─────────────────────────────────────────────── */
 .bt-col {
   display: flex;
   flex-direction: column;
@@ -63,10 +64,16 @@
   align-items: stretch;
   position: relative;
   z-index: 1;
+  /* Центрируем вертикально в строке грида */
+  justify-content: center;
 }
-.bt-col--center { align-items: center; }
+/* Центральная колонка — карточка выравнивается по margin:auto */
+.bt-col--center {
+  align-items: center;
+  justify-content: center;
+}
 
-/* ── Карточки ─────────────────────────────────────────────────── */
+/* ── Карточки ────────────────────────────────────────────── */
 .bt-card {
   position: relative;
   display: flex;
@@ -80,7 +87,6 @@
     transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
     border-color 180ms;
-  /* Glass */
   backdrop-filter: blur(12px);
   box-shadow: 0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
 }
@@ -89,11 +95,12 @@
   box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
 }
 
-/* Центральная карточка — крупнее */
+/* Центральная карточка */
 .bt-card--center {
-  padding: 16px 20px;
+  padding: 18px 22px;
   border-radius: 18px;
   min-width: 160px;
+  width: 100%;
   text-align: center;
   justify-content: center;
   box-shadow:
@@ -109,10 +116,8 @@
   text-align: center;
 }
 
-/* Барьеры — тонкая цветная полоска слева */
-.bt-card--barrier {
-  padding-left: 12px;
-}
+/* Барьеры */
+.bt-card--barrier { padding-left: 12px; }
 .bt-card-shield {
   width: 3px;
   height: calc(100% - 14px);
@@ -121,11 +126,8 @@
   opacity: 0.85;
 }
 
-/* Hazard — поменьше и прозрачнее */
-.bt-card--hazard {
-  opacity: 0.78;
-  font-style: italic;
-}
+/* Hazard */
+.bt-card--hazard { opacity: 0.78; font-style: italic; }
 
 /* Деградированный барьер */
 .bt-card--degraded {
@@ -140,7 +142,7 @@
   opacity: 0.75;
 }
 
-/* Текст */
+/* Текст карточки */
 .bt-card-text {
   font-size: 12px;
   font-weight: 500;
@@ -153,7 +155,7 @@
   overflow: hidden;
 }
 
-/* ── Тултип ───────────────────────────────────────────────────── */
+/* ── Тултип ─────────────────────────────────────────────── */
 .bt-tooltip {
   position: fixed;
   z-index: 9999;
@@ -188,7 +190,7 @@
   transition: width 300ms;
 }
 
-/* ── Список узлов ─────────────────────────────────────────────── */
+/* ── Список узлов ─────────────────────────────────────────── */
 .bt-raw {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.07);
