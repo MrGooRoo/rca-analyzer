@@ -1,4 +1,4 @@
-/* BowtieDiagram v4 */
+/* BowtieDiagram v5 */
 
 /* ── Shell ────────────────────────────────────────────── */
 .bt-shell {
@@ -23,19 +23,19 @@
 .bt-leg-dot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
 
 /* ── Canvas ─────────────────────────────────────────── */
-/* position:relative: SVG считает офсет относительно этого элемента */
+/* v5: overflow:visible чтобы линии не обрезались border-radius */
 .bt-canvas {
   position: relative;
+  overflow: visible;
   background: rgba(12,14,22,.72);
   border: 1px solid rgba(255,255,255,.06);
   border-radius: 18px;
   backdrop-filter: blur(20px) saturate(140%);
   box-shadow: 0 2px 0 rgba(255,255,255,.04) inset, 0 20px 60px rgba(0,0,0,.45);
-  padding: 24px 18px;
+  padding: 32px 18px 28px;  /* v5: увеличен верхний отступ для барьеров */
 }
 
 /* ── SVG поверх колонок ────────────────────────────── */
-/* inset:0 + position:absolute: занимает всю площадь .bt-canvas */
 .bt-svg {
   position: absolute;
   inset: 0;
@@ -45,7 +45,6 @@
 }
 
 /* ── Колонки ─────────────────────────────────────────── */
-/* flex вместо grid: определяемые пропорции через flex-basis */
 .bt-cols {
   position: relative;
   z-index: 1;
@@ -58,11 +57,22 @@
   display: flex;
   flex-direction: column;
   gap: 9px;
-  justify-content: center;
+  justify-content: center;  /* v5: единый center для всех колонок */
   flex: 1.15;
 }
-.bt-col--mid  { flex: 0.82; justify-content: space-around; }
-.bt-col--top  { flex: 0.9;  justify-content: center; align-items: center; }
+/* v5: барьеры — center вместо space-around, чтобы не выходить за край */
+.bt-col--mid {
+  flex: 0.82;
+  justify-content: center;
+  gap: 10px;
+}
+/* v5: центральная колонка — строго по центру, с отступами для баланса */
+.bt-col--top {
+  flex: 0.9;
+  justify-content: center;
+  align-items: center;
+  padding: 4px 0;
+}
 
 /* ── Карточки ─────────────────────────────────────────── */
 .bt-card {
@@ -121,7 +131,7 @@
 
 /* Деградированный */
 .bt-card--deg { opacity:.52; border-style:dashed!important; }
-.bt-deg-mark  { font-size:10px; opacity:.75; }
+.bt-deg-mark   { font-size:10px; opacity:.75; }
 
 /* Текст */
 .bt-card-text {
@@ -137,6 +147,7 @@
 }
 
 /* ── Тултип ─────────────────────────────────────────── */
+/* v5: смещён над курсор через transform в JSX */
 .bt-tip {
   position: fixed;
   z-index: 9999;
@@ -169,6 +180,16 @@
   border-radius: 2px;
   transition: width 300ms;
 }
+
+/* ── SVG линии ─────────────────────────────────────── */
+/* v5: стили для path-линий */
+.bt-line {
+  fill: none;
+  stroke-width: 1.6;
+  opacity: .55;
+}
+.bt-line--L { stroke: #a78bfa; }
+.bt-line--R { stroke: #34d399; }
 
 /* ── Raw / Список узлов ───────────────────────────────── */
 .bt-raw {
