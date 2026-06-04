@@ -6,17 +6,25 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1
 
-# Устанавливаем зависимости напрямую — без editable install
+# Копируем только манифест зависимостей — кэш слоя не сбрасывается при изменении кода
+COPY pyproject.toml ./
+# Заглушка для hatchling (требует src/__init__.py на этапе metadata)
+RUN mkdir -p src && touch src/__init__.py
+
 RUN pip install --upgrade pip && pip install \
     "fastapi>=0.115" \
     "uvicorn[standard]>=0.29" \
     "httpx>=0.27" \
     "pydantic>=2.7" \
+    "pydantic[email]>=2.7" \
     "jinja2>=3.1" \
     "tenacity>=8.3" \
     "sqlalchemy[asyncio]>=2.0" \
     "asyncpg>=0.29" \
-    "alembic>=1.13"
+    "alembic>=1.13" \
+    "python-jose[cryptography]>=3.3" \
+    "passlib[bcrypt]>=1.7" \
+    "python-dotenv>=1.0"
 
 # ---- продакшн ----
 FROM base AS prod
