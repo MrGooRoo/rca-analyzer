@@ -1,5 +1,5 @@
 """
-Методика «Bowtie Analysis» (Бабочка).
+Методика «Бабочка / Bowtie Analysis».
 
 Algorithm:
 1. LLM строит би-направленную диаграмму:
@@ -7,14 +7,15 @@ Algorithm:
    ЦЕНТР: опасный фактор (hazard) + верхнее событие (top_event / узел бабочки)
    ПРАВОЕ крыло: последствия (consequences) + барьеры смягчения (mitigation_barriers)
 2. Отображение в RCAResult:
-   immediate_causes   = top_event + consequences
+   immediate_causes    = top_event + consequences
    contributing_causes = prevention_barriers + mitigation_barriers
-   root_causes        = threats
-   causal_tree        = все узлы (hazard + top_event + threats + barriers + consequences)
+   root_causes         = threats
+   causal_tree         = все узлы (hazard + top_event + threats + barriers + consequences)
 """
 
 from __future__ import annotations
 
+import logging
 import uuid
 from datetime import datetime, timezone
 
@@ -28,6 +29,8 @@ from src.domain.models import (
 )
 from src.domain.methodologies.base import MethodologyRunner
 
+logger = logging.getLogger(__name__)
+
 
 class BowTieRunner(MethodologyRunner):
     """
@@ -36,6 +39,10 @@ class BowTieRunner(MethodologyRunner):
     Особенность: би-направленная структура (threats → top_event → consequences).
     Барьеры отображаются через category = "BOWTIE:PREVENTION" / "BOWTIE:MITIGATION".
     Признак degraded=true хранится в CauseNode.confidence (снижено до 0.0–0.3).
+
+    Валидация целостности (warnings, не ошибки):
+    - каждый threat должен иметь минимум 1 prevention_barrier
+    - каждый consequence должен иметь минимум 1 mitigation_barrier
     """
 
     @property
@@ -59,6 +66,7 @@ class BowTieRunner(MethodologyRunner):
             - recommendations:      list[dict]
         """
         self._validate_response(raw_llm_response)
+        self._warn_incomplete_barriers(raw_llm_response)
 
         hazard   = self._parse_node(raw_llm_response["hazard"],   default_level=-1)
         top_node = self._parse_node(raw_llm_response["top_event"], default_level=0)
@@ -111,6 +119,7 @@ class BowTieRunner(MethodologyRunner):
     # ---------------------------------------------------------------------------
 
     def _validate_response(self, response: dict) -> None:
+        """Hard валидация: отсутствующие ключи → LLMResponseValidationError."""
         required = {
             "hazard", "top_event", "threats",
             "consequences", "summary", "recommendations",
@@ -125,6 +134,35 @@ class BowTieRunner(MethodologyRunner):
                 raise LLMResponseValidationError(
                     f"[BowTie] '{key}' должен быть объектом"
                 )
+
+    def _warn_incomplete_barriers(self, response: dict) -> None:
+        """
+        Soft валидация: проверяет целостность Bowtie-диаграммы.
+        Нарушения не прерывают обработку (это вина LLM), но фиксируются в логах.
+        """
+        threat_ids = {t.get("id") for t in response.get("threats", []) if t.get("id")}
+        prevented_ids = {
+            b.get("parent_id") for b in response.get("prevention_barriers", [])
+        }
+        unprotected_threats = threat_ids - prevented_ids
+        if unprotected_threats:
+            logger.warning(
+                "[BowTie] Угрозы без prevention_barrier: %s",
+                unprotected_threats,
+            )
+
+        consequence_ids = {
+            c.get("id") for c in response.get("consequences", []) if c.get("id")
+        }
+        mitigated_ids = {
+            b.get("parent_id") for b in response.get("mitigation_barriers", [])
+        }
+        unmitigated_consequences = consequence_ids - mitigated_ids
+        if unmitigated_consequences:
+            logger.warning(
+                "[BowTie] Последствия без mitigation_barrier: %s",
+                unmitigated_consequences,
+            )
 
     def _parse_node(self, raw: dict, default_level: int = 0) -> CauseNode:
         """Парсинг узла Bowtie в CauseNode."""
