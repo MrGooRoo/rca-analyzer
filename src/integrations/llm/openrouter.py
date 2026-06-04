@@ -38,11 +38,11 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Минимально необходимые ключи во всех методиках (contracts.md раздел 6)
-# Пер-методика-специфичные ключи (top_event, barriers) проверяются в runner'ах
+# Минимально необходимые ключи во ВСЕХ методиках (contracts.md раздел 6).
+# Примечание: immediate_causes / root_causes УБРАНЫ — Bowtie строит их
+# внутри runner'а из hazard/threats/consequences, а не возвращает напрямую.
+# Пер-методика-специфичная валидация выполняется в соответствующих runner'ах.
 _REQUIRED_RESPONSE_KEYS = {
-    "immediate_causes",
-    "root_causes",
     "summary",
     "recommendations",
 }
