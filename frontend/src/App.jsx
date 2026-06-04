@@ -1,9 +1,11 @@
 import React, { useState } from 'react'
 import IncidentForm from './components/IncidentForm.jsx'
 import ResultView from './components/ResultView.jsx'
+import HistoryPage from './components/HistoryPage.jsx'
 import './App.css'
 
 export default function App() {
+  const [page, setPage] = useState('analyze') // 'analyze' | 'history'
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState(null)
@@ -22,12 +24,19 @@ export default function App() {
         const err = await res.json()
         throw new Error(err.detail || `HTTP ${res.status}`)
       }
-      setResult(await res.json())
+      const data = await res.json()
+      setResult(data)
+      setPage('analyze')
     } catch (e) {
       setError(e.message)
     } finally {
       setLoading(false)
     }
+  }
+
+  function openResult(r) {
+    setResult(r)
+    setPage('analyze')
   }
 
   return (
@@ -41,19 +50,32 @@ export default function App() {
           </svg>
           <span>RCA Analyzer</span>
         </div>
+        <nav className="app-nav">
+          <button
+            className={`nav-btn ${page === 'analyze' ? 'nav-btn--active' : ''}`}
+            onClick={() => setPage('analyze')}
+          >➕ Анализ</button>
+          <button
+            className={`nav-btn ${page === 'history' ? 'nav-btn--active' : ''}`}
+            onClick={() => setPage('history')}
+          >🗂 История</button>
+        </nav>
         <span className="header-badge">API: localhost:8000</span>
       </header>
 
       <main className="app-main">
-        <IncidentForm onSubmit={handleSubmit} loading={loading} />
-
-        {error && (
-          <div className="alert alert-error">
-            <strong>Ошибка:</strong> {error}
-          </div>
+        {page === 'analyze' && (
+          <>
+            <IncidentForm onSubmit={handleSubmit} loading={loading} />
+            {error && (
+              <div className="alert alert-error">
+                <strong>Ошибка:</strong> {error}
+              </div>
+            )}
+            {result && <ResultView result={result} />}
+          </>
         )}
-
-        {result && <ResultView result={result} />}
+        {page === 'history' && <HistoryPage onOpen={openResult} />}
       </main>
     </div>
   )

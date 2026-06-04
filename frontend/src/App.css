@@ -14,6 +14,7 @@
   position: sticky;
   top: 0;
   z-index: 10;
+  gap: 16px;
 }
 
 .logo {
@@ -23,7 +24,24 @@
   font-size: 18px;
   font-weight: 600;
   letter-spacing: -0.3px;
+  flex-shrink: 0;
 }
+
+.app-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.nav-btn {
+  padding: 7px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--muted);
+  transition: color 0.15s, background 0.15s;
+}
+.nav-btn:hover { color: var(--text); background: var(--surface-2); }
+.nav-btn--active { color: var(--primary); background: rgba(79,142,247,0.1); }
 
 .header-badge {
   font-size: 12px;
@@ -32,6 +50,7 @@
   border: 1px solid var(--border);
   border-radius: 20px;
   padding: 3px 10px;
+  flex-shrink: 0;
 }
 
 .app-main {
