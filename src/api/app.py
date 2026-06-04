@@ -1,10 +1,5 @@
 """
 FastAPI application entry point.
-
-Usage:
-    uvicorn src.api.app:app --reload
-
-Environment variables are loaded from .env automatically.
 """
 
 from __future__ import annotations
@@ -19,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api.routes.analyze import router as analyze_router
+from src.auth.router import router as auth_router
 from src.domain.models import LLMResponseValidationError, MethodologyNotSupportedError
 
 logging.basicConfig(
@@ -28,7 +24,7 @@ logging.basicConfig(
 
 app = FastAPI(
     title="RCA Analyzer API",
-    version="0.1.0",
+    version="0.2.0",
     description="Root cause analysis for industrial incidents.",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -49,10 +45,7 @@ async def methodology_error_handler(request: Request, exc: MethodologyNotSupport
 
 @app.exception_handler(LLMResponseValidationError)
 async def llm_error_handler(request: Request, exc: LLMResponseValidationError) -> JSONResponse:
-    return JSONResponse(
-        status_code=502,
-        content={"detail": "LLM returned invalid response. Please try again later."},
-    )
+    return JSONResponse(status_code=502, content={"detail": "LLM returned invalid response."})
 
 
 @app.exception_handler(Exception)
@@ -61,6 +54,7 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
     return JSONResponse(status_code=500, content={"detail": "Internal server error."})
 
 
+app.include_router(auth_router)
 app.include_router(analyze_router)
 
 
