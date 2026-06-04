@@ -39,7 +39,7 @@ Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 | `ishikawa` | ✅ работает | ~2267 |
 | `rca_systemic` | ✅ работает | ~1504 |
 | `fta` | ✅ работает | ~1446 |
-| `bowtie` | ⚠️ реализована, требует тестирования | — |
+| `bowtie` | ✅ работает | ~3138 |
 
 ---
 
@@ -131,11 +131,20 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ---
 
+## Известные дефекты
+
+| # | Описание | Приоритет | Статус |
+|---|---|---|---|
+| 1 | `user_id: null` в результате bowtie — токен передаётся, но не сохраняется в `RCAResult` | 🔴 | Открыт |
+| 2 | LLM иногда не создаёт `mitigation_barrier` для каждого `consequence` (нарушение правила шаблона) | 🟡 | Открыт |
+
+---
+
 ## Roadmap
 
 ### 🔴 Ближайшее
-- [ ] Тестирование методологии `bowtie` через Swagger UI
-- [ ] Проверить `PromptRenderer` на совместимость с `bowtie.j2` (нет `{% block system/user %}`)
+- [ ] Исправить `user_id: null` — в `routes/analyze.py` добавить `result.user_id = current_user.id` перед `save()`
+- [ ] Добавить валидацию в `BowTieRunner._validate_response()` — предупреждение при `consequence` без `mitigation_barrier`
 - [ ] Проверить `IncidentForm.jsx` и `ResultView.jsx` — используют ли `api.js` или голый `fetch`
 
 ### 🟡 Важно
@@ -154,8 +163,8 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 ## Статус на 04.06.2026
 
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
-- ✅ API: все 4 протестированные методологии работают
+- ✅ API: все 5 методологий работают (включая bowtie)
 - ✅ Авторизация: JWT + bcrypt, защищённые эндпоинты, изоляция данных по пользователю
 - ✅ Миграции: 3 версии применены
 - ✅ Frontend: AuthPage, HistoryPage, BowtieDiagram реализованы
-- ⚠️ BowTie: код готов, требует end-to-end теста
+- ⚠️ Открытые дефекты: `user_id: null` в результатах (не блокирующий)
