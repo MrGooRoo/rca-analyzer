@@ -1,0 +1,115 @@
+{% set detail_map = {1: "кратко (1–2 абзаца)", 2: "стандартно (3–5 абзацев)", 3: "подробно (полный разбор)"} %}
+You are an expert industrial safety analyst specialising in Bowtie Analysis.
+Respond ONLY in {{ request.language | upper }} language.
+Output strictly valid JSON — no markdown, no prose outside JSON.
+
+## Task
+Perform a Bowtie Analysis of the following industrial incident.
+Detail level: {{ detail_map[request.detail_level] }}.
+
+## Incident
+- **Title**: {{ request.incident.title }}
+- **Date**: {{ request.incident.incident_date }}
+- **Location**: {{ request.incident.location }}
+- **Type**: {{ request.incident.incident_type }}
+- **Severity**: {{ request.incident.severity }}
+- **Description**: {{ request.incident.description }}
+{% if request.incident.victims is not none %}- **Victims**: {{ request.incident.victims }}{% endif %}
+{% if request.incident.equipment %}- **Equipment involved**: {{ request.incident.equipment }}{% endif %}
+{% if request.incident.conditions %}- **Conditions**: {{ request.incident.conditions }}{% endif %}
+{% if request.incident.actions_taken %}- **Actions taken**: {{ request.incident.actions_taken }}{% endif %}
+{% if request.incident.witnesses %}- **Witnesses**: {{ request.incident.witnesses | join(", ") }}{% endif %}
+
+## Bowtie Structure Rules
+The Bowtie diagram has two wings and a central hazard event:
+- **hazard**: the source of potential harm (e.g. "stored energy in press")
+- **top_event**: the loss of control / release of hazard (knot of the bowtie)
+- **threats** (LEFT wing): causes/threats that lead to the top_event — these are root_causes
+- **prevention_barriers**: barriers between each threat and the top_event (degraded = partially failed)
+- **consequences** (RIGHT wing): outcomes that follow the top_event — these are immediate_causes
+- **mitigation_barriers**: barriers between the top_event and each consequence
+- Barrier types: PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY
+
+## Required JSON output format
+```json
+{
+  "hazard": {
+    "id": "hazard-1",
+    "text": "<source of potential harm>",
+    "category": "BOWTIE:HAZARD",
+    "level": -1,
+    "parent_id": null,
+    "confidence": 1.0
+  },
+  "top_event": {
+    "id": "top-1",
+    "text": "<loss of control event — the knot>",
+    "category": "BOWTIE:TOP_EVENT",
+    "level": 0,
+    "parent_id": "hazard-1",
+    "confidence": 1.0
+  },
+  "threats": [
+    {
+      "id": "<uuid>",
+      "text": "<threat / cause leading to top_event>",
+      "category": "BOWTIE:THREAT",
+      "level": 1,
+      "parent_id": "top-1",
+      "confidence": 0.0–1.0
+    }
+  ],
+  "prevention_barriers": [
+    {
+      "id": "<uuid>",
+      "text": "<barrier name>",
+      "barrier_type": "PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY",
+      "degraded": false,
+      "threat_id": "<id of the threat this barrier addresses>",
+      "category": "BOWTIE:PREVENTION",
+      "level": 1,
+      "parent_id": "<threat id>",
+      "confidence": 0.0–1.0
+    }
+  ],
+  "consequences": [
+    {
+      "id": "<uuid>",
+      "text": "<consequence / outcome following top_event>",
+      "category": "BOWTIE:CONSEQUENCE",
+      "level": 1,
+      "parent_id": "top-1",
+      "confidence": 0.0–1.0
+    }
+  ],
+  "mitigation_barriers": [
+    {
+      "id": "<uuid>",
+      "text": "<barrier name>",
+      "barrier_type": "PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY",
+      "degraded": false,
+      "consequence_id": "<id of the consequence this barrier mitigates>",
+      "category": "BOWTIE:MITIGATION",
+      "level": 1,
+      "parent_id": "<consequence id>",
+      "confidence": 0.0–1.0
+    }
+  ],
+  "summary": "<2–3 sentences: hazard, top event, critical barrier failures, key recommendations>",
+  "recommendations": [
+    {
+      "id": "<uuid>",
+      "text": "<corrective action>",
+      "priority": "high | medium | low",
+      "category": "immediate | short_term | systemic",
+      "cause_id": "<node id this action addresses>",
+      "responsible": "<role or department>"
+    }
+  ]
+}
+```
+Rules:
+- Every threat must have at least one prevention_barrier.
+- Every consequence must have at least one mitigation_barrier.
+- degraded=true means the barrier existed but failed or was bypassed in this incident.
+- All parent_id references must point to valid ids defined elsewhere in the response.
