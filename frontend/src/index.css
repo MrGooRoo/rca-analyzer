@@ -1,0 +1,31 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #0f1117;
+  --surface:   #1a1d27;
+  --surface-2: #22263a;
+  --border:    #2e3250;
+  --text:      #e2e4f0;
+  --muted:     #7b82a8;
+  --primary:   #4f8ef7;
+  --primary-h: #3a7af0;
+  --success:   #3ecf8e;
+  --error:     #f76f6f;
+  --warning:   #f7b955;
+  --radius:    8px;
+  --font: 'Inter', system-ui, sans-serif;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  font-size: 15px;
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+
+button { cursor: pointer; font: inherit; border: none; background: none; color: inherit; }
+input, select, textarea { font: inherit; color: inherit; }
+a { color: var(--primary); text-decoration: none; }
