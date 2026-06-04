@@ -1,295 +1,324 @@
 /**
- * BowtieDiagram — SVG-диаграмма «бабочка» для методологии Bowtie.
+ * BowtieDiagram — Apple-style redesign.
  *
- * Структура result.causal_tree (по category):
- *   BOWTIE:HAZARD        — единственный узел-источник
- *   BOWTIE:TOP_EVENT     — центральный узел (бабочка)
- *   BOWTIE:THREAT        — левое крыло (threat nodes)
- *   BOWTIE:PREVENTION    — барьеры предотвращения на левом крыле
- *   BOWTIE:CONSEQUENCE   — правое крыло
- *   BOWTIE:MITIGATION    — барьеры смягчения на правом крыле
+ * Визуальный язык: стеклянные карточки, 5-колоночный grid,
+ * тонкие SVG bezier-связи, приглушённая палитра, без вертикального текста.
  *
- * Если LLM не заполнил category корректно, фаллбэк: root_causes→threats,
- * contributing_causes→barriers, immediate_causes→top_event+consequences.
+ * Структура causal_tree по category:
+ *   BOWTIE:HAZARD       — источник опасности
+ *   BOWTIE:TOP_EVENT    — центральное событие
+ *   BOWTIE:THREAT       — угрозы (левое крыло)
+ *   BOWTIE:PREVENTION   — барьеры предотвращения
+ *   BOWTIE:CONSEQUENCE  — последствия (правое крыло)
+ *   BOWTIE:MITIGATION   — барьеры смягчения
  */
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useRef, useState, useLayoutEffect, useCallback } from 'react'
 import './BowtieDiagram.css'
 
-// ---- Палитра ---------------------------------------------------------------
-const C = {
-  hazard:       '#a78bfa',   // фиолетовый
-  topEvent:     '#f76f6f',   // красный
-  threat:       '#fb923c',   // оранжевый
-  prevention:   '#facc15',   // жёлтый
-  consequence:  '#60a5fa',   // голубой
-  mitigation:   '#34d399',   // зелёный
-  line:         '#3a3f5c',
-  lineDegraded: '#f76f6f',
+// ── Палитра (приглушённая, iOS-стиль) ─────────────────────────────────────────
+const PALETTE = {
+  hazard:      { bg: 'rgba(167,139,250,0.18)', border: 'rgba(167,139,250,0.45)', dot: '#a78bfa', text: '#ede9fe' },
+  topEvent:    { bg: 'rgba(248,113,113,0.22)', border: 'rgba(248,113,113,0.55)', dot: '#f87171', text: '#fff1f2' },
+  threat:      { bg: 'rgba(251,146,60,0.18)',  border: 'rgba(251,146,60,0.45)',  dot: '#fb923c', text: '#fff7ed' },
+  prevention:  { bg: 'rgba(250,204,21,0.15)',  border: 'rgba(250,204,21,0.40)',  dot: '#facc15', text: '#fefce8' },
+  mitigation:  { bg: 'rgba(52,211,153,0.15)',  border: 'rgba(52,211,153,0.40)',  dot: '#34d399', text: '#ecfdf5' },
+  consequence: { bg: 'rgba(96,165,250,0.16)',  border: 'rgba(96,165,250,0.42)',  dot: '#60a5fa', text: '#eff6ff' },
 }
 
-const NODE_W  = 160
-const NODE_H  = 44
-const R       = 6          // border-radius rect
-const CENTER_Y_OFFSET = 0  // top_event центрирован
+const LEGEND = [
+  { key: 'threat',      label: 'Угрозы' },
+  { key: 'prevention',  label: 'Барьеры предотвр.' },
+  { key: 'topEvent',    label: 'Топ-событие' },
+  { key: 'mitigation',  label: 'Барьеры смягч.' },
+  { key: 'consequence', label: 'Последствия' },
+  { key: 'hazard',      label: 'Опасный фактор' },
+]
 
-// ---- Парсер данных ------------------------------------------------------------
+// ── Парсер данных ─────────────────────────────────────────────────────────────
 function parseBowtieData(result) {
   const tree = result.causal_tree || []
+  const by = (cat) => tree.filter(n => n.category?.toUpperCase().includes(cat))
 
-  const byCategory = (cat) =>
-    tree.filter(n => n.category?.toUpperCase().includes(cat))
+  let hazards      = by('HAZARD')
+  let topEvents    = by('TOP_EVENT')
+  let threats      = by('THREAT')
+  let prevention   = by('PREVENTION')
+  let consequences = by('CONSEQUENCE')
+  let mitigation   = by('MITIGATION')
 
-  // Попытка читать из causal_tree по category
-  let hazards     = byCategory('HAZARD')
-  let topEvents   = byCategory('TOP_EVENT')
-  let threats     = byCategory('THREAT')
-  let prevention  = byCategory('PREVENTION')
-  let consequences= byCategory('CONSEQUENCE')
-  let mitigation  = byCategory('MITIGATION')
-
-  // Фаллбэк: если category не заполнен, берём из секций результата
-  if (!threats.length)      threats      = result.root_causes         || []
+  // Фаллбэк
+  if (!threats.length)      threats      = result.root_causes || []
+  if (!consequences.length) consequences = (result.immediate_causes || []).slice(1)
+  if (!topEvents.length)    topEvents    = (result.immediate_causes || []).slice(0, 1)
   if (!prevention.length || !mitigation.length) {
     const contrib = result.contributing_causes || []
     if (!prevention.length)  prevention  = contrib.filter((_, i) => i % 2 === 0)
     if (!mitigation.length)  mitigation  = contrib.filter((_, i) => i % 2 !== 0)
   }
-  if (!consequences.length) consequences = (result.immediate_causes   || []).slice(1)
-  if (!topEvents.length)    topEvents    = (result.immediate_causes   || []).slice(0, 1)
 
   return { hazards, topEvents, threats, prevention, consequences, mitigation }
 }
 
-// ---- Геометрия ---------------------------------------------------------------
-function buildLayout(data) {
+// ── Главный компонент ─────────────────────────────────────────────────────────
+export default function BowtieDiagram({ result }) {
+  const data = parseBowtieData(result)
   const { hazards, topEvents, threats, prevention, consequences, mitigation } = data
 
-  const leftRows  = threats.length     || 1
-  const rightRows = consequences.length || 1
-  const rows      = Math.max(leftRows, rightRows)
+  const topEvent = topEvents[0]
+  const hazard   = hazards[0]
 
-  const VGAP     = 68    // вертикальный шаг между узлами
-  const SVG_H    = Math.max(360, rows * VGAP + 160)
-  const CY       = SVG_H / 2            // центральная Y
-
-  // X-колонки (6 столбцов):
-  // [threats] [prevention] [TOP_EVENT+HAZARD] [mitigation] [consequences]
-  const COL = {
-    threat:      80  + NODE_W / 2,
-    prevention:  260 + NODE_W / 2,
-    center:      440 + NODE_W / 2,
-    mitigation:  620 + NODE_W / 2,
-    consequence: 800 + NODE_W / 2,
-  }
-  const SVG_W = 1010
-
-  // Генерик размещения списка по Y
-  function spreadY(count) {
-    if (count === 1) return [CY]
-    const total = (count - 1) * VGAP
-    return Array.from({ length: count }, (_, i) => CY - total / 2 + i * VGAP)
+  // Refs для измерения DOM-позиций карточек
+  const colRefs = {
+    threats:      useRef([]),
+    prevention:   useRef([]),
+    topEvent:     useRef(null),
+    mitigation:   useRef([]),
+    consequences: useRef([]),
   }
 
-  // Ноды c координатами
-  const topNode = topEvents[0]
-  const hazNode = hazards[0]
+  const svgRef    = useRef(null)
+  const wrapRef   = useRef(null)
+  const [paths, setPaths]   = useState([])
+  const [tooltip, setTooltip] = useState(null)
 
-  const topPos = { x: COL.center, y: CY }
+  // Пересчёт SVG-путей после рендера
+  const calcPaths = useCallback(() => {
+    if (!svgRef.current || !wrapRef.current) return
+    const wrap = wrapRef.current.getBoundingClientRect()
 
-  const threatPos  = spreadY(threats.length).map((y, i) => ({ node: threats[i],      x: COL.threat,      y }))
-  const prevPos    = spreadY(prevention.length).map((y, i) => ({ node: prevention[i],  x: COL.prevention, y }))
-  const consPos    = spreadY(consequences.length).map((y, i) => ({ node: consequences[i], x: COL.consequence, y }))
-  const mitiPos    = spreadY(mitigation.length).map((y, i) => ({ node: mitigation[i],  x: COL.mitigation, y }))
+    function midRight(el) {
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return { x: r.right - wrap.left, y: r.top + r.height / 2 - wrap.top }
+    }
+    function midLeft(el) {
+      if (!el) return null
+      const r = el.getBoundingClientRect()
+      return { x: r.left - wrap.left, y: r.top + r.height / 2 - wrap.top }
+    }
 
-  return { topNode, hazNode, topPos, threatPos, prevPos, consPos, mitiPos, SVG_W, SVG_H, CY }
-}
+    const topEl = colRefs.topEvent.current
+    if (!topEl) return
+    const topLeft  = midLeft(topEl)
+    const topRight = midRight(topEl)
 
-// ---- Главный компонент ----------------------------------------------------------
-export default function BowtieDiagram({ result }) {
-  const data   = parseBowtieData(result)
-  const layout = buildLayout(data)
-  const { topNode, hazNode, topPos, threatPos, prevPos, consPos, mitiPos, SVG_W, SVG_H, CY } = layout
+    const newPaths = []
 
-  const [tooltip, setTooltip] = useState(null)  // { text, x, y }
-  const svgRef = useRef(null)
+    // Threats → Prevention → Top Event
+    threats.forEach((_, i) => {
+      const tEl = colRefs.threats.current[i]
+      const pEl = colRefs.prevention.current[i] || colRefs.prevention.current[0]
+      if (!tEl) return
+      const tR = midRight(tEl)
+      if (pEl) {
+        const pL = midLeft(pEl)
+        const pR = midRight(pEl)
+        if (tR && pL) newPaths.push(bezier(tR, pL, 'left'))
+        if (pR && topLeft) newPaths.push(bezier(pR, topLeft, 'left'))
+      } else {
+        if (tR && topLeft) newPaths.push(bezier(tR, topLeft, 'left'))
+      }
+    })
+    // Лишние prevention без пары
+    prevention.forEach((_, i) => {
+      if (i >= threats.length) {
+        const pEl = colRefs.prevention.current[i]
+        if (!pEl) return
+        const pR = midRight(pEl)
+        if (pR && topLeft) newPaths.push(bezier(pR, topLeft, 'left'))
+      }
+    })
+
+    // Top Event → Mitigation → Consequences
+    consequences.forEach((_, i) => {
+      const cEl = colRefs.consequences.current[i]
+      const mEl = colRefs.mitigation.current[i] || colRefs.mitigation.current[0]
+      if (!cEl) return
+      const cL = midLeft(cEl)
+      if (mEl) {
+        const mR = midRight(mEl)
+        const mL = midLeft(mEl)
+        if (topRight && mL) newPaths.push(bezier(topRight, mL, 'right'))
+        if (mR && cL) newPaths.push(bezier(mR, cL, 'right'))
+      } else {
+        if (topRight && cL) newPaths.push(bezier(topRight, cL, 'right'))
+      }
+    })
+    prevention.forEach((_, i) => {
+      if (i >= consequences.length) {
+        const mEl = colRefs.mitigation.current[i]
+        if (!mEl) return
+        const mL = midLeft(mEl)
+        if (topRight && mL) newPaths.push(bezier(topRight, mL, 'right'))
+      }
+    })
+
+    setPaths(newPaths)
+  }, [threats, prevention, consequences, mitigation])
+
+  useLayoutEffect(() => {
+    calcPaths()
+    const ro = new ResizeObserver(calcPaths)
+    if (wrapRef.current) ro.observe(wrapRef.current)
+    return () => ro.disconnect()
+  }, [calcPaths])
 
   function showTip(e, node) {
-    const rect = svgRef.current.getBoundingClientRect()
-    setTooltip({
-      text: `${node.text}\nУверенность: ${(node.confidence * 100).toFixed(0)}%`,
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top - 10,
-    })
+    setTooltip({ text: node.text, conf: node.confidence, x: e.clientX, y: e.clientY })
   }
 
   return (
-    <div className="bowtie-wrap">
-      <div className="bowtie-legend">
-        {[
-          { color: C.threat,      label: 'Yгрозы' },
-          { color: C.prevention,  label: 'Барьеры предотвр.' },
-          { color: C.topEvent,    label: 'Топ-событие' },
-          { color: C.mitigation,  label: 'Барьеры смягч.' },
-          { color: C.consequence, label: 'Последствия' },
-          { color: C.hazard,      label: 'Опасный фактор' },
-        ].map(l => (
-          <span key={l.label} className="legend-item">
-            <span className="legend-dot" style={{ background: l.color }} />
-            {l.label}
+    <div className="bt-shell">
+
+      {/* Легенда */}
+      <div className="bt-legend">
+        {LEGEND.map(({ key, label }) => (
+          <span key={key} className="bt-legend-item">
+            <span className="bt-legend-dot" style={{ background: PALETTE[key].dot }} />
+            {label}
           </span>
         ))}
       </div>
 
-      <div className="bowtie-svg-wrap">
-        <svg
-          ref={svgRef}
-          viewBox={`0 0 ${SVG_W} ${SVG_H}`}
-          width="100%"
-          style={{ maxHeight: '520px' }}
-          onMouseLeave={() => setTooltip(null)}
-        >
+      {/* Диаграмма */}
+      <div className="bt-diagram" ref={wrapRef}>
+
+        {/* SVG-слой связей */}
+        <svg ref={svgRef} className="bt-svg-layer" aria-hidden="true">
           <defs>
-            <marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-              <path d="M0,0 L0,6 L8,3 z" fill={C.line} />
+            <marker id="arr-l" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L0,7 L7,3.5 z" fill="rgba(160,180,255,0.35)" />
             </marker>
-            <filter id="glow">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge>
-            </filter>
+            <marker id="arr-r" markerWidth="7" markerHeight="7" refX="6" refY="3.5" orient="auto">
+              <path d="M0,0 L0,7 L7,3.5 z" fill="rgba(160,255,200,0.30)" />
+            </marker>
           </defs>
-
-          {/* ========== ЛЕВЫЕ СТРЕЛКИ: threat → prevention → top_event ========== */}
-          {threatPos.map((tp, i) => {
-            const pp = prevPos[i] || prevPos[Math.floor(prevPos.length / 2)]
-            return (
-              <g key={`tl-${i}`}>
-                <Line x1={tp.x + NODE_W/2} y1={tp.y} x2={pp.x - NODE_W/2} y2={pp.y} />
-                <Line x1={pp.x + NODE_W/2} y1={pp.y} x2={topPos.x - NODE_W/2} y2={topPos.y} />
-              </g>
-            )
-          })}
-          {/* если барьеров больше чем угроз, дорисовываем доп. линии */}
-          {prevPos.map((pp, i) => {
-            if (i < threatPos.length) return null
-            return (
-              <g key={`pl-${i}`}>
-                <Line x1={pp.x + NODE_W/2} y1={pp.y} x2={topPos.x - NODE_W/2} y2={topPos.y} />
-              </g>
-            )
-          })}
-
-          {/* ========== ПРАВЫЕ СТРЕЛКИ: top_event → mitigation → consequence ========== */}
-          {consPos.map((cp, i) => {
-            const mp = mitiPos[i] || mitiPos[Math.floor(mitiPos.length / 2)]
-            return (
-              <g key={`cr-${i}`}>
-                {mp
-                  ? <><Line x1={topPos.x + NODE_W/2} y1={topPos.y} x2={mp.x - NODE_W/2} y2={mp.y} />
-                       <Line x1={mp.x + NODE_W/2} y1={mp.y} x2={cp.x - NODE_W/2} y2={cp.y} /></>
-                  : <Line x1={topPos.x + NODE_W/2} y1={topPos.y} x2={cp.x - NODE_W/2} y2={cp.y} />
-                }
-              </g>
-            )
-          })}
-
-          {/* ========== УЗЛЫ ========== */}
-
-          {/* Threats */}
-          {threatPos.map((tp, i) => (
-            <NodeRect
-              key={tp.node?.id || i}
-              x={tp.x} y={tp.y}
-              label={tp.node?.text || '?'}
-              fill={C.threat}
-              onHover={(e) => tp.node && showTip(e, tp.node)}
-              onLeave={() => setTooltip(null)}
-              degraded={tp.node?.confidence < 0.3}
+          {paths.map((d, i) => (
+            <path
+              key={i}
+              d={d.path}
+              fill="none"
+              stroke={d.side === 'left' ? 'rgba(160,180,255,0.22)' : 'rgba(100,220,180,0.22)'}
+              strokeWidth={1.5}
+              markerEnd={d.side === 'left' ? 'url(#arr-l)' : 'url(#arr-r)'}
             />
           ))}
+        </svg>
 
-          {/* Prevention barriers */}
-          {prevPos.map((pp, i) => (
-            <BarrierRect
-              key={pp.node?.id || i}
-              x={pp.x} y={pp.y}
-              label={pp.node?.text || '?'}
-              fill={C.prevention}
-              onHover={(e) => pp.node && showTip(e, pp.node)}
-              onLeave={() => setTooltip(null)}
-              degraded={pp.node?.confidence < 0.3}
-            />
-          ))}
-
-          {/* Hazard (над top_event) */}
-          {hazNode && (
-            <NodeRect
-              x={topPos.x} y={topPos.y - 90}
-              label={hazNode.text}
-              fill={C.hazard}
-              onHover={(e) => showTip(e, hazNode)}
+        {/* Колонки */}
+        <div className="bt-col bt-col--threats">
+          {hazard && (
+            <Card
+              node={hazard}
+              palette={PALETTE.hazard}
+              isHazard
+              onHover={showTip}
               onLeave={() => setTooltip(null)}
             />
           )}
+          {threats.map((n, i) => (
+            <Card
+              key={n?.id || i}
+              node={n}
+              palette={PALETTE.threat}
+              ref={el => colRefs.threats.current[i] = el}
+              onHover={showTip}
+              onLeave={() => setTooltip(null)}
+            />
+          ))}
+        </div>
 
-          {/* TOP EVENT — центральный узел */}
-          <NodeRect
-            x={topPos.x} y={topPos.y}
-            label={topNode?.text || 'Топ-событие'}
-            fill={C.topEvent}
+        <div className="bt-col bt-col--prevention">
+          {prevention.map((n, i) => (
+            <Card
+              key={n?.id || i}
+              node={n}
+              palette={PALETTE.prevention}
+              isBarrier
+              ref={el => colRefs.prevention.current[i] = el}
+              onHover={showTip}
+              onLeave={() => setTooltip(null)}
+            />
+          ))}
+        </div>
+
+        <div className="bt-col bt-col--center">
+          <Card
+            node={topEvent || { text: 'Топ-событие', confidence: 1 }}
+            palette={PALETTE.topEvent}
             isCenter
-            onHover={(e) => topNode && showTip(e, topNode)}
+            ref={colRefs.topEvent}
+            onHover={showTip}
             onLeave={() => setTooltip(null)}
           />
+        </div>
 
-          {/* Mitigation barriers */}
-          {mitiPos.map((mp, i) => (
-            <BarrierRect
-              key={mp.node?.id || i}
-              x={mp.x} y={mp.y}
-              label={mp.node?.text || '?'}
-              fill={C.mitigation}
-              onHover={(e) => mp.node && showTip(e, mp.node)}
-              onLeave={() => setTooltip(null)}
-              degraded={mp.node?.confidence < 0.3}
-            />
-          ))}
-
-          {/* Consequences */}
-          {consPos.map((cp, i) => (
-            <NodeRect
-              key={cp.node?.id || i}
-              x={cp.x} y={cp.y}
-              label={cp.node?.text || '?'}
-              fill={C.consequence}
-              onHover={(e) => cp.node && showTip(e, cp.node)}
+        <div className="bt-col bt-col--mitigation">
+          {mitigation.map((n, i) => (
+            <Card
+              key={n?.id || i}
+              node={n}
+              palette={PALETTE.mitigation}
+              isBarrier
+              ref={el => colRefs.mitigation.current[i] = el}
+              onHover={showTip}
               onLeave={() => setTooltip(null)}
             />
           ))}
+        </div>
 
-          {/* Тултип */}
-          {tooltip && (
-            <Tooltip x={tooltip.x} y={tooltip.y} text={tooltip.text} />
-          )}
-        </svg>
+        <div className="bt-col bt-col--consequences">
+          {consequences.map((n, i) => (
+            <Card
+              key={n?.id || i}
+              node={n}
+              palette={PALETTE.consequence}
+              ref={el => colRefs.consequences.current[i] = el}
+              onHover={showTip}
+              onLeave={() => setTooltip(null)}
+            />
+          ))}
+        </div>
       </div>
 
-      {/* Текстовый список для проверки */}
-      <details className="bowtie-raw">
-        <summary>Список узлов</summary>
-        <div className="bowtie-raw-grid">
-          {[  { label: 'Yгрозы', nodes: data.threats, color: C.threat },
-              { label: 'Барьеры предотвр.', nodes: data.prevention, color: C.prevention },
-              { label: 'Топ-событие', nodes: data.topEvents, color: C.topEvent },
-              { label: 'Барьеры смягч.', nodes: data.mitigation, color: C.mitigation },
-              { label: 'Последствия', nodes: data.consequences, color: C.consequence },
+      {/* Тултип */}
+      {tooltip && (
+        <div
+          className="bt-tooltip"
+          style={{ left: tooltip.x + 12, top: tooltip.y - 40 }}
+        >
+          <div className="bt-tooltip-text">{tooltip.text}</div>
+          {tooltip.conf != null && (
+            <div className="bt-tooltip-conf">
+              Уверенность: {(tooltip.conf * 100).toFixed(0)}%
+              <span
+                className="bt-tooltip-bar"
+                style={{ width: `${tooltip.conf * 100}%`,
+                  background: tooltip.conf > 0.6 ? '#34d399' : tooltip.conf > 0.3 ? '#facc15' : '#f87171' }}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Список узлов (детали) */}
+      <details className="bt-raw">
+        <summary>▸ Список узлов</summary>
+        <div className="bt-raw-grid">
+          {[
+            { label: 'Угрозы',           nodes: threats,      key: 'threat' },
+            { label: 'Барьеры предотвр.', nodes: prevention,   key: 'prevention' },
+            { label: 'Топ-событие',       nodes: topEvents,    key: 'topEvent' },
+            { label: 'Барьеры смягч.',    nodes: mitigation,   key: 'mitigation' },
+            { label: 'Последствия',       nodes: consequences,  key: 'consequence' },
           ].map(col => (
             <div key={col.label}>
-              <div className="raw-col-label" style={{ color: col.color }}>{col.label}</div>
+              <div className="bt-raw-label" style={{ color: PALETTE[col.key].dot }}>{col.label}</div>
               {col.nodes.map((n, i) => (
-                <div key={n?.id || i} className="raw-node">
-                  {n?.text}
-                  <span className="raw-conf">{n ? (n.confidence * 100).toFixed(0) + '%' : ''}</span>
+                <div key={n?.id || i} className="bt-raw-node">
+                  <span>{n?.text}</span>
+                  <span className="bt-raw-conf">{n ? (n.confidence * 100).toFixed(0) + '%' : ''}</span>
                 </div>
               ))}
             </div>
@@ -300,129 +329,45 @@ export default function BowtieDiagram({ result }) {
   )
 }
 
-// ---- СВГ-примитивы ---------------------------------------------------------------
-
-function Line({ x1, y1, x2, y2, degraded }) {
-  return (
-    <line
-      x1={x1} y1={y1} x2={x2} y2={y2}
-      stroke={degraded ? C.lineDegraded : C.line}
-      strokeWidth={degraded ? 1.5 : 1.5}
-      strokeDasharray={degraded ? '5 4' : undefined}
-      markerEnd="url(#arr)"
-      opacity={0.6}
-    />
-  )
-}
-
-function NodeRect({ x, y, label, fill, isCenter, onHover, onLeave, degraded }) {
-  const w = isCenter ? NODE_W + 20 : NODE_W
-  const h = isCenter ? NODE_H + 8  : NODE_H
-  const textLines = wrapText(label, isCenter ? 22 : 20)
-  const totalH = textLines.length * 16
+// ── Card (React.forwardRef) ────────────────────────────────────────────────────
+const Card = React.forwardRef(function Card(
+  { node, palette, isCenter, isBarrier, isHazard, onHover, onLeave },
+  ref
+) {
+  const degraded = node?.confidence != null && node.confidence < 0.3
+  const text = node?.text || ''
 
   return (
-    <g
-      transform={`translate(${x - w/2}, ${y - h/2})`}
-      onMouseEnter={onHover}
+    <div
+      ref={ref}
+      className={[
+        'bt-card',
+        isCenter  ? 'bt-card--center'  : '',
+        isBarrier ? 'bt-card--barrier' : '',
+        isHazard  ? 'bt-card--hazard'  : '',
+        degraded  ? 'bt-card--degraded': '',
+      ].join(' ').trim()}
+      style={{
+        background:   palette.bg,
+        borderColor:  degraded ? 'rgba(248,113,113,0.5)' : palette.border,
+      }}
+      onMouseEnter={e => node && onHover(e, node)}
       onMouseLeave={onLeave}
-      style={{ cursor: 'pointer' }}
     >
-      <rect
-        width={w} height={Math.max(h, totalH + 12)}
-        rx={R} ry={R}
-        fill={fill}
-        opacity={degraded ? 0.45 : 0.88}
-        filter={isCenter ? 'url(#glow)' : undefined}
-        stroke={isCenter ? '#fff' : 'none'}
-        strokeWidth={isCenter ? 1.5 : 0}
-      />
-      {textLines.map((line, i) => (
-        <text
-          key={i}
-          x={w/2}
-          y={Math.max(h, totalH + 12)/2 - (textLines.length - 1) * 8 + i * 16}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="#fff"
-          fontSize={isCenter ? 12 : 11}
-          fontWeight={isCenter ? 700 : 500}
-          fontFamily="system-ui, sans-serif"
-        >{line}</text>
-      ))}
-    </g>
+      {isBarrier && <div className="bt-card-shield" style={{ background: palette.dot }} />}
+      <span className="bt-card-text" style={{ color: palette.text }}>{text}</span>
+      {degraded && <span className="bt-card-degraded-mark" title="Низкая уверенность">⚠</span>}
+    </div>
   )
-}
+})
 
-function BarrierRect({ x, y, label, fill, onHover, onLeave, degraded }) {
-  const w = 32
-  const h = 80
-  const textLines = wrapText(label, 12)
-
-  return (
-    <g
-      transform={`translate(${x - w/2}, ${y - h/2})`}
-      onMouseEnter={onHover}
-      onMouseLeave={onLeave}
-      style={{ cursor: 'pointer' }}
-    >
-      {/* Вертикальная планка-барьер */}
-      <rect
-        width={w} height={h}
-        rx={3} ry={3}
-        fill={fill}
-        opacity={degraded ? 0.35 : 0.82}
-        stroke={degraded ? C.lineDegraded : 'none'}
-        strokeWidth={degraded ? 2 : 0}
-        strokeDasharray={degraded ? '4 3' : undefined}
-      />
-      {textLines.map((line, i) => (
-        <text
-          key={i}
-          x={w/2}
-          y={h/2 - (textLines.length - 1) * 7 + i * 14}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          fill="#fff"
-          fontSize={9.5}
-          fontWeight={600}
-          fontFamily="system-ui, sans-serif"
-          transform={`rotate(-90, ${w/2}, ${h/2 - (textLines.length - 1) * 7 + i * 14})`}
-        >{line}</text>
-      ))}
-    </g>
-  )
-}
-
-function Tooltip({ x, y, text }) {
-  const lines = text.split('\n')
-  const w = Math.min(220, Math.max(...lines.map(l => l.length * 7)) + 20)
-  const h = lines.length * 18 + 12
-
-  return (
-    <g transform={`translate(${Math.min(x, 800)}, ${Math.max(y - h, 4)})`} style={{ pointerEvents: 'none' }}>
-      <rect width={w} height={h} rx={5} ry={5} fill="#1e2235" opacity={0.95} />
-      {lines.map((l, i) => (
-        <text key={i} x={10} y={16 + i * 18} fill="#e2e8f0" fontSize={11} fontFamily="system-ui, sans-serif">{l}</text>
-      ))}
-    </g>
-  )
-}
-
-// ---- Утилита переноса текста --------------------------------------------------
-function wrapText(text, maxChars) {
-  if (!text) return ['']
-  const words = text.split(' ')
-  const lines = []
-  let cur = ''
-  for (const w of words) {
-    if ((cur + ' ' + w).trim().length > maxChars && cur) {
-      lines.push(cur.trim())
-      cur = w
-    } else {
-      cur = (cur + ' ' + w).trim()
-    }
+// ── Bezier-путь между двумя точками ───────────────────────────────────────────
+function bezier(from, to, side) {
+  const dx = Math.abs(to.x - from.x) * 0.5
+  const c1x = from.x + dx
+  const c2x = to.x - dx
+  return {
+    path: `M ${from.x} ${from.y} C ${c1x} ${from.y}, ${c2x} ${to.y}, ${to.x} ${to.y}`,
+    side,
   }
-  if (cur) lines.push(cur.trim())
-  return lines.slice(0, 4)  // макс 4 строки
 }
