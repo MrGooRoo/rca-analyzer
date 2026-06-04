@@ -1,239 +1,215 @@
-/* ═══════════════════════════════════════════════════════════════
-   BowtieDiagram CSS v3
-   ═══════════════════════════════════════════════════════════════ */
+/* BowtieDiagram v4 */
 
-/* ── Shell ─────────────────────────────────────────────── */
+/* ── Shell ────────────────────────────────────────────── */
 .bt-shell {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 14px;
 }
 
-/* ── Легенда ──────────────────────────────────────────── */
+/* ── Легенда ─────────────────────────────────────────── */
 .bt-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px 16px;
-  padding: 10px 16px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px;
-  font-size: 12px;
-  color: var(--muted, #94a3b8);
-  backdrop-filter: blur(8px);
+  gap: 6px 14px;
+  padding: 9px 14px;
+  background: rgba(255,255,255,.03);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 10px;
+  font-size: 11.5px;
+  color: #94a3b8;
 }
-.bt-legend-item { display: flex; align-items: center; gap: 6px; }
-.bt-legend-dot  { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.bt-leg-item { display:flex; align-items:center; gap:5px; }
+.bt-leg-dot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
 
-/* ── Outer wrapper — position:relative, SVG позиционируется относительно него ── */
-.bt-outer {
+/* ── Canvas ─────────────────────────────────────────── */
+/* position:relative: SVG считает офсет относительно этого элемента */
+.bt-canvas {
   position: relative;
-}
-
-/* ── Grid ─────────────────────────────────────────────── */
-.bt-diagram {
-  display: grid;
-  grid-template-columns: 1.15fr 0.85fr 0.9fr 0.85fr 1.15fr;
-  gap: 0 16px;
-  align-items: stretch;
-  min-height: 300px;
-  padding: 28px 20px;
-  background: rgba(12, 14, 22, 0.72);
-  border: 1px solid rgba(255,255,255,0.06);
-  border-radius: 20px;
+  background: rgba(12,14,22,.72);
+  border: 1px solid rgba(255,255,255,.06);
+  border-radius: 18px;
   backdrop-filter: blur(20px) saturate(140%);
-  box-shadow:
-    0 2px 0 rgba(255,255,255,0.04) inset,
-    0 20px 60px rgba(0,0,0,0.45);
-  position: relative;
-  z-index: 1;
+  box-shadow: 0 2px 0 rgba(255,255,255,.04) inset, 0 20px 60px rgba(0,0,0,.45);
+  padding: 24px 18px;
 }
 
-/* ── SVG поверх грида ──────────────────────────────────────── */
-.bt-svg-layer {
+/* ── SVG поверх колонок ────────────────────────────── */
+/* inset:0 + position:absolute: занимает всю площадь .bt-canvas */
+.bt-svg {
   position: absolute;
-  top: 0;
-  left: 0;
+  inset: 0;
   pointer-events: none;
-  z-index: 2;
+  z-index: 0;
   overflow: visible;
 }
 
-/* ── Колонки ─────────────────────────────────────────────── */
+/* ── Колонки ─────────────────────────────────────────── */
+/* flex вместо grid: определяемые пропорции через flex-basis */
+.bt-cols {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+  min-height: 260px;
+}
 .bt-col {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  align-items: stretch;
-  justify-content: center;   /* вертикально по центру */
-  position: relative;
-  z-index: 3;                /* выше SVG — карточки поверх линий */
-}
-.bt-col--barriers {
-  justify-content: space-around; /* барьеры равномерно распределяются вертикально */
-}
-.bt-col--center {
-  align-items: center;
+  gap: 9px;
   justify-content: center;
+  flex: 1.15;
 }
+.bt-col--mid  { flex: 0.82; justify-content: space-around; }
+.bt-col--top  { flex: 0.9;  justify-content: center; align-items: center; }
 
-/* ── Карточки ────────────────────────────────────────────── */
+/* ── Карточки ─────────────────────────────────────────── */
 .bt-card {
   position: relative;
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 10px 14px;
+  gap: 7px;
+  padding: 9px 12px;
   border: 1px solid;
-  border-radius: 14px;
+  border-radius: 12px;
   cursor: default;
-  transition:
-    transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
-    box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1);
-  backdrop-filter: blur(12px);
-  box-shadow: 0 4px 16px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 3px 12px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.06);
+  transition: transform 160ms cubic-bezier(.16,1,.3,1), box-shadow 160ms;
 }
 .bt-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 8px 28px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+  box-shadow: 0 7px 24px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-.bt-card--center {
-  padding: 18px 22px;
-  border-radius: 18px;
+/* Центральная */
+.bt-card--c {
+  padding: 16px 18px;
+  border-radius: 16px;
   width: 100%;
   align-items: center;
   justify-content: center;
   text-align: center;
   box-shadow:
-    0 0 0 1px rgba(255,255,255,0.10),
-    0 8px 32px rgba(248,113,113,0.20),
-    0 20px 60px rgba(0,0,0,0.40),
-    inset 0 1px 0 rgba(255,255,255,0.10);
+    0 0 0 1px rgba(255,255,255,.10),
+    0 6px 28px rgba(248,113,113,.22),
+    0 18px 52px rgba(0,0,0,.38),
+    inset 0 1px 0 rgba(255,255,255,.10);
 }
-.bt-card--center .bt-card-text {
+.bt-card--c .bt-card-text {
   font-size: 13px;
   font-weight: 650;
   line-height: 1.35;
   text-align: center;
+  -webkit-line-clamp: 5;
 }
 
-.bt-card--barrier { padding-left: 12px; }
-.bt-card-shield {
+/* Барьер */
+.bt-card--b { padding-left: 10px; }
+.bt-shield {
   width: 3px;
-  min-height: 20px;
   align-self: stretch;
   border-radius: 2px;
   flex-shrink: 0;
-  opacity: 0.85;
+  opacity: .85;
   margin-top: 1px;
 }
 
-.bt-card--hazard  { opacity: 0.80; font-style: italic; }
+/* Hazard */
+.bt-card--h { opacity:.78; font-style:italic; }
 
-.bt-card--degraded {
-  opacity: 0.55;
-  border-style: dashed !important;
-}
+/* Деградированный */
+.bt-card--deg { opacity:.52; border-style:dashed!important; }
+.bt-deg-mark  { font-size:10px; opacity:.75; }
 
 /* Текст */
 .bt-card-text {
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
-  letter-spacing: -0.01em;
-  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  letter-spacing: -.01em;
+  font-family: -apple-system,'SF Pro Text',system-ui,sans-serif;
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-/* Знак деградации — встроен в поток текста, не перекрывает */
-.bt-card-degraded-mark {
-  font-size: 10px;
-  opacity: 0.75;
-  flex-shrink: 0;
-}
 
-/* ── Тултип ─────────────────────────────────────────────── */
-.bt-tooltip {
+/* ── Тултип ─────────────────────────────────────────── */
+.bt-tip {
   position: fixed;
   z-index: 9999;
-  max-width: 260px;
-  padding: 10px 14px;
-  background: rgba(14, 17, 28, 0.92);
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 12px;
-  backdrop-filter: blur(16px);
-  box-shadow: 0 8px 32px rgba(0,0,0,0.45);
+  max-width: 240px;
+  padding: 10px 13px;
+  background: rgba(12,15,26,.94);
+  border: 1px solid rgba(255,255,255,.10);
+  border-radius: 11px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 8px 28px rgba(0,0,0,.45);
   pointer-events: none;
 }
-.bt-tooltip-text {
+.bt-tip-text {
   font-size: 12px;
   color: #e2e8f0;
   line-height: 1.5;
-  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  font-family: -apple-system,'SF Pro Text',system-ui,sans-serif;
   margin-bottom: 6px;
 }
-.bt-tooltip-conf {
+.bt-tip-meta {
   display: flex;
   flex-direction: column;
   gap: 4px;
   font-size: 11px;
   color: #94a3b8;
 }
-.bt-tooltip-bar {
+.bt-tip-bar {
   display: block;
   height: 3px;
   border-radius: 2px;
-  background: #34d399;
   transition: width 300ms;
 }
 
-/* ── Raw / Список узлов ──────────────────────────────────────── */
+/* ── Raw / Список узлов ───────────────────────────────── */
 .bt-raw {
-  background: rgba(255,255,255,0.02);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 12px;
+  background: rgba(255,255,255,.02);
+  border: 1px solid rgba(255,255,255,.07);
+  border-radius: 11px;
   overflow: hidden;
   font-size: 13px;
 }
 .bt-raw summary {
-  padding: 10px 16px;
+  padding: 9px 14px;
   cursor: pointer;
-  color: var(--muted, #94a3b8);
+  color: #94a3b8;
   font-weight: 500;
   user-select: none;
   list-style: none;
 }
-.bt-raw summary::-webkit-details-marker { display: none; }
-.bt-raw summary:hover { color: var(--text, #e2e8f0); }
+.bt-raw summary::-webkit-details-marker { display:none; }
+.bt-raw summary:hover { color: #e2e8f0; }
 .bt-raw-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-  gap: 12px;
-  padding: 12px 16px 16px;
-  border-top: 1px solid rgba(255,255,255,0.06);
+  grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+  gap: 10px;
+  padding: 10px 14px 14px;
+  border-top: 1px solid rgba(255,255,255,.06);
 }
 .bt-raw-label {
   font-size: 10px;
   font-weight: 700;
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 8px;
+  letter-spacing: .6px;
+  margin-bottom: 6px;
 }
-.bt-raw-node {
+.bt-raw-row {
   display: flex;
   justify-content: space-between;
-  gap: 8px;
-  font-size: 11.5px;
-  color: var(--text, #e2e8f0);
-  padding: 4px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.05);
+  gap: 6px;
+  font-size: 11px;
+  color: #e2e8f0;
+  padding: 3px 0;
+  border-bottom: 1px solid rgba(255,255,255,.05);
   line-height: 1.4;
 }
-.bt-raw-conf {
-  font-size: 10.5px;
-  color: var(--muted, #94a3b8);
-  flex-shrink: 0;
-}
+.bt-raw-conf { font-size:10.5px; color:#94a3b8; flex-shrink:0; }
