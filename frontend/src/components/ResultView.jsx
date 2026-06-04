@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import BowtieDiagram from './BowtieDiagram.jsx'
 import './ResultView.css'
 
 const METHODOLOGY_LABELS = {
@@ -9,14 +10,6 @@ const METHODOLOGY_LABELS = {
   bowtie:       'Bowtie',
 }
 
-const SEVERITY_COLORS = {
-  critical:  '#f76f6f',
-  major:     '#f7b955',
-  moderate:  '#f7e055',
-  minor:     '#3ecf8e',
-  near_miss: '#4f8ef7',
-}
-
 const PRIORITY_COLORS = {
   high:   '#f76f6f',
   medium: '#f7b955',
@@ -24,13 +17,20 @@ const PRIORITY_COLORS = {
 }
 
 export default function ResultView({ result }) {
-  const [tab, setTab] = useState('tree')
+  const isBowtie = result.methodology === 'bowtie'
+  const [tab, setTab] = useState(isBowtie ? 'bowtie' : 'tree')
 
-  const tabs = [
-    { id: 'tree',  label: 'Дерево причин' },
-    { id: 'recs',  label: `Рекомендации (${result.recommendations.length})` },
-    { id: 'meta',  label: 'Мета' },
-  ]
+  const tabs = isBowtie
+    ? [
+        { id: 'bowtie', label: '🦋 Диаграмма' },
+        { id: 'recs',   label: `Рекомендации (${result.recommendations.length})` },
+        { id: 'meta',   label: 'Мета' },
+      ]
+    : [
+        { id: 'tree', label: 'Дерево причин' },
+        { id: 'recs', label: `Рекомендации (${result.recommendations.length})` },
+        { id: 'meta', label: 'Мета' },
+      ]
 
   return (
     <div className="result">
@@ -42,7 +42,7 @@ export default function ResultView({ result }) {
         <div className="result-stats">
           <Stat label="Токены" value={result.tokens_used} />
           <Stat label="Уверенность" value={(result.confidence_avg * 100).toFixed(0) + '%'} />
-          <Stat label="Модель" value={result.model_used.split('/')[1]} />
+          <Stat label="Модель" value={result.model_used.split('/')[1] || result.model_used} />
         </div>
       </div>
 
@@ -60,20 +60,20 @@ export default function ResultView({ result }) {
         ))}
       </div>
 
-      {tab === 'tree' && <CausalTree result={result} />}
-      {tab === 'recs' && <Recommendations recs={result.recommendations} />}
-      {tab === 'meta' && <Meta result={result} />}
+      {tab === 'bowtie' && <BowtieDiagram result={result} />}
+      {tab === 'tree'   && <CausalTree result={result} />}
+      {tab === 'recs'   && <Recommendations recs={result.recommendations} />}
+      {tab === 'meta'   && <Meta result={result} />}
     </div>
   )
 }
 
 function CausalTree({ result }) {
   const sections = [
-    { key: 'root_causes',         label: 'Корневые причины',      color: '#f76f6f' },
+    { key: 'root_causes',         label: 'Корневые причины',       color: '#f76f6f' },
     { key: 'contributing_causes', label: 'Способствующие факторы', color: '#f7b955' },
     { key: 'immediate_causes',    label: 'Непосредственные причины', color: '#4f8ef7' },
   ]
-
   return (
     <div className="causal-tree">
       {sections.map(s => {
