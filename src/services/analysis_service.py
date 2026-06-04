@@ -23,6 +23,7 @@ from src.domain.models import (
     RCAResult,
 )
 from src.domain.methodologies.base import MethodologyRunner
+from src.domain.methodologies.bowtie import BowTieRunner
 from src.domain.methodologies.five_why import FiveWhyRunner
 from src.domain.methodologies.fta import FaultTreeRunner
 from src.domain.methodologies.ishikawa import IshikawaRunner
@@ -37,6 +38,7 @@ _RUNNERS: dict[MethodologyType, MethodologyRunner] = {
     MethodologyType.ISHIKAWA:     IshikawaRunner(),
     MethodologyType.RCA_SYSTEMIC: RcaSystemicRunner(),
     MethodologyType.FTA:          FaultTreeRunner(),
+    MethodologyType.BOWTIE:       BowTieRunner(),
 }
 
 
