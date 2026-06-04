@@ -1,9 +1,7 @@
 """
 JWT-авторизация: выдача токенов, проверка, хэширование паролей.
 
-Зависимости (уже есть в python-jose и passlib — добавить в requirements):
-    python-jose[cryptography]
-    passlib[bcrypt]
+passlib 1.7.x не совместим с bcrypt>=4.x — используем bcrypt напрямую.
 """
 
 from __future__ import annotations
@@ -13,8 +11,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
+import bcrypt
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi import Depends, HTTPException, status
@@ -29,16 +27,15 @@ SECRET_KEY: str   = os.environ.get("JWT_SECRET", "change-me-in-production-please
 ALGORITHM        = "HS256"
 ACCESS_TOKEN_TTL = timedelta(hours=int(os.environ.get("JWT_TTL_HOURS", "24")))
 
-pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-bearer  = HTTPBearer(auto_error=False)
+bearer = HTTPBearer(auto_error=False)
 
-# ---- Хэширование ------------------------------------------------------------
+# ---- Хэширование (чистый bcrypt без passlib) --------------------------------
 
 def hash_password(plain: str) -> str:
-    return pwd_ctx.hash(plain)
+    return bcrypt.hashpw(plain.encode(), bcrypt.gensalt()).decode()
 
 def verify_password(plain: str, hashed: str) -> bool:
-    return pwd_ctx.verify(plain, hashed)
+    return bcrypt.checkpw(plain.encode(), hashed.encode())
 
 # ---- JWT --------------------------------------------------------------------
 
@@ -89,7 +86,6 @@ async def get_current_user_optional(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
     db: AsyncSession = Depends(get_db),
 ) -> Optional[UserInfo]:
-    """Вернуть UserInfo если токен есть, иначе None (для обратной совместимости)."""
     if credentials is None:
         return None
     try:
@@ -105,7 +101,9 @@ async def register_user(
     display_name: str,
     password: str,
 ) -> UserORM:
-    existing = (await db.execute(select(UserORM).where(UserORM.email == email))).scalar_one_or_none()
+    existing = (await db.execute(
+        select(UserORM).where(UserORM.email == email)
+    )).scalar_one_or_none()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
     user = UserORM(
@@ -125,7 +123,9 @@ async def authenticate_user(
     email: str,
     password: str,
 ) -> UserORM:
-    user = (await db.execute(select(UserORM).where(UserORM.email == email))).scalar_one_or_none()
+    user = (await db.execute(
+        select(UserORM).where(UserORM.email == email)
+    )).scalar_one_or_none()
     if user is None or not verify_password(password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Incorrect email or password")
     if not user.is_active:
