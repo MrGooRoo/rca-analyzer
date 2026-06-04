@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react'
+import { api } from '../api.js'
 import './HistoryPage.css'
 
 const METHODOLOGY_LABELS = {
@@ -20,24 +21,18 @@ const SEVERITY_COLORS = {
 const PAGE_SIZE = 10
 
 export default function HistoryPage({ onOpen }) {
-  const [items, setItems]   = useState([])
-  const [total, setTotal]   = useState(0)
-  const [offset, setOffset] = useState(0)
+  const [items, setItems]     = useState([])
+  const [offset, setOffset]   = useState(0)
   const [loading, setLoading] = useState(false)
-  const [error, setError]   = useState(null)
-  const [search, setSearch] = useState('')
+  const [error, setError]     = useState(null)
+  const [search, setSearch]   = useState('')
 
   const load = useCallback(async (off) => {
     setLoading(true)
     setError(null)
     try {
-      const url = `/api/v1/results?limit=${PAGE_SIZE}&offset=${off}`
-      const res = await fetch(url)
-      if (!res.ok) throw new Error(`HTTP ${res.status}`)
-      const data = await res.json()
+      const data = await api.results.list(PAGE_SIZE, off)
       setItems(data)
-      // API возвращает массив; если меньше PAGE_SIZE — это последняя страница
-      if (off === 0) setTotal(data.length < PAGE_SIZE ? data.length : 999)
     } catch (e) {
       setError(e.message)
     } finally {
