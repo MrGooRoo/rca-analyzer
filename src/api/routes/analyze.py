@@ -59,6 +59,9 @@ async def analyze_incident(
     repo = RCARepository(db)
     await repo.save_result(result, user_id=current_user.user_id)
     logger.info("[DB] saved result %s for user %s", result.result_id, current_user.user_id)
+
+    # Проставляем user_id в доменный объект перед возвратом клиенту
+    result.user_id = current_user.user_id
     return result
 
 
