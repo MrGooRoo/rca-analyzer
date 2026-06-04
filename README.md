@@ -85,11 +85,11 @@ rca-analyzer/
 │       ├── api.js              # Централизованный fetch с Bearer-токеном
 │       ├── App.jsx             # Login-gate, навигация, logout
 │       └── components/
-│           ├── AuthPage.jsx
-│           ├── HistoryPage.jsx
-│           ├── IncidentForm.jsx
-│           ├── ResultView.jsx
-│           └── BowtieDiagram.jsx
+│           ├── AuthPage.jsx        # вход / регистрация
+│           ├── HistoryPage.jsx     # история через api.js
+│           ├── IncidentForm.jsx    # форма, без прямых HTTP-запросов
+│           ├── ResultView.jsx      # отображение, без прямых HTTP-запросов
+│           └── BowtieDiagram.jsx   # диаграмма, интегрирована в ResultView
 ├── configs/prompts/            # Jinja2-шаблоны: five_why, ishikawa, fta, rca_systemic, bowtie
 ├── alembic/versions/
 │   ├── 001_initial.py
@@ -122,34 +122,21 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ---
 
-## Ключевые архитектурные решения
+## Ключевые архитектуကные решения
 
 - **bcrypt напрямую** (без passlib) — обход бага совместимости с `bcrypt ≥ 4.x`
 - **JWT в памяти** (не в localStorage) — при перезагрузке страницы требуется повторный вход
 - **user_id** сохраняется в `incidents` и `rca_results`; `GET /api/v1/results` возвращает только записи текущего пользователя
 - **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
-
----
-
-## Известные дефекты
-
-| # | Описание | Приоритет | Статус |
-|---|---|---|---|
-| 1 | `user_id: null` в результате bowtie — токен передаётся, но не сохраняется в `RCAResult` | 🔴 | Открыт |
-| 2 | LLM иногда не создаёт `mitigation_barrier` для каждого `consequence` (нарушение правила шаблона) | 🟡 | Открыт |
+- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов
+- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`
 
 ---
 
 ## Roadmap
 
-### 🔴 Ближайшее
-- [ ] Исправить `user_id: null` — в `routes/analyze.py` добавить `result.user_id = current_user.id` перед `save()`
-- [ ] Добавить валидацию в `BowTieRunner._validate_response()` — предупреждение при `consequence` без `mitigation_barrier`
-- [ ] Проверить `IncidentForm.jsx` и `ResultView.jsx` — используют ли `api.js` или голый `fetch`
-
-### 🟡 Важно
-- [ ] Frontend smoke-test: `npm install && npm run dev`, все 5 методологий
-- [ ] Убедиться, что `BowtieDiagram.jsx` интегрирован в `ResultView.jsx` / `App.jsx`
+### 🟡 Ближайшее
+- [ ] Frontend smoke-test: `npm install && npm run dev`, все 5 методологий через UI
 - [ ] `GET /api/v1/results/{id}` — проверить возврат `user_id`
 
 ### 🟢 Развитие
@@ -162,9 +149,10 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ## Статус на 04.06.2026
 
-- ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
+- ✅ Инфраструктуကа: Docker Compose (API + PostgreSQL)
 - ✅ API: все 5 методологий работают (включая bowtie)
 - ✅ Авторизация: JWT + bcrypt, защищённые эндпоинты, изоляция данных по пользователю
-- ✅ Миграции: 3 версии применены
-- ✅ Frontend: AuthPage, HistoryPage, BowtieDiagram реализованы
-- ⚠️ Открытые дефекты: `user_id: null` в результатах (не блокирующий)
+- ✅ Мигကации: 3 веကсии пကименены
+- ✅ Фကонтенд: все компоненты пကовеကены, HTTP чеကез api.js, BowtieDiagram интегကиကован
+- ✅ Дефекты: `user_id: null` испကавлен, валидация баကьеကов добавлена
+- 🟡 Ожидает Frontend smoke-test чеကез бကаузеက
