@@ -59,6 +59,44 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 | POST | `/api/v1/auth/logout` | Отозвать текущий refresh-token и очистить cookie |
 | GET | `/api/v1/auth/me` | Профиль текущего пользователя |
 
+### CSRF-защита (cookie-based auth)
+
+Поскольку access/refresh-токены живут в `httpOnly` cookie, которые браузер
+отправляет автоматически, приложение защищено от CSRF по схеме
+**signed double-submit cookie** (defense-in-depth поверх `SameSite`).
+
+**Как это работает:**
+
+1. На `register` / `login` / `refresh` сервер ставит **не-httpOnly** cookie
+   `csrf_token` со значением `<random>.<hmac_sha256(random, secret)>`.
+2. Frontend читает значение из `document.cookie` и отправляет его в заголовке
+   `X-CSRF-Token` при каждом **небезопасном** запросе (POST/PUT/PATCH/DELETE).
+3. `CSRFMiddleware` проверяет, что cookie присутствует, подпись валидна, а
+   значения cookie и заголовка совпадают. Иначе — `403`.
+
+**Что освобождено от проверки (не сломает интеграции):**
+
+| Случай | Почему exempt |
+|---|---|
+| GET / HEAD / OPTIONS | safe-методы, не меняют состояние |
+| `login` / `register` / `refresh` | bootstrap: у клиента ещё нет csrf-cookie |
+| `Authorization: Bearer ...` без access-cookie | не подвержен CSRF → Swagger «Authorize» и `curl` работают как раньше |
+| анонимные запросы (нет access-cookie) | нечего защищать |
+
+**Поведение управляется** переменными `CSRF_PROTECTION_ENABLED`,
+`CSRF_EXEMPT_PATHS`, `CSRF_SECRET` (см. раздел «Переменные окружения»).
+Серверного хранилища CSRF-токенов нет — stateless, без новой таблицы/миграции.
+
+> **curl пример (cookie-режим):** сначала залогиньтесь, сохранив cookie в jar,
+> затем передайте `csrf_token` в заголовок:
+> ```bash
+> curl -c jar.txt -X POST localhost:8000/api/v1/auth/login \
+>   -H 'Content-Type: application/json' -d '{"email":"a@b.c","password":"secret"}'
+> CSRF=$(grep csrf_token jar.txt | awk '{print $7}')
+> curl -b jar.txt -X POST localhost:8000/api/v1/analyze \
+>   -H "X-CSRF-Token: $CSRF" -H 'Content-Type: application/json' -d '{...}'
+> ```
+
 ### Анализ (требует auth-cookie или Bearer-токен)
 
 | Метод | Эндпоинт | Описание |
@@ -141,9 +179,16 @@ OPENROUTER_API_KEY=...
 JWT_SECRET=...                # секрет для HS256
 ACCESS_TOKEN_TTL_MINUTES=15
 REFRESH_TOKEN_TTL_DAYS=30
-AUTH_COOKIE_SECURE=false
-AUTH_COOKIE_SAMESITE=lax
+AUTH_COOKIE_SECURE=false       # prod: true (cookie только по HTTPS)
+AUTH_COOKIE_SAMESITE=lax       # cross-domain prod: none (+ AUTH_COOKIE_SECURE=true)
 CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:3000
+
+# CSRF (signed double-submit cookie)
+CSRF_PROTECTION_ENABLED=true   # выключатель защиты (dev можно false)
+# CSRF_SECRET=                 # секрет подписи; если пусто — используется JWT_SECRET
+# CSRF_EXEMPT_PATHS=           # доп. exempt-пути через запятую (точное совпадение)
+# CSRF_COOKIE_NAME=csrf_token
+# CSRF_HEADER_NAME=X-CSRF-Token
 ```
 
 ---
@@ -166,8 +211,28 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 - **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
 - **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов; `401` вызывает авто-refresh и один retry
 - **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`; деградированные барьеры выделены визуально
+- **CSRF: signed double-submit cookie** — `CSRFMiddleware` требует `X-CSRF-Token` на небезопасных методах при cookie-auth; токен подписан HMAC (привязка к секрету), Bearer/Swagger/curl освобождены; stateless (без таблицы)
 - **CORS с credentials** — backend готов принимать cookie-сессию от frontend
 - **Export DOCX** — `export_service.py` генерирует DOCX через `python-docx`; отдельные секции для каждой методологии; защищён auth-cookie/Bearer
+
+---
+
+## Production hardening (чеклист перед деплоем)
+
+Дефолты репозитория настроены под локальную разработку (HTTP, `SameSite=Lax`).
+Для продакшена:
+
+- [ ] **`JWT_SECRET`** — задать длинный случайный секрет (например `openssl rand -hex 32`); не использовать дефолт `change-me-...`.
+- [ ] **`AUTH_COOKIE_SECURE=true`** — cookie только по HTTPS.
+- [ ] **`CSRF_PROTECTION_ENABLED=true`** — оставить включённым (значение по умолчанию).
+- [ ] **`SameSite`**:
+  - frontend и API на **одном** домене → `AUTH_COOKIE_SAMESITE=lax` (двойная защита: SameSite + CSRF-токен).
+  - frontend и API на **разных** доменах → `AUTH_COOKIE_SAMESITE=none` **и обязательно** `AUTH_COOKIE_SECURE=true`. В этом случае SameSite не защищает, и CSRF-токен становится **основным** барьером.
+- [ ] **`CORS_ALLOW_ORIGINS`** — перечислить только реальные прод-домены (никаких `*` при `allow_credentials=True`).
+- [ ] **`AUTH_COOKIE_DOMAIN`** — выставить, если cookie должны шериться между поддоменами.
+- [ ] **`CSRF_SECRET`** (опционально) — отдельный секрет, если нужно ротировать CSRF независимо от JWT.
+
+> ⚠️ При смене `SameSite` на `none` без `Secure=true` браузеры **отклонят** cookie — оба параметра меняются вместе.
 
 ---
 
@@ -175,9 +240,11 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ### 🟡 Следующий приоритет
 - [x] Refresh-токен / `httpOnly` cookie
+- [x] CSRF protection (signed double-submit) для cookie-auth
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
 
 ### 🟢 Развитие
+- [ ] Защита от login-CSRF (двухфазный токен на `/login`)
 - [ ] E2E-тесты `pytest` для всех методологий
 - [ ] PDF-экспорт (дополнительно к DOCX)
 - [ ] Мультиязычный интерфейс (EN/RU)
@@ -189,6 +256,7 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
 - ✅ API: добавлены `POST /api/v1/auth/refresh` и `POST /api/v1/auth/logout`
 - ✅ Авторизация: access JWT + refresh-token rotation в `httpOnly` cookie, bcrypt
+- ✅ CSRF protection: signed double-submit cookie + `X-CSRF-Token` для cookie-auth
 - ✅ Миграции: 4 версии (001 → 002 → 003 → 004)
 - ✅ Frontend: восстановление сессии после перезагрузки, авто-refresh при `401`, токены не хранятся в JS
 - ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
