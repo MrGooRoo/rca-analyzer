@@ -205,7 +205,29 @@ class OpenRouterClient:
 
         response.raise_for_status()
 
-        data    = response.json()
+        data = response.json()
+
+        # OpenRouter может вернуть HTTP 200 с полем 'error' вместо 'choices'
+        # (например: модель перегружена, квота исчерпана, провайдер недоступен).
+        # В этом случае KeyError на data["choices"] приводил к необработанному краху.
+        # Теперь явно извлекаем сообщение и бросаем LLMResponseValidationError,
+        # чтобы tenacity мог сделать retry.
+        if "choices" not in data:
+            err = data.get("error", {})
+            err_msg = (
+                err.get("message")
+                or err.get("code")
+                or str(data)
+            )
+            logger.error(
+                "[OpenRouter] Нет 'choices' в ответе (HTTP 200). error=%s full=%s",
+                err_msg,
+                str(data)[:300],
+            )
+            raise LLMResponseValidationError(
+                f"OpenRouter вернул ответ без 'choices': {err_msg}"
+            )
+
         content = data["choices"][0]["message"]["content"]
         usage   = data.get("usage", {})
 
