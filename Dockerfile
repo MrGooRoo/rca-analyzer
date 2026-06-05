@@ -24,7 +24,8 @@ RUN pip install --upgrade pip && pip install \
     "alembic>=1.13" \
     "python-jose[cryptography]>=3.3" \
     "passlib[bcrypt]>=1.7" \
-    "python-dotenv>=1.0"
+    "python-dotenv>=1.0" \
+    "python-docx>=1.1"
 
 # ---- продакшн ----
 FROM base AS prod
