@@ -7,7 +7,7 @@ packages = ["src"]
 
 [project]
 name = "rca-analyzer"
-version = "0.2.0"
+version = "0.3.0"
 description = "Automatic Root Cause Analysis for industrial incidents via LLM"
 requires-python = ">=3.11"
 dependencies = [
@@ -24,6 +24,7 @@ dependencies = [
     "python-jose[cryptography]>=3.3",
     "passlib[bcrypt]>=1.7",
     "python-dotenv>=1.0",
+    "python-docx>=1.1",
 ]
 
 [project.optional-dependencies]
