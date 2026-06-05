@@ -29,6 +29,7 @@ docker-compose exec api alembic upgrade head
 ```
 
 Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
+Frontend: [http://localhost:5173](http://localhost:5173)
 
 ---
 
@@ -40,7 +41,9 @@ Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 | `ishikawa` | ✅ работает | ~2267 |
 | `rca_systemic` | ✅ работает | ~1504 |
 | `fta` | ✅ работает | ~1446 |
-| `bowtie` | ✅ работает + smoke-test пройден | ~3138 |
+| `bowtie` | ✅ работает | ~3138 |
+
+Все 5 методологий прошли полный smoke-test (UI → анализ → скачивание DOCX) 05.06.2026.
 
 ---
 
@@ -161,20 +164,23 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ## Roadmap
 
-### 🟢 Развитие
+### 🟡 Следующий приоритет
 - [ ] Refresh-токен / `httpOnly` cookie (сейчас токен в памяти — при перезагрузке нужен повторный вход)
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
+
+### 🟢 Развитие
 - [ ] E2E-тесты `pytest` для всех методологий
+- [ ] PDF-экспорт (дополнительно к DOCX)
+- [ ] Мультиязычный интерфейс (EN/RU)
 
 ---
 
-## Статус на 05.06.2026 19:30 MSK
+## Статус на 05.06.2026 (v0.3.0)
 
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
-- ✅ API: все 5 методологий работают
+- ✅ API: все 6 эндпоинтов работают
 - ✅ Авторизация: JWT + bcrypt, защищённые эндпоинты, изоляция данных по пользователю
-- ✅ Миграции: 3 версии применены
+- ✅ Миграции: 3 версии применены (001 → 002 → 003)
 - ✅ Frontend: все компоненты проверены, HTTP через api.js, BowtieDiagram интегрирован
-- ✅ Smoke-test bowtie: выполнен через Swagger UI, BowtieDiagram отображает результат корректно
-- ✅ Аудит кода: IncidentForm.jsx, ResultView.jsx, App.jsx — голых fetch нет, все запросы через api.js
 - ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
+- ✅ **Full smoke-test пройден**: логин → все 5 методологий → скачивание DOCX — всё работает
