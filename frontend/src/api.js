@@ -38,6 +38,30 @@ async function req(method, path, body) {
   return res.json()
 }
 
+/**
+ * Скачивает DOCX-файл по result_id.
+ * Триггерит браузерное скачивание через <a href=blob>.
+ */
+async function exportDocx(resultId, methodology) {
+  const res = await fetch(`/api/v1/results/${resultId}/export`, {
+    method: 'GET',
+    headers: _token ? { 'Authorization': `Bearer ${_token}` } : {},
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: `HTTP ${res.status}` }))
+    throw new Error(err.detail || `HTTP ${res.status}`)
+  }
+  const blob = await res.blob()
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href     = url
+  a.download = `rca_${methodology}_${resultId.slice(0, 8)}.docx`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export const api = {
   auth: {
     register: (email, display_name, password) =>
@@ -46,9 +70,10 @@ export const api = {
       req('POST', '/api/v1/auth/login', { email, password }),
     me: () => req('GET', '/api/v1/auth/me'),
   },
-  analyze: (payload) => req('POST', '/api/v1/analyze', payload),
+  analyze:   (payload) => req('POST', '/api/v1/analyze', payload),
+  exportDocx,
   results: {
-    list:   (limit = 20, offset = 0) => req('GET', `/api/v1/results?limit=${limit}&offset=${offset}`),
-    get:    (id) => req('GET', `/api/v1/results/${id}`),
+    list: (limit = 20, offset = 0) => req('GET', `/api/v1/results?limit=${limit}&offset=${offset}`),
+    get:  (id) => req('GET', `/api/v1/results/${id}`),
   },
 }

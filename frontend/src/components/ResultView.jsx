@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
+import { api } from '../api.js'
 import './ResultView.css'
 
 const METHODOLOGY_LABELS = {
@@ -18,7 +19,21 @@ const PRIORITY_COLORS = {
 
 export default function ResultView({ result }) {
   const isBowtie = result.methodology === 'bowtie'
-  const [tab, setTab] = useState(isBowtie ? 'bowtie' : 'tree')
+  const [tab, setTab]           = useState(isBowtie ? 'bowtie' : 'tree')
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState(null)
+
+  async function handleExport() {
+    setExporting(true)
+    setExportError(null)
+    try {
+      await api.exportDocx(result.result_id, result.methodology)
+    } catch (e) {
+      setExportError(e.message)
+    } finally {
+      setExporting(false)
+    }
+  }
 
   const tabs = isBowtie
     ? [
@@ -39,12 +54,32 @@ export default function ResultView({ result }) {
           <span className="method-badge">{METHODOLOGY_LABELS[result.methodology] || result.methodology}</span>
           <span className="result-id">#{result.result_id.slice(0, 8)}</span>
         </div>
-        <div className="result-stats">
-          <Stat label="Токены" value={result.tokens_used} />
-          <Stat label="Уверенность" value={(result.confidence_avg * 100).toFixed(0) + '%'} />
-          <Stat label="Модель" value={result.model_used.split('/')[1] || result.model_used} />
+        <div className="result-header-right">
+          <div className="result-stats">
+            <Stat label="Токены" value={result.tokens_used} />
+            <Stat label="Уверенность" value={(result.confidence_avg * 100).toFixed(0) + '%'} />
+            <Stat label="Модель" value={result.model_used.split('/')[1] || result.model_used} />
+          </div>
+          <button
+            className={`btn-export ${exporting ? 'btn-export--loading' : ''}`}
+            onClick={handleExport}
+            disabled={exporting}
+            title="Скачать отчёт в DOCX"
+          >
+            {exporting ? (
+              <><span className="spinner spinner--sm" /> Скачиваю…</>
+            ) : (
+              '⬇️ DOCX'
+            )}
+          </button>
         </div>
       </div>
+
+      {exportError && (
+        <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>
+          <strong>Ошибка экспорта:</strong> {exportError}
+        </div>
+      )}
 
       <div className="summary-box">
         <p>{result.summary}</p>
