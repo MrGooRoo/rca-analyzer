@@ -1,7 +1,7 @@
 # RCA Analyzer
 
 Веб-приложение для анализа корневых причин (RCA) производственных инцидентов.
-Поддерживает 5 методологий, JWT-авторизацию и изолированную историю результатов по пользователям.
+Поддерживает 5 методологий, JWT-авторизацию, изолированную историю результатов по пользователям и экспорт отчётов в DOCX.
 
 ---
 
@@ -15,6 +15,7 @@
 | Frontend | React (Vite) |
 | Контейнеризация | Docker Compose |
 | Авторизация | JWT HS256, TTL 24 ч, bcrypt |
+| Экспорт | python-docx → DOCX-файл |
 
 ---
 
@@ -60,6 +61,25 @@ Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 | POST | `/api/v1/analyze` | Запуск RCA-анализа |
 | GET | `/api/v1/results` | История результатов текущего пользователя |
 | GET | `/api/v1/results/{id}` | Результат по ID |
+| GET | `/api/v1/results/{id}/export` | Скачать DOCX-отчёт |
+
+---
+
+## Экспорт DOCX
+
+Эндпоинт: `GET /api/v1/results/{result_id}/export` (требует Bearer-токен)
+
+DOCX-файл содержит:
+
+1. Заголовок — методология, ID, дата, модель, токены, уверенность
+2. Резюме
+3. Причины (для bowtie: Hazard, Топ-событие, Угрозы, Барьеры предотвращения, Последствия, Барьеры смягчения; деградированные барьеры помечены ⚠)
+4. Рекомендации — таблица с приоритетом, категорией, ответственным
+5. Техническая информация
+
+Имя файла: `rca_{methodology}_{result_id[:8]}.docx`
+
+В UI: кнопка **⬇️ DOCX** в шапке каждого результата (`ResultView.jsx`).
 
 ---
 
@@ -70,8 +90,10 @@ rca-analyzer/
 ├── src/
 │   ├── auth/                   # JWT, bcrypt, эндпоинты авторизации
 │   ├── api/
-│   │   ├── app.py              # CORS, роутеры
-│   │   └── routes/analyze.py   # Защищён Bearer-токеном, пишет user_id
+│   │   ├── app.py              # CORS, роутеры (v0.3.0)
+│   │   └── routes/
+│   │       ├── analyze.py      # Защищён Bearer-токеном, пишет user_id
+│   │       └── export.py       # GET /results/{id}/export → DOCX
 │   ├── db/
 │   │   ├── orm_models.py       # UserORM, IncidentORM, RCAResultORM
 │   │   └── repository.py       # CRUD
@@ -79,16 +101,17 @@ rca-analyzer/
 │   │   ├── models.py           # RCAResult, CauseNode, Recommendation
 │   │   └── methodologies/      # five_why, ishikawa, rca_systemic, fta, bowtie
 │   └── services/
-│       └── analysis_service.py # Оркестратор, реестр _RUNNERS
+│       ├── analysis_service.py # Оркестратор, реестр _RUNNERS
+│       └── export_service.py   # Генерация DOCX (все 5 методологий)
 ├── frontend/
 │   └── src/
-│       ├── api.js              # Централизованный fetch с Bearer-токеном
+│       ├── api.js              # Централизованный fetch; exportDocx() скачивает blob
 │       ├── App.jsx             # Login-gate, навигация, logout, обработка 401
 │       └── components/
 │           ├── AuthPage.jsx        # вход / регистрация
 │           ├── HistoryPage.jsx     # история через api.js
 │           ├── IncidentForm.jsx    # форма, без прямых HTTP-запросов
-│           ├── ResultView.jsx      # отображение, без прямых HTTP-запросов
+│           ├── ResultView.jsx      # кнопка ⬇️ DOCX, без прямых HTTP-запросов
 │           ├── BowtieDiagram.jsx   # диаграмма (v6), интегрирована в ResultView
 │           └── BowtieDiagram.css   # стили диаграммы (v6)
 ├── configs/prompts/            # Jinja2-шаблоны: five_why, ishikawa, fta, rca_systemic, bowtie
@@ -98,7 +121,7 @@ rca-analyzer/
 │   └── 003_add_users.py        # users + user_id в incidents/rca_results
 ├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml
+├── pyproject.toml              # v0.3.0, добавлен python-docx>=1.1
 └── .env                        # Создаётся вручную (не в git)
 ```
 
@@ -132,25 +155,26 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 - **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов
 - **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`; деградированные барьеры выделены визуально
 - **Обработка 401 в App.jsx** — при истечении токена автоматический редирект на экран логина
+- **Export DOCX** — `export_service.py` генерирует DOCX через `python-docx`; отдельные секции для каждой методологии; защищён Bearer-токеном
 
 ---
 
 ## Roadmap
 
 ### 🟢 Развитие
-- [ ] Export результатов в PDF / Word (`reportlab` или `python-docx`)
 - [ ] Refresh-токен / `httpOnly` cookie (сейчас токен в памяти — при перезагрузке нужен повторный вход)
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
 - [ ] E2E-тесты `pytest` для всех методологий
 
 ---
 
-## Статус на 05.06.2026
+## Статус на 05.06.2026 19:30 MSK
 
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
 - ✅ API: все 5 методологий работают
 - ✅ Авторизация: JWT + bcrypt, защищённые эндпоинты, изоляция данных по пользователю
 - ✅ Миграции: 3 версии применены
 - ✅ Frontend: все компоненты проверены, HTTP через api.js, BowtieDiagram интегрирован
-- ✅ Smoke-test bowtie: выполнен через Swagger UI — диаграмма BowtieDiagram отображает результат корректно (угрозы, барьеры, топ-событие, последствия, деградированные барьеры)
+- ✅ Smoke-test bowtie: выполнен через Swagger UI, BowtieDiagram отображает результат корректно
 - ✅ Аудит кода: IncidentForm.jsx, ResultView.jsx, App.jsx — голых fetch нет, все запросы через api.js
+- ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
