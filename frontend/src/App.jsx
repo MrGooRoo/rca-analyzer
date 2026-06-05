@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { api, setAuth, clearAuth, getUser, isAuthed } from './api.js'
+import React, { useEffect, useState } from 'react'
+import { api, clearAuth, setAuth, setAuthLostHandler } from './api.js'
 import AuthPage from './components/AuthPage.jsx'
 import IncidentForm from './components/IncidentForm.jsx'
 import ResultView from './components/ResultView.jsx'
@@ -7,17 +7,54 @@ import HistoryPage from './components/HistoryPage.jsx'
 import './App.css'
 
 export default function App() {
-  const [authed, setAuthed]   = useState(false)
-  const [page, setPage]       = useState('analyze')
-  const [result, setResult]   = useState(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
+  const [sessionReady, setSessionReady] = useState(false)
+  const [user, setUser]                 = useState(null)
+  const [page, setPage]                 = useState('analyze')
+  const [result, setResult]             = useState(null)
+  const [loading, setLoading]           = useState(false)
+  const [error, setError]               = useState(null)
 
-  if (!authed) {
-    return <AuthPage onAuth={() => setAuthed(true)} />
+  useEffect(() => {
+    let active = true
+
+    async function bootstrapSession() {
+      try {
+        const me = await api.auth.me()
+        if (!active) return
+        setAuth(me)
+        setUser(me)
+      } catch {
+        if (!active) return
+        clearAuth()
+        setUser(null)
+      } finally {
+        if (active) setSessionReady(true)
+      }
+    }
+
+    setAuthLostHandler(() => {
+      if (!active) return
+      clearAuth()
+      setUser(null)
+      setResult(null)
+      setError(null)
+      setPage('analyze')
+    })
+
+    bootstrapSession()
+
+    return () => {
+      active = false
+      setAuthLostHandler(null)
+    }
+  }, [])
+
+  function handleAuth(userInfo) {
+    setAuth(userInfo)
+    setUser(userInfo)
+    setError(null)
+    setPage('analyze')
   }
-
-  const user = getUser()
 
   async function handleSubmit(payload) {
     setLoading(true)
@@ -28,11 +65,6 @@ export default function App() {
       setResult(data)
       setPage('analyze')
     } catch (e) {
-      if (e.message.includes('401') || e.message.toLowerCase().includes('authenticated')) {
-        clearAuth()
-        setAuthed(false)
-        return
-      }
       setError(e.message)
     } finally {
       setLoading(false)
@@ -44,11 +76,32 @@ export default function App() {
     setPage('analyze')
   }
 
-  function logout() {
-    clearAuth()
-    setAuthed(false)
-    setResult(null)
-    setPage('analyze')
+  async function logout() {
+    try {
+      await api.auth.logout()
+    } catch {
+      // Игнорируем — в finally всё равно очищаем локальное состояние.
+    } finally {
+      clearAuth()
+      setUser(null)
+      setResult(null)
+      setError(null)
+      setPage('analyze')
+    }
+  }
+
+  if (!sessionReady) {
+    return (
+      <div className="app">
+        <main className="app-main">
+          <div className="alert">Проверка сессии…</div>
+        </main>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <AuthPage onAuth={handleAuth} />
   }
 
   return (
@@ -67,7 +120,7 @@ export default function App() {
           <button className={`nav-btn ${page === 'history' ? 'nav-btn--active' : ''}`} onClick={() => setPage('history')}>🗂 История</button>
         </nav>
         <div className="header-right">
-          <span className="header-user">{user?.display_name}</span>
+          <span className="header-user">{user.display_name}</span>
           <button className="btn-logout" onClick={logout}>Выйти</button>
         </div>
       </header>

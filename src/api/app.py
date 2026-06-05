@@ -1,12 +1,12 @@
-"""
-FastAPI application entry point.
-"""
+"""FastAPI application entry point."""
 
 from __future__ import annotations
 
 import logging
+import os
 
 from dotenv import load_dotenv
+
 load_dotenv()
 
 from fastapi import FastAPI, Request
@@ -23,9 +23,21 @@ logging.basicConfig(
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
 
+
+def _parse_origins(raw: str | None) -> list[str]:
+    if raw:
+        return [origin.strip() for origin in raw.split(",") if origin.strip()]
+    return [
+        "http://localhost:3000",
+        "http://localhost:5173",
+        "http://127.0.0.1:3000",
+        "http://127.0.0.1:5173",
+    ]
+
+
 app = FastAPI(
     title="RCA Analyzer API",
-    version="0.3.0",
+    version="0.4.0",
     description="Root cause analysis for industrial incidents.",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -33,14 +45,18 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000", "http://localhost:5173"],
+    allow_origins=_parse_origins(os.environ.get("CORS_ALLOW_ORIGINS")),
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 
 @app.exception_handler(MethodologyNotSupportedError)
-async def methodology_error_handler(request: Request, exc: MethodologyNotSupportedError) -> JSONResponse:
+async def methodology_error_handler(
+    request: Request,
+    exc: MethodologyNotSupportedError,
+) -> JSONResponse:
     return JSONResponse(status_code=400, content={"detail": str(exc)})
 
 

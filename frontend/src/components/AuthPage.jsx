@@ -1,9 +1,9 @@
 import React, { useState } from 'react'
-import { api, setAuth } from '../api.js'
+import { api } from '../api.js'
 import './AuthPage.css'
 
 export default function AuthPage({ onAuth }) {
-  const [mode, setMode]       = useState('login')   // 'login' | 'register'
+  const [mode, setMode]       = useState('login')
   const [email, setEmail]     = useState('')
   const [name, setName]       = useState('')
   const [pass, setPass]       = useState('')
@@ -15,18 +15,11 @@ export default function AuthPage({ onAuth }) {
     setError(null)
     setLoading(true)
     try {
-      let data
-      if (mode === 'login') {
-        data = await api.auth.login(email, pass)
-      } else {
-        data = await api.auth.register(email, name, pass)
-      }
-      setAuth(data.access_token, {
-        user_id:      data.user_id,
-        display_name: data.display_name,
-        email:        data.email,
-      })
-      onAuth()
+      const data = mode === 'login'
+        ? await api.auth.login(email, pass)
+        : await api.auth.register(email, name, pass)
+
+      onAuth(data)
     } catch (err) {
       setError(err.message)
     } finally {

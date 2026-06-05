@@ -3,6 +3,7 @@ ORM-модели (таблицы БД).
 
 Схема:
     users            — учётные записи пользователей
+    refresh_tokens   — refresh-сессии для httpOnly cookie
     incidents        — входные данные инцидента
     rca_results      — результат анализа (summary, модель, токены)
     causal_nodes     — все узлы дерева причин (IC / CC / RC)
@@ -32,42 +33,62 @@ from src.db.base import Base
 class UserORM(Base):
     __tablename__ = "users"
 
-    id:               Mapped[str]  = mapped_column(String(36), primary_key=True)
-    email:            Mapped[str]  = mapped_column(String(200), unique=True, nullable=False)
-    display_name:     Mapped[str]  = mapped_column(String(100), nullable=False)
-    hashed_password:  Mapped[str]  = mapped_column(String(200), nullable=False)
-    is_active:        Mapped[bool] = mapped_column(Boolean, default=True)
-    created_at:       Mapped[datetime] = mapped_column(
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    email: Mapped[str] = mapped_column(String(200), unique=True, nullable=False)
+    display_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    hashed_password: Mapped[str] = mapped_column(String(200), nullable=False)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    results:   Mapped[list[RCAResultORM]]  = relationship(back_populates="user")
-    incidents: Mapped[list[IncidentORM]]   = relationship(back_populates="user")
+    refresh_tokens: Mapped[list[RefreshTokenORM]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+    results: Mapped[list[RCAResultORM]] = relationship(back_populates="user")
+    incidents: Mapped[list[IncidentORM]] = relationship(back_populates="user")
+
+
+class RefreshTokenORM(Base):
+    __tablename__ = "refresh_tokens"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+
+    user: Mapped[UserORM] = relationship(back_populates="refresh_tokens")
 
 
 class IncidentORM(Base):
     __tablename__ = "incidents"
 
-    id:            Mapped[str]           = mapped_column(String(36), primary_key=True)
-    title:         Mapped[str]           = mapped_column(String(200))
-    description:   Mapped[str]           = mapped_column(Text)
-    incident_date: Mapped[datetime]      = mapped_column(DateTime(timezone=True))
-    location:      Mapped[str]           = mapped_column(String(200))
-    incident_type: Mapped[str]           = mapped_column(String(50))
-    severity:      Mapped[str]           = mapped_column(String(50))
-    victims:       Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    equipment:     Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    conditions:    Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text)
+    incident_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
+    location: Mapped[str] = mapped_column(String(200))
+    incident_type: Mapped[str] = mapped_column(String(50))
+    severity: Mapped[str] = mapped_column(String(50))
+    victims: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    equipment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     actions_taken: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    user_id:       Mapped[Optional[str]] = mapped_column(
+    user_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    user:    Mapped[Optional[UserORM]]    = relationship(back_populates="incidents")
-    results: Mapped[list[RCAResultORM]]   = relationship(
+    user: Mapped[Optional[UserORM]] = relationship(back_populates="incidents")
+    results: Mapped[list[RCAResultORM]] = relationship(
         back_populates="incident", cascade="all, delete-orphan"
     )
 
@@ -75,28 +96,28 @@ class IncidentORM(Base):
 class RCAResultORM(Base):
     __tablename__ = "rca_results"
 
-    result_id:      Mapped[str]           = mapped_column(String(36), primary_key=True)
-    incident_id:    Mapped[str]           = mapped_column(
+    result_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    incident_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("incidents.id", ondelete="CASCADE")
     )
-    user_id:        Mapped[Optional[str]] = mapped_column(
+    user_id: Mapped[Optional[str]] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
-    methodology:    Mapped[str]           = mapped_column(String(50))
-    summary:        Mapped[str]           = mapped_column(Text)
-    model_used:     Mapped[str]           = mapped_column(String(100))
-    tokens_used:    Mapped[int]           = mapped_column(Integer)
-    confidence_avg: Mapped[float]         = mapped_column(Float)
-    created_at:     Mapped[datetime]      = mapped_column(
+    methodology: Mapped[str] = mapped_column(String(50))
+    summary: Mapped[str] = mapped_column(Text)
+    model_used: Mapped[str] = mapped_column(String(100))
+    tokens_used: Mapped[int] = mapped_column(Integer)
+    confidence_avg: Mapped[float] = mapped_column(Float)
+    created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    user:            Mapped[Optional[UserORM]]        = relationship(back_populates="results")
-    incident:        Mapped[IncidentORM]              = relationship(back_populates="results")
-    causal_nodes:    Mapped[list[CausalNodeORM]]      = relationship(
+    user: Mapped[Optional[UserORM]] = relationship(back_populates="results")
+    incident: Mapped[IncidentORM] = relationship(back_populates="results")
+    causal_nodes: Mapped[list[CausalNodeORM]] = relationship(
         back_populates="result", cascade="all, delete-orphan"
     )
-    recommendations: Mapped[list[RecommendationORM]]  = relationship(
+    recommendations: Mapped[list[RecommendationORM]] = relationship(
         back_populates="result", cascade="all, delete-orphan"
     )
 
@@ -104,17 +125,17 @@ class RCAResultORM(Base):
 class CausalNodeORM(Base):
     __tablename__ = "causal_nodes"
 
-    id:         Mapped[str]           = mapped_column(String(36), primary_key=True)
-    result_id:  Mapped[str]           = mapped_column(
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    result_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("rca_results.result_id", ondelete="CASCADE")
     )
-    node_id:    Mapped[str]           = mapped_column(String(36))
-    node_role:  Mapped[str]           = mapped_column(String(20))
-    text:       Mapped[str]           = mapped_column(Text)
-    category:   Mapped[str]           = mapped_column(String(100))
-    level:      Mapped[int]           = mapped_column(Integer)
-    parent_id:  Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
-    confidence: Mapped[float]         = mapped_column(Float)
+    node_id: Mapped[str] = mapped_column(String(36))
+    node_role: Mapped[str] = mapped_column(String(20))
+    text: Mapped[str] = mapped_column(Text)
+    category: Mapped[str] = mapped_column(String(100))
+    level: Mapped[int] = mapped_column(Integer)
+    parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    confidence: Mapped[float] = mapped_column(Float)
 
     result: Mapped[RCAResultORM] = relationship(back_populates="causal_nodes")
 
@@ -122,16 +143,16 @@ class CausalNodeORM(Base):
 class RecommendationORM(Base):
     __tablename__ = "recommendations"
 
-    id:          Mapped[str]           = mapped_column(String(36), primary_key=True)
-    result_id:   Mapped[str]           = mapped_column(
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    result_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("rca_results.result_id", ondelete="CASCADE")
     )
-    rec_id:      Mapped[str]           = mapped_column(String(36))
-    text:        Mapped[str]           = mapped_column(Text)
-    priority:    Mapped[str]           = mapped_column(String(20))
-    category:    Mapped[str]           = mapped_column(String(50))
-    cause_id:    Mapped[str]           = mapped_column(String(36))
+    rec_id: Mapped[str] = mapped_column(String(36))
+    text: Mapped[str] = mapped_column(Text)
+    priority: Mapped[str] = mapped_column(String(20))
+    category: Mapped[str] = mapped_column(String(50))
+    cause_id: Mapped[str] = mapped_column(String(36))
     responsible: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
-    status:      Mapped[str]           = mapped_column(String(20), default="open")
+    status: Mapped[str] = mapped_column(String(20), default="open")
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")

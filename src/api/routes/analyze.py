@@ -1,8 +1,8 @@
 """
 FastAPI-роутер: анализ инцидентов.
 
-Все защищённые эндпоинты требуют Bearer-токен.
-Результаты привязываются к user_id из токена.
+Защищённые эндпоинты требуют auth-cookie или Bearer-токен.
+Результаты привязываются к user_id текущего пользователя.
 """
 
 from __future__ import annotations
@@ -11,8 +11,11 @@ import logging
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.auth.models import UserInfo
+from src.auth.service import get_current_user
 from src.db.base import get_db
 from src.db.repository import RCARepository
 from src.domain.models import (
@@ -22,14 +25,13 @@ from src.domain.models import (
     RCAResult,
 )
 from src.services.analysis_service import AnalysisService
-from src.auth.service import get_current_user, UserInfo
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
 _service = AnalysisService()
 
-DbSession  = Annotated[AsyncSession, Depends(get_db)]
+DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 
 
@@ -60,7 +62,6 @@ async def analyze_incident(
     await repo.save_result(result, user_id=current_user.user_id)
     logger.info("[DB] saved result %s for user %s", result.result_id, current_user.user_id)
 
-    # Проставляем user_id в доменный объект перед возвратом клиенту
     result.user_id = current_user.user_id
     return result
 
@@ -79,7 +80,7 @@ async def get_result(
     db: DbSession,
     current_user: CurrentUser,
 ) -> RCAResult:
-    repo   = RCARepository(db)
+    repo = RCARepository(db)
     result = await repo.get_result(result_id)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
@@ -117,9 +118,6 @@ async def list_results(
 # PATCH /api/v1/results/{result_id}/recommendations/{rec_id}
 # ---------------------------------------------------------------------------
 
-from pydantic import BaseModel  # noqa: E402
-
-
 class StatusUpdate(BaseModel):
     status: str
 
@@ -135,10 +133,17 @@ async def update_recommendation(
     db: DbSession,
     current_user: CurrentUser,
 ) -> dict:
-    VALID = {"open", "in_progress", "closed"}
-    if body.status not in VALID:
-        raise HTTPException(status_code=400, detail=f"Статус должен быть: {VALID}")
-    repo    = RCARepository(db)
+    valid_statuses = {"open", "in_progress", "closed"}
+    if body.status not in valid_statuses:
+        raise HTTPException(status_code=400, detail=f"Статус должен быть: {valid_statuses}")
+
+    repo = RCARepository(db)
+    result = await repo.get_result(result_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
+    if result.user_id and result.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+
     updated = await repo.update_recommendation_status(result_id, rec_id, body.status)
     if not updated:
         raise HTTPException(status_code=404, detail="Рекомендация не найдена.")

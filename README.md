@@ -1,7 +1,7 @@
 # RCA Analyzer
 
 Веб-приложение для анализа корневых причин (RCA) производственных инцидентов.
-Поддерживает 5 методологий, JWT-авторизацию, изолированную историю результатов по пользователям и экспорт отчётов в DOCX.
+Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, изолированную историю результатов по пользователям и экспорт отчётов в DOCX.
 
 ---
 
@@ -14,7 +14,7 @@
 | LLM | OpenRouter → `openai/gpt-4o-mini` |
 | Frontend | React (Vite) |
 | Контейнеризация | Docker Compose |
-| Авторизация | JWT HS256, TTL 24 ч, bcrypt |
+| Авторизация | JWT access + refresh-token в httpOnly cookie, bcrypt |
 | Экспорт | python-docx → DOCX-файл |
 
 ---
@@ -53,11 +53,13 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 
 | Метод | Эндпоинт | Описание |
 |---|---|---|
-| POST | `/api/v1/auth/register` | Регистрация → JWT |
-| POST | `/api/v1/auth/login` | Вход → JWT |
+| POST | `/api/v1/auth/register` | Регистрация → устанавливает access/refresh cookie |
+| POST | `/api/v1/auth/login` | Вход → устанавливает access/refresh cookie |
+| POST | `/api/v1/auth/refresh` | Обновить сессию по refresh cookie (rotation) |
+| POST | `/api/v1/auth/logout` | Отозвать текущий refresh-token и очистить cookie |
 | GET | `/api/v1/auth/me` | Профиль текущего пользователя |
 
-### Анализ (требует Bearer-токен)
+### Анализ (требует auth-cookie или Bearer-токен)
 
 | Метод | Эндпоинт | Описание |
 |---|---|---|
@@ -70,7 +72,7 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 
 ## Экспорт DOCX
 
-Эндпоинт: `GET /api/v1/results/{result_id}/export` (требует Bearer-токен)
+Эндпоинт: `GET /api/v1/results/{result_id}/export` (требует auth-cookie или Bearer-токен)
 
 DOCX-файл содержит:
 
@@ -91,14 +93,14 @@ DOCX-файл содержит:
 ```
 rca-analyzer/
 ├── src/
-│   ├── auth/                   # JWT, bcrypt, эндпоинты авторизации
+│   ├── auth/                   # Access JWT, refresh-token rotation, cookies, bcrypt
 │   ├── api/
-│   │   ├── app.py              # CORS, роутеры (v0.3.0)
+│   │   ├── app.py              # CORS + credentials, роутеры (v0.4.0)
 │   │   └── routes/
-│   │       ├── analyze.py      # Защищён Bearer-токеном, пишет user_id
+│   │       ├── analyze.py      # Защищён cookie/Bearer auth, пишет user_id
 │   │       └── export.py       # GET /results/{id}/export → DOCX
 │   ├── db/
-│   │   ├── orm_models.py       # UserORM, IncidentORM, RCAResultORM
+│   │   ├── orm_models.py       # UserORM, RefreshTokenORM, IncidentORM, RCAResultORM
 │   │   └── repository.py       # CRUD
 │   ├── domain/
 │   │   ├── models.py           # RCAResult, CauseNode, Recommendation
@@ -121,10 +123,11 @@ rca-analyzer/
 ├── alembic/versions/
 │   ├── 001_initial.py
 │   ├── 002_fix_varchar_lengths.py
-│   └── 003_add_users.py        # users + user_id в incidents/rca_results
+│   ├── 003_add_users.py        # users + user_id в incidents/rca_results
+│   └── 004_add_refresh_tokens.py
 ├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml              # v0.3.0, добавлен python-docx>=1.1
+├── pyproject.toml              # v0.4.0
 └── .env                        # Создаётся вручную (не в git)
 ```
 
@@ -135,7 +138,12 @@ rca-analyzer/
 ```env
 DATABASE_URL=postgresql+asyncpg://...
 OPENROUTER_API_KEY=...
-JWT_SECRET=...          # секрет для HS256
+JWT_SECRET=...                # секрет для HS256
+ACCESS_TOKEN_TTL_MINUTES=15
+REFRESH_TOKEN_TTL_DAYS=30
+AUTH_COOKIE_SECURE=false
+AUTH_COOKIE_SAMESITE=lax
+CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ---
@@ -152,20 +160,21 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 ## Ключевые архитектурные решения
 
 - **bcrypt напрямую** (без passlib) — обход бага совместимости с `bcrypt ≥ 4.x`
-- **JWT в памяти** (не в localStorage) — при перезагрузке страницы требуется повторный вход
+- **Access/refresh в httpOnly cookie** — frontend не хранит токены ни в памяти, ни в `localStorage`
+- **Refresh-token rotation** — при `POST /api/v1/auth/refresh` старый refresh-токен помечается revoked, клиент получает новую пару cookie
 - **user_id** сохраняется в `incidents` и `rca_results`; `GET /api/v1/results` возвращает только записи текущего пользователя
 - **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
-- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов
+- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов; `401` вызывает авто-refresh и один retry
 - **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`; деградированные барьеры выделены визуально
-- **Обработка 401 в App.jsx** — при истечении токена автоматический редирект на экран логина
-- **Export DOCX** — `export_service.py` генерирует DOCX через `python-docx`; отдельные секции для каждой методологии; защищён Bearer-токеном
+- **CORS с credentials** — backend готов принимать cookie-сессию от frontend
+- **Export DOCX** — `export_service.py` генерирует DOCX через `python-docx`; отдельные секции для каждой методологии; защищён auth-cookie/Bearer
 
 ---
 
 ## Roadmap
 
 ### 🟡 Следующий приоритет
-- [ ] Refresh-токен / `httpOnly` cookie (сейчас токен в памяти — при перезагрузке нужен повторный вход)
+- [x] Refresh-токен / `httpOnly` cookie
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
 
 ### 🟢 Развитие
@@ -175,12 +184,12 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ---
 
-## Статус на 05.06.2026 (v0.3.0)
+## Статус на 05.06.2026 (v0.4.0)
 
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
-- ✅ API: все 6 эндпоинтов работают
-- ✅ Авторизация: JWT + bcrypt, защищённые эндпоинты, изоляция данных по пользователю
-- ✅ Миграции: 3 версии применены (001 → 002 → 003)
-- ✅ Frontend: все компоненты проверены, HTTP через api.js, BowtieDiagram интегрирован
+- ✅ API: добавлены `POST /api/v1/auth/refresh` и `POST /api/v1/auth/logout`
+- ✅ Авторизация: access JWT + refresh-token rotation в `httpOnly` cookie, bcrypt
+- ✅ Миграции: 4 версии (001 → 002 → 003 → 004)
+- ✅ Frontend: восстановление сессии после перезагрузки, авто-refresh при `401`, токены не хранятся в JS
 - ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
-- ✅ **Full smoke-test пройден**: логин → все 5 методологий → скачивание DOCX — всё работает
+- ✅ Исправлен authz-gap: обновление статуса рекомендации теперь проверяет владельца результата

@@ -7,7 +7,7 @@ packages = ["src"]
 
 [project]
 name = "rca-analyzer"
-version = "0.3.0"
+version = "0.4.0"
 description = "Automatic Root Cause Analysis for industrial incidents via LLM"
 requires-python = ">=3.11"
 dependencies = [

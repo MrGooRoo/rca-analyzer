@@ -4,7 +4,8 @@ Export роутер.
 GET /api/v1/results/{result_id}/export
   → возвращает DOCX-файл как вложение.
 
-Требует Bearer-токен. Возвращает 403 если result принадлежит другому пользователю.
+Требует auth-cookie или Bearer-токен.
+Возвращает 403, если result принадлежит другому пользователю.
 """
 
 from __future__ import annotations
@@ -15,14 +16,15 @@ from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from src.auth.service import UserInfo, get_current_user
+from src.auth.models import UserInfo
+from src.auth.service import get_current_user
 from src.db.base import get_db
 from src.db.repository import RCARepository
 from src.services.export_service import generate_docx
 
 router = APIRouter(prefix="/api/v1", tags=["export"])
 
-DbSession   = Annotated[AsyncSession, Depends(get_db)]
+DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 
 
@@ -44,7 +46,7 @@ async def export_result(
     db: DbSession,
     current_user: CurrentUser,
 ) -> Response:
-    repo   = RCARepository(db)
+    repo = RCARepository(db)
     result = await repo.get_result(result_id)
 
     if result is None:

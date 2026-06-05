@@ -16,15 +16,14 @@ class LoginRequest(BaseModel):
     password: str
 
 
-class TokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    user_id: str
-    display_name: str
-    email: str
-
-
 class UserInfo(BaseModel):
     user_id: str
     email: str
     display_name: str
+
+
+class AuthResponse(UserInfo):
+    """Ответ успешной авторизации.
+
+    Access/refresh-токены не возвращаются в JSON, а устанавливаются как httpOnly cookie.
+    """
