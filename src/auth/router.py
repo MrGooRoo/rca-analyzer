@@ -13,6 +13,7 @@ from src.auth.cookies import (
     set_access_cookie,
     set_refresh_cookie,
 )
+from src.auth.csrf import clear_csrf_cookie, set_csrf_cookie
 from src.auth.models import AuthResponse, LoginRequest, RegisterRequest, UserInfo
 from src.auth.service import (
     ACCESS_TOKEN_TTL,
@@ -38,6 +39,7 @@ async def register(body: RegisterRequest, response: Response, db: Db) -> AuthRes
     access_token, refresh_token = await issue_auth_tokens(db, user)
     set_access_cookie(response, access_token, ACCESS_TOKEN_TTL)
     set_refresh_cookie(response, refresh_token, REFRESH_TOKEN_TTL)
+    set_csrf_cookie(response)
     return AuthResponse(**build_user_info(user).model_dump())
 
 
@@ -48,6 +50,7 @@ async def login(body: LoginRequest, response: Response, db: Db) -> AuthResponse:
     access_token, refresh_token = await issue_auth_tokens(db, user)
     set_access_cookie(response, access_token, ACCESS_TOKEN_TTL)
     set_refresh_cookie(response, refresh_token, REFRESH_TOKEN_TTL)
+    set_csrf_cookie(response)
     return AuthResponse(**build_user_info(user).model_dump())
 
 
@@ -61,6 +64,7 @@ async def refresh(request: Request, response: Response, db: Db) -> AuthResponse:
     user, access_token, new_refresh_token = await rotate_refresh_token(db, refresh_token)
     set_access_cookie(response, access_token, ACCESS_TOKEN_TTL)
     set_refresh_cookie(response, new_refresh_token, REFRESH_TOKEN_TTL)
+    set_csrf_cookie(response)
     return AuthResponse(**build_user_info(user).model_dump())
 
 
@@ -71,6 +75,7 @@ async def logout(request: Request, response: Response, db: Db) -> dict:
     if refresh_token:
         await revoke_refresh_token(db, refresh_token)
     clear_auth_cookies(response)
+    clear_csrf_cookie(response)
     return {"ok": True}
 
 

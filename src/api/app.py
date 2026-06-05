@@ -13,6 +13,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from src.api.middleware.csrf import CSRFMiddleware
 from src.api.routes.analyze import router as analyze_router
 from src.api.routes.export import router as export_router
 from src.auth.router import router as auth_router
@@ -42,6 +43,11 @@ app = FastAPI(
     docs_url="/docs",
     redoc_url="/redoc",
 )
+
+# CSRF добавляется ПЕРВЫМ (внутренний слой), CORS — ПОСЛЕДНИМ (внешний слой).
+# Starlette выполняет middleware в обратном порядке регистрации, поэтому такой
+# порядок гарантирует, что даже на CSRF-ответ 403 навешиваются CORS-заголовки.
+app.add_middleware(CSRFMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
