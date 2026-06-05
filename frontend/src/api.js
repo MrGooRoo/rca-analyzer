@@ -32,6 +32,25 @@ function notifyAuthLost() {
   _authLostHandler?.()
 }
 
+const CSRF_COOKIE_NAME = 'csrf_token'
+const CSRF_HEADER_NAME = 'X-CSRF-Token'
+const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
+
+/** Прочитать значение CSRF-токена из не-httpOnly cookie. */
+function readCsrfToken() {
+  const match = document.cookie.match(
+    new RegExp('(?:^|; )' + CSRF_COOKIE_NAME + '=([^;]*)'),
+  )
+  return match ? decodeURIComponent(match[1]) : null
+}
+
+function withCsrf(headers, method) {
+  if (SAFE_METHODS.has(method.toUpperCase())) return headers
+  const token = readCsrfToken()
+  if (token) headers[CSRF_HEADER_NAME] = token
+  return headers
+}
+
 function defaultHeaders(body) {
   return body !== undefined ? { 'Content-Type': 'application/json' } : {}
 }
@@ -98,7 +117,7 @@ async function req(method, path, body, options = {}) {
 
   const response = await fetch(path, {
     method,
-    headers: defaultHeaders(body),
+    headers: withCsrf(defaultHeaders(body), method),
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: 'include',
   })
