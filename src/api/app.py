@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api.routes.analyze import router as analyze_router
+from src.api.routes.export import router as export_router
 from src.auth.router import router as auth_router
 from src.domain.models import LLMResponseValidationError, MethodologyNotSupportedError
 
@@ -24,7 +25,7 @@ logging.basicConfig(
 
 app = FastAPI(
     title="RCA Analyzer API",
-    version="0.2.0",
+    version="0.3.0",
     description="Root cause analysis for industrial incidents.",
     docs_url="/docs",
     redoc_url="/redoc",
@@ -56,6 +57,7 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
 
 app.include_router(auth_router)
 app.include_router(analyze_router)
+app.include_router(export_router)
 
 
 @app.get("/health", tags=["infra"])
