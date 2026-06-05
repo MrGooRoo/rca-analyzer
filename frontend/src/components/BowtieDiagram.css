@@ -1,13 +1,13 @@
-/* BowtieDiagram v5 */
+/* BowtieDiagram v6 */
 
-/* ── Shell ────────────────────────────────────────────── */
+/* ── Shell ────────────────────────────────────────────────── */
 .bt-shell {
   display: flex;
   flex-direction: column;
   gap: 14px;
 }
 
-/* ── Легенда ─────────────────────────────────────────── */
+/* ── Легенда ──────────────────────────────────────────────── */
 .bt-legend {
   display: flex;
   flex-wrap: wrap;
@@ -19,11 +19,14 @@
   font-size: 11.5px;
   color: #94a3b8;
 }
-.bt-leg-item { display:flex; align-items:center; gap:5px; }
-.bt-leg-dot  { width:7px; height:7px; border-radius:50%; flex-shrink:0; }
+.bt-leg-item { display: flex; align-items: center; gap: 5px; }
+.bt-leg-dot  { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
 
-/* ── Canvas ─────────────────────────────────────────── */
-/* v5: overflow:visible чтобы линии не обрезались border-radius */
+/* ── Canvas ───────────────────────────────────────────────── */
+/*
+ * Fix 4: overflow:visible — линии у краёв не обрезаются border-radius.
+ * padding: 28px 20px — одинаковый со всех сторон, барьеры не вылазят.
+ */
 .bt-canvas {
   position: relative;
   overflow: visible;
@@ -31,11 +34,14 @@
   border: 1px solid rgba(255,255,255,.06);
   border-radius: 18px;
   backdrop-filter: blur(20px) saturate(140%);
-  box-shadow: 0 2px 0 rgba(255,255,255,.04) inset, 0 20px 60px rgba(0,0,0,.45);
-  padding: 32px 18px 28px;  /* v5: увеличен верхний отступ для барьеров */
+  box-shadow:
+    0 2px 0 rgba(255,255,255,.04) inset,
+    0 20px 60px rgba(0,0,0,.45);
+  padding: 28px 20px;
 }
 
-/* ── SVG поверх колонок ────────────────────────────── */
+/* ── SVG — абсолютно поверх всего, но ниже карточек ──────── */
+/* Fix 4: overflow:visible чтобы линии не обрезались */
 .bt-svg {
   position: absolute;
   inset: 0;
@@ -44,37 +50,49 @@
   overflow: visible;
 }
 
-/* ── Колонки ─────────────────────────────────────────── */
+/* ── Flex-колонки ─────────────────────────────────────────── */
 .bt-cols {
   position: relative;
   z-index: 1;
   display: flex;
-  gap: 12px;
+  gap: 10px;
   align-items: stretch;
-  min-height: 260px;
+  /* Fix 2: min-height гарантирует высоту для выравнивания барьеров */
+  min-height: 280px;
 }
+
+/* Угрозы / Последствия */
 .bt-col {
   display: flex;
   flex-direction: column;
   gap: 9px;
-  justify-content: center;  /* v5: единый center для всех колонок */
+  justify-content: center;
   flex: 1.15;
-}
-/* v5: барьеры — center вместо space-around, чтобы не выходить за край */
-.bt-col--mid {
-  flex: 0.82;
-  justify-content: center;
-  gap: 10px;
-}
-/* v5: центральная колонка — строго по центру, с отступами для баланса */
-.bt-col--top {
-  flex: 0.9;
-  justify-content: center;
-  align-items: center;
+  /* Fix 2: внутренний отступ чтобы карточки не касались края canvas */
   padding: 4px 0;
 }
 
-/* ── Карточки ─────────────────────────────────────────── */
+/*
+ * Fix 2: Барьеры — space-evenly распределяет равномерно по высоте колонки
+ * без выхода за пределы. padding:4px не даёт первой карточке прилипнуть к верху.
+ */
+.bt-col--mid {
+  flex: 0.82;
+  justify-content: space-evenly;
+  padding: 4px 0;
+}
+
+/* Fix 3: Центральная колонка — строго по центру */
+.bt-col--top {
+  flex: 0.9;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  padding: 4px 0;
+}
+
+/* ── Карточки ─────────────────────────────────────────────── */
 .bt-card {
   position: relative;
   display: flex;
@@ -85,15 +103,19 @@
   border-radius: 12px;
   cursor: default;
   backdrop-filter: blur(10px);
-  box-shadow: 0 3px 12px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.06);
+  box-shadow:
+    0 3px 12px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,.06);
   transition: transform 160ms cubic-bezier(.16,1,.3,1), box-shadow 160ms;
 }
 .bt-card:hover {
   transform: translateY(-2px);
-  box-shadow: 0 7px 24px rgba(0,0,0,.32), inset 0 1px 0 rgba(255,255,255,.08);
+  box-shadow:
+    0 7px 24px rgba(0,0,0,.32),
+    inset 0 1px 0 rgba(255,255,255,.08);
 }
 
-/* Центральная */
+/* Центральная карточка */
 .bt-card--c {
   padding: 16px 18px;
   border-radius: 16px;
@@ -112,10 +134,10 @@
   font-weight: 650;
   line-height: 1.35;
   text-align: center;
-  -webkit-line-clamp: 5;
+  -webkit-line-clamp: 6;
 }
 
-/* Барьер */
+/* Барьер — цветная полоска слева */
 .bt-card--b { padding-left: 10px; }
 .bt-shield {
   width: 3px;
@@ -126,63 +148,27 @@
   margin-top: 1px;
 }
 
-/* Hazard */
-.bt-card--h { opacity:.78; font-style:italic; }
+/* Опасный фактор */
+.bt-card--h { opacity: .78; font-style: italic; }
 
-/* Деградированный */
-.bt-card--deg { opacity:.52; border-style:dashed!important; }
-.bt-deg-mark   { font-size:10px; opacity:.75; }
+/* Деградированный барьер */
+.bt-card--deg { opacity: .52; border-style: dashed !important; }
+.bt-deg-mark  { font-size: 10px; opacity: .75; }
 
-/* Текст */
+/* Текст карточки */
 .bt-card-text {
   font-size: 12px;
   font-weight: 500;
   line-height: 1.45;
   letter-spacing: -.01em;
-  font-family: -apple-system,'SF Pro Text',system-ui,sans-serif;
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
   display: -webkit-box;
   -webkit-line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
 
-/* ── Тултип ─────────────────────────────────────────── */
-/* v5: смещён над курсор через transform в JSX */
-.bt-tip {
-  position: fixed;
-  z-index: 9999;
-  max-width: 240px;
-  padding: 10px 13px;
-  background: rgba(12,15,26,.94);
-  border: 1px solid rgba(255,255,255,.10);
-  border-radius: 11px;
-  backdrop-filter: blur(14px);
-  box-shadow: 0 8px 28px rgba(0,0,0,.45);
-  pointer-events: none;
-}
-.bt-tip-text {
-  font-size: 12px;
-  color: #e2e8f0;
-  line-height: 1.5;
-  font-family: -apple-system,'SF Pro Text',system-ui,sans-serif;
-  margin-bottom: 6px;
-}
-.bt-tip-meta {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 11px;
-  color: #94a3b8;
-}
-.bt-tip-bar {
-  display: block;
-  height: 3px;
-  border-radius: 2px;
-  transition: width 300ms;
-}
-
-/* ── SVG линии ─────────────────────────────────────── */
-/* v5: стили для path-линий */
+/* ── SVG линии ────────────────────────────────────────────── */
 .bt-line {
   fill: none;
   stroke-width: 1.6;
@@ -191,7 +177,50 @@
 .bt-line--L { stroke: #a78bfa; }
 .bt-line--R { stroke: #34d399; }
 
-/* ── Raw / Список узлов ───────────────────────────────── */
+/* ── Тултип ───────────────────────────────────────────────── */
+/*
+ * Fix 1:
+ *   - position:fixed — вне потока, не обрезается overflow родителя
+ *   - pointer-events:none — не мешает hover
+ *   - z-index:9999 — поверх всего
+ *   Позиционирование через JS (tipStyle): clamp к краям viewport,
+ *   transform:translateY(-100%) — всегда над курсором.
+ */
+.bt-tip {
+  position: fixed;
+  z-index: 9999;
+  width: 240px;
+  padding: 10px 13px;
+  background: rgba(10,13,24,.96);
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 11px;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 8px 28px rgba(0,0,0,.5), 0 2px 8px rgba(0,0,0,.3);
+  pointer-events: none;
+}
+.bt-tip-text {
+  font-size: 12px;
+  color: #e2e8f0;
+  line-height: 1.5;
+  font-family: -apple-system, 'SF Pro Text', system-ui, sans-serif;
+  margin-bottom: 7px;
+}
+.bt-tip-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: #94a3b8;
+}
+.bt-tip-bar {
+  display: block;
+  height: 3px;
+  border-radius: 2px;
+  max-width: 100%;
+  transition: width 300ms ease;
+}
+
+/* ── Список узлов ─────────────────────────────────────────── */
 .bt-raw {
   background: rgba(255,255,255,.02);
   border: 1px solid rgba(255,255,255,.07);
@@ -207,11 +236,11 @@
   user-select: none;
   list-style: none;
 }
-.bt-raw summary::-webkit-details-marker { display:none; }
+.bt-raw summary::-webkit-details-marker { display: none; }
 .bt-raw summary:hover { color: #e2e8f0; }
 .bt-raw-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit,minmax(140px,1fr));
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
   padding: 10px 14px 14px;
   border-top: 1px solid rgba(255,255,255,.06);
@@ -233,4 +262,4 @@
   border-bottom: 1px solid rgba(255,255,255,.05);
   line-height: 1.4;
 }
-.bt-raw-conf { font-size:10.5px; color:#94a3b8; flex-shrink:0; }
+.bt-raw-conf { font-size: 10.5px; color: #94a3b8; flex-shrink: 0; }
