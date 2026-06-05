@@ -39,7 +39,7 @@ Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
 | `ishikawa` | ✅ работает | ~2267 |
 | `rca_systemic` | ✅ работает | ~1504 |
 | `fta` | ✅ работает | ~1446 |
-| `bowtie` | ✅ работает | ~3138 |
+| `bowtie` | ✅ работает + smoke-test пройден | ~3138 |
 
 ---
 
@@ -83,13 +83,14 @@ rca-analyzer/
 ├── frontend/
 │   └── src/
 │       ├── api.js              # Централизованный fetch с Bearer-токеном
-│       ├── App.jsx             # Login-gate, навигация, logout
+│       ├── App.jsx             # Login-gate, навигация, logout, обработка 401
 │       └── components/
 │           ├── AuthPage.jsx        # вход / регистрация
 │           ├── HistoryPage.jsx     # история через api.js
 │           ├── IncidentForm.jsx    # форма, без прямых HTTP-запросов
 │           ├── ResultView.jsx      # отображение, без прямых HTTP-запросов
-│           └── BowtieDiagram.jsx   # диаграмма, интегрирована в ResultView
+│           ├── BowtieDiagram.jsx   # диаграмма (v6), интегрирована в ResultView
+│           └── BowtieDiagram.css   # стили диаграммы (v6)
 ├── configs/prompts/            # Jinja2-шаблоны: five_why, ishikawa, fta, rca_systemic, bowtie
 ├── alembic/versions/
 │   ├── 001_initial.py
@@ -122,37 +123,34 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 
 ---
 
-## Ключевые архитектуကные решения
+## Ключевые архитектурные решения
 
 - **bcrypt напрямую** (без passlib) — обход бага совместимости с `bcrypt ≥ 4.x`
 - **JWT в памяти** (не в localStorage) — при перезагрузке страницы требуется повторный вход
 - **user_id** сохраняется в `incidents` и `rca_results`; `GET /api/v1/results` возвращает только записи текущего пользователя
 - **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
 - **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов
-- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`
+- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`; деградированные барьеры выделены визуально
+- **Обработка 401 в App.jsx** — при истечении токена автоматический редирект на экран логина
 
 ---
 
 ## Roadmap
 
-### 🟡 Ближайшее
-- [ ] Frontend smoke-test: `npm install && npm run dev`, все 5 методологий через UI
-- [ ] `GET /api/v1/results/{id}` — проверить возврат `user_id`
-
 ### 🟢 Развитие
-- [ ] Export результатов в PDF / Word
+- [ ] Export результатов в PDF / Word (`reportlab` или `python-docx`)
+- [ ] Refresh-токен / `httpOnly` cookie (сейчас токен в памяти — при перезагрузке нужен повторный вход)
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
-- [ ] Refresh-токен / `httpOnly` cookie
 - [ ] E2E-тесты `pytest` для всех методологий
 
 ---
 
-## Статус на 04.06.2026
+## Статус на 05.06.2026
 
-- ✅ Инфраструктуကа: Docker Compose (API + PostgreSQL)
-- ✅ API: все 5 методологий работают (включая bowtie)
+- ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
+- ✅ API: все 5 методологий работают
 - ✅ Авторизация: JWT + bcrypt, защищённые эндпоинты, изоляция данных по пользователю
-- ✅ Мигကации: 3 веကсии пကименены
-- ✅ Фကонтенд: все компоненты пကовеကены, HTTP чеကез api.js, BowtieDiagram интегကиကован
-- ✅ Дефекты: `user_id: null` испကавлен, валидация баကьеကов добавлена
-- 🟡 Ожидает Frontend smoke-test чеကез бကаузеက
+- ✅ Миграции: 3 версии применены
+- ✅ Frontend: все компоненты проверены, HTTP через api.js, BowtieDiagram интегрирован
+- ✅ Smoke-test bowtie: выполнен через Swagger UI — диаграмма BowtieDiagram отображает результат корректно (угрозы, барьеры, топ-событие, последствия, деградированные барьеры)
+- ✅ Аудит кода: IncidentForm.jsx, ResultView.jsx, App.jsx — голых fetch нет, все запросы через api.js
