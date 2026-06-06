@@ -71,9 +71,9 @@ SYSTEM_PROMPT = """\
 USER_PROMPT_TEMPLATE = """\
 Проанализируй следующий текст отчёта об инциденте и извлеки структурированные данные.
 
---- ТЕКСТ ОТЧЁТА ---
+--- ТЕКСТ ОТЧЄТА ---
 {report_text}
---- КОНЕЦ ОТЧЁТА ---
+--- КОНЕЦ ОТЧЄТА ---
 
 Верни JSON со всеми полями из схемы (включая victims_list, scene_description и т.д.).\
 """
@@ -99,6 +99,8 @@ async def extract_fields_from_text(report_text: str) -> dict:
             user_prompt=user_prompt,
             temperature=0.1,
             max_tokens=3000,
+            # upload использует свою схему — не требуем summary/recommendations
+            required_keys={"title"},
         )
 
     raw.pop("_meta", None)
