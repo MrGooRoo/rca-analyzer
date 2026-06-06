@@ -42,23 +42,14 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 14px;
-  table-layout: fixed;
 }
 
-.admin-table th:nth-child(1),
-.admin-table td:nth-child(1) { width: 22%; }
-
-.admin-table th:nth-child(2),
-.admin-table td:nth-child(2) { width: 28%; }
-
 .admin-table th:nth-child(3),
-.admin-table td:nth-child(3) { width: 14%; text-align: center; }
-
+.admin-table td:nth-child(3),
 .admin-table th:nth-child(4),
-.admin-table td:nth-child(4) { width: 14%; text-align: center; }
-
+.admin-table td:nth-child(4),
 .admin-table th:nth-child(5),
-.admin-table td:nth-child(5) { width: 22%; text-align: center; }
+.admin-table td:nth-child(5) { text-align: center; white-space: nowrap; }
 
 .admin-table th {
   text-align: left;
@@ -99,9 +90,6 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .admin-you {
