@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
+import { api } from '../api.js'
 import './IncidentForm.css'
 
 const METHODOLOGIES = [
@@ -29,13 +30,13 @@ const TYPES = [
 ]
 
 const DEFAULTS = {
-  title: 'Падение работника с лестницы',
-  description: 'Работник поскользнулся на мокрой ступени и упал с высоты 2 м.',
-  incident_date: '2026-06-01T09:30',
-  location: 'Цех №3, отметка +6м',
+  title: '',
+  description: '',
+  incident_date: '',
+  location: '',
   incident_type: 'injury',
   severity: 'moderate',
-  victims: 1,
+  victims: 0,
   methodology: 'bowtie',
   language: 'ru',
   detail_level: 2,
@@ -43,10 +44,89 @@ const DEFAULTS = {
 
 export default function IncidentForm({ onSubmit, loading }) {
   const [form, setForm] = useState(DEFAULTS)
+  const [uploading, setUploading] = useState(false)
+  const [uploadError, setUploadError] = useState(null)
+  const [uploadedFile, setUploadedFile] = useState(null)
+  const [dragOver, setDragOver] = useState(false)
+  const fileInputRef = useRef(null)
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
+
+  // --- DOCX Upload ---
+
+  async function processFile(file) {
+    if (!file) return
+
+    if (!file.name.toLowerCase().endsWith('.docx')) {
+      setUploadError('Допустимы только файлы формата .docx')
+      return
+    }
+
+    if (file.size > 10 * 1024 * 1024) {
+      setUploadError('Файл слишком большой (макс. 10 МБ)')
+      return
+    }
+
+    setUploading(true)
+    setUploadError(null)
+    setUploadedFile(file.name)
+
+    try {
+      const fields = await api.uploadReport(file)
+
+      // Заполняем форму извлечёнными данными
+      setForm(prev => ({
+        ...prev,
+        title: fields.title || prev.title,
+        description: fields.description || prev.description,
+        incident_date: fields.incident_date
+          ? fields.incident_date.slice(0, 16)  // datetime-local формат
+          : prev.incident_date,
+        location: fields.location || prev.location,
+        incident_type: fields.incident_type || prev.incident_type,
+        severity: fields.severity || prev.severity,
+        victims: fields.victims ?? prev.victims,
+      }))
+    } catch (e) {
+      setUploadError(e.message)
+      setUploadedFile(null)
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function handleFileSelect(e) {
+    const file = e.target.files?.[0]
+    if (file) processFile(file)
+    // Сброс input чтобы можно было загрузить тот же файл повторно
+    if (fileInputRef.current) fileInputRef.current.value = ''
+  }
+
+  function handleDrop(e) {
+    e.preventDefault()
+    setDragOver(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) processFile(file)
+  }
+
+  function handleDragOver(e) {
+    e.preventDefault()
+    setDragOver(true)
+  }
+
+  function handleDragLeave(e) {
+    e.preventDefault()
+    setDragOver(false)
+  }
+
+  function clearUpload() {
+    setUploadedFile(null)
+    setUploadError(null)
+  }
+
+  // --- Submit ---
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -70,6 +150,59 @@ export default function IncidentForm({ onSubmit, loading }) {
     <form className="incident-form" onSubmit={handleSubmit}>
       <h2 className="form-title">Новый анализ инцидента</h2>
 
+      {/* --- Зона загрузки DOCX --- */}
+      <div
+        className={`upload-zone ${dragOver ? 'upload-zone--dragover' : ''} ${uploading ? 'upload-zone--uploading' : ''} ${uploadedFile ? 'upload-zone--done' : ''}`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onClick={() => !uploading && fileInputRef.current?.click()}
+      >
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".docx"
+          onChange={handleFileSelect}
+          style={{ display: 'none' }}
+        />
+
+        {uploading ? (
+          <div className="upload-zone__content">
+            <span className="upload-spinner" />
+            <span className="upload-zone__text">ИИ анализирует отчёт…</span>
+            <span className="upload-zone__hint">Извлекаю данные из «{uploadedFile}»</span>
+          </div>
+        ) : uploadedFile ? (
+          <div className="upload-zone__content">
+            <span className="upload-zone__icon">✅</span>
+            <span className="upload-zone__text">Поля заполнены из «{uploadedFile}»</span>
+            <span className="upload-zone__hint">Проверьте и отредактируйте данные ниже, затем запустите анализ</span>
+            <button type="button" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }}>
+              ✕ Сбросить
+            </button>
+          </div>
+        ) : (
+          <div className="upload-zone__content">
+            <span className="upload-zone__icon">📄</span>
+            <span className="upload-zone__text">Загрузите отчёт об инциденте</span>
+            <span className="upload-zone__hint">
+              Перетащите DOCX-файл сюда или нажмите для выбора.
+              ИИ извлечёт данные и заполнит форму автоматически.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {uploadError && (
+        <div className="upload-error">
+          <strong>Ошибка загрузки:</strong> {uploadError}
+        </div>
+      )}
+
+      <div className="form-divider" />
+
+      {/* --- Ручной ввод / редактирование --- */}
+
       <div className="form-row">
         <div className="form-group form-group--full">
           <label>Заголовок инцидента</label>
@@ -79,6 +212,7 @@ export default function IncidentForm({ onSubmit, loading }) {
             onChange={e => set('title', e.target.value)}
             required
             minLength={5}
+            placeholder="Введите заголовок или загрузите отчёт"
           />
         </div>
       </div>
@@ -87,11 +221,12 @@ export default function IncidentForm({ onSubmit, loading }) {
         <div className="form-group form-group--full">
           <label>Описание</label>
           <textarea
-            rows={3}
+            rows={4}
             value={form.description}
             onChange={e => set('description', e.target.value)}
             required
             minLength={20}
+            placeholder="Подробное описание инцидента"
           />
         </div>
       </div>
@@ -113,6 +248,7 @@ export default function IncidentForm({ onSubmit, loading }) {
             value={form.location}
             onChange={e => set('location', e.target.value)}
             required
+            placeholder="Место инцидента"
           />
         </div>
       </div>
