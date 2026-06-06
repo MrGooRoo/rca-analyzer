@@ -11,7 +11,7 @@ export default function AdminPage({ currentUser }) {
   const [users, setUsers]       = useState([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
-  const [busy, setBusy]         = useState(null) // user_id в процессе
+  const [busy, setBusy]         = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -62,67 +62,61 @@ export default function AdminPage({ currentUser }) {
         <div className="admin-empty">Пользователей нет</div>
       )}
 
-      <div className="admin-table-wrap">
-        {users.length > 0 && (
-          <table className="admin-table">
-            <thead>
-              <tr>
-                <th>Пользователь</th>
-                <th>Email</th>
-                <th>Роль</th>
-                <th>Статус</th>
-                <th>Действие</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map(u => {
-                const r = ROLE_LABELS[u.role] || ROLE_LABELS.user
-                const isSelf = u.user_id === currentUser.user_id
-                return (
-                  <tr key={u.user_id} className={isSelf ? 'admin-row--self' : ''}>
-                    <td className="admin-cell-name">
-                      {u.display_name}
-                      {isSelf && <span className="admin-you">(вы)</span>}
-                    </td>
-                    <td className="admin-cell-email">{u.email}</td>
-                    <td>
-                      <span
-                        className="admin-badge"
-                        style={{ background: r.bg, color: r.color }}
-                      >
-                        {r.label}
-                      </span>
-                    </td>
-                    <td>
-                      <span className={`admin-status ${u.is_active ? 'admin-status--active' : 'admin-status--disabled'}`}>
-                        {u.is_active ? 'Активен' : 'Отключён'}
-                      </span>
-                    </td>
-                    <td>
-                      {isSelf ? (
-                        <span className="admin-no-action">—</span>
-                      ) : (
-                        <button
-                          className={`admin-btn-role ${u.role === 'admin' ? 'admin-btn-role--demote' : 'admin-btn-role--promote'}`}
-                          onClick={() => toggleRole(u)}
-                          disabled={busy === u.user_id}
-                        >
-                          {busy === u.user_id
-                            ? '…'
-                            : u.role === 'admin'
-                              ? '↓ Снять admin'
-                              : '↑ Сделать admin'
-                          }
-                        </button>
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {users.length > 0 && (
+        <div className="admin-grid">
+          <div className="admin-grid-header">
+            <span>Пользователь</span>
+            <span>Email</span>
+            <span>Роль</span>
+            <span>Статус</span>
+            <span>Действие</span>
+          </div>
+          {users.map(u => {
+            const r = ROLE_LABELS[u.role] || ROLE_LABELS.user
+            const isSelf = u.user_id === currentUser.user_id
+            return (
+              <div key={u.user_id} className={`admin-grid-row ${isSelf ? 'admin-row--self' : ''}`}>
+                <div className="admin-cell-name">
+                  <span className="admin-cell-name-text">{u.display_name}</span>
+                  {isSelf && <span className="admin-you">(вы)</span>}
+                </div>
+                <div className="admin-cell-email">{u.email}</div>
+                <div>
+                  <span
+                    className="admin-badge"
+                    style={{ background: r.bg, color: r.color }}
+                  >
+                    {r.label}
+                  </span>
+                </div>
+                <div>
+                  <span className={`admin-status ${u.is_active ? 'admin-status--active' : 'admin-status--disabled'}`}>
+                    {u.is_active ? 'Активен' : 'Отключён'}
+                  </span>
+                </div>
+                <div>
+                  {isSelf ? (
+                    <span className="admin-no-action">—</span>
+                  ) : (
+                    <button
+                      className={`admin-btn-role ${u.role === 'admin' ? 'admin-btn-role--demote' : 'admin-btn-role--promote'}`}
+                      onClick={() => toggleRole(u)}
+                      disabled={busy === u.user_id}
+                    >
+                      {busy === u.user_id
+                        ? '…'
+                        : u.role === 'admin'
+                          ? '↓ Снять admin'
+                          : '↑ Сделать admin'
+                      }
+                    </button>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
     </div>
   )
 }
