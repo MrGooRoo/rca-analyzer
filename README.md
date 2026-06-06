@@ -1,7 +1,7 @@
 # RCA Analyzer
 
 Веб-приложение для анализа корневых причин (RCA) производственных инцидентов.
-Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, изолированную историю результатов по пользователям и экспорт отчётов в DOCX.
+Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, изолированную историю результатов по пользователям, загрузку DOCX-отчёта для автозаполнения формы и экспорт результатов.
 
 ---
 
@@ -11,7 +11,7 @@
 |---|---|
 | Backend | FastAPI (Python 3.11) |
 | База данных | PostgreSQL + SQLAlchemy + Alembic |
-| LLM | OpenRouter → `openai/gpt-4o-mini` |
+| LLM | OpenRouter → `openai/gpt-4o-mini` (fallback: `gpt-oss-120b:free`) |
 | Frontend | React (Vite) |
 | Контейнеризация | Docker Compose |
 | Авторизация | JWT access + refresh-token в httpOnly cookie, bcrypt |
@@ -51,12 +51,12 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 
 ### Авторизация
 
-| Метод | Эндпоинт | Описание |
+| Метод | Эндпойнт | Описание |
 |---|---|---|
 | POST | `/api/v1/auth/register` | Регистрация → устанавливает access/refresh cookie |
 | POST | `/api/v1/auth/login` | Вход → устанавливает access/refresh cookie |
 | POST | `/api/v1/auth/refresh` | Обновить сессию по refresh cookie (rotation) |
-| POST | `/api/v1/auth/logout` | Отозвать текущий refresh-token и очистить cookie |
+| POST | `/api/v1/auth/logout` | Отозвать текущий refresh-токен и очистить cookie |
 | GET | `/api/v1/auth/me` | Профиль текущего пользователя |
 
 ### CSRF-защита (cookie-based auth)
@@ -80,37 +80,48 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 |---|---|
 | GET / HEAD / OPTIONS | safe-методы, не меняют состояние |
 | `login` / `register` / `refresh` | bootstrap: у клиента ещё нет csrf-cookie |
-| `Authorization: Bearer ...` без access-cookie | не подвержен CSRF → Swagger «Authorize» и `curl` работают как раньше |
+| `Authorization: Bearer ...` без access-cookie | не подвержен ССРФ → Swagger «Аутхоризе» и `curl` работают как раньше |
 | анонимные запросы (нет access-cookie) | нечего защищать |
 
 **Поведение управляется** переменными `CSRF_PROTECTION_ENABLED`,
 `CSRF_EXEMPT_PATHS`, `CSRF_SECRET` (см. раздел «Переменные окружения»).
 Серверного хранилища CSRF-токенов нет — stateless, без новой таблицы/миграции.
 
-> **curl пример (cookie-режим):** сначала залогиньтесь, сохранив cookie в jar,
-> затем передайте `csrf_token` в заголовок:
-> ```bash
-> curl -c jar.txt -X POST localhost:8000/api/v1/auth/login \
->   -H 'Content-Type: application/json' -d '{"email":"a@b.c","password":"secret"}'
-> CSRF=$(grep csrf_token jar.txt | awk '{print $7}')
-> curl -b jar.txt -X POST localhost:8000/api/v1/analyze \
->   -H "X-CSRF-Token: $CSRF" -H 'Content-Type: application/json' -d '{...}'
-> ```
-
 ### Анализ (требует auth-cookie или Bearer-токен)
 
-| Метод | Эндпоинт | Описание |
+| Метод | Эндпойнт | Описание |
 |---|---|---|
 | POST | `/api/v1/analyze` | Запуск RCA-анализа |
 | GET | `/api/v1/results` | История результатов текущего пользователя |
 | GET | `/api/v1/results/{id}` | Результат по ID |
 | GET | `/api/v1/results/{id}/export` | Скачать DOCX-отчёт |
+| POST | `/api/v1/upload-report` | Загрузить DOCX → автозаполнить форму через LLM |
+
+---
+
+## Загрузка DOCX-отчёта
+
+Эндпойнт: `POST /api/v1/upload-report` (multipart/form-data, файл `file`)
+
+**Что происходит:**
+1. `DocxExtractor` извлекает текст из DOCX (абзацы + таблицы)
+2. Текст обрезается до `MAX_TEXT_LENGTH` символов
+3. LLM извлекает до 20 полей (заголовок, описание, дата, место, установленные факты, пострадавшие и др.)
+4. Форма в UI заполняется извлечёнными данными
+
+**Известные ограничения:**
+- ❗ `MAX_TEXT_LENGTH = 15 000` символов — для больших документов (тестовый `165 066` сим.) поля из разделов в конце документа (напр., `established_facts`) могут быть пустыми
+- Решение (план): поднять `MAX_TEXT_LENGTH` до `30 000` **или** использовать `head + tail` по 8 000 сим. — берём начало и конец документа
+
+**LLM клиент (upload):**
+- `required_keys={"title"}` — не проверяет `summary`/`recommendations` (они нужны только RCA-методологиям)
+- `max_tokens=3000` — недостаточно для крупных JSON с `victims_list`; поднять до `4096`
 
 ---
 
 ## Экспорт DOCX
 
-Эндпоинт: `GET /api/v1/results/{result_id}/export` (требует auth-cookie или Bearer-токен)
+Эндпойнт: `GET /api/v1/results/{result_id}/export` (требует auth-cookie или Bearer-токен)
 
 DOCX-файл содержит:
 
@@ -133,30 +144,35 @@ rca-analyzer/
 ├── src/
 │   ├── auth/                   # Access JWT, refresh-token rotation, cookies, bcrypt
 │   ├── api/
-│   │   ├── app.py              # CORS + credentials, роутеры (v0.4.0)
+│   │   ├── app.py              # CORS + credentials, роутеры (v0.5.0)
 │   │   └── routes/
 │   │       ├── analyze.py      # Защищён cookie/Bearer auth, пишет user_id
-│   │       └── export.py       # GET /results/{id}/export → DOCX
+│   │       ├── export.py       # GET /results/{id}/export → DOCX
+│   │       └── upload.py       # POST /upload-report → извлечение полей через LLM
 │   ├── db/
 │   │   ├── orm_models.py       # UserORM, RefreshTokenORM, IncidentORM, RCAResultORM
 │   │   └── repository.py       # CRUD
 │   ├── domain/
 │   │   ├── models.py           # RCAResult, CauseNode, Recommendation
 │   │   └── methodologies/      # five_why, ishikawa, rca_systemic, fta, bowtie
+│   ├── integrations/llm/
+│   │   └── openrouter.py       # AsyncClient; required_keys param; retry x3
 │   └── services/
-│       ├── analysis_service.py # Оркестратор, реестр _RUNNERS
-│       └── export_service.py   # Генерация DOCX (все 5 методологий)
+│       ├── analysis_service.py # Оркестратор, реестр _RUNNERS (все 5)
+│       ├── export_service.py   # Генерация DOCX (все 5 методологий)
+│       ├── docx_extractor.py   # Извлечение текста из DOCX
+│       └── docx_fields_service.py  # LLM-парсинг полей из текста отчёта
 ├── frontend/
 │   └── src/
-│       ├── api.js              # Централизованный fetch; exportDocx() скачивает blob
+│       ├── api.js              # Централизованный fetch; exportDocx() скачивает blob; uploadReport()
 │       ├── App.jsx             # Login-gate, навигация, logout, обработка 401
 │       └── components/
 │           ├── AuthPage.jsx        # вход / регистрация
 │           ├── HistoryPage.jsx     # история через api.js
-│           ├── IncidentForm.jsx    # форма, без прямых HTTP-запросов
+│           ├── IncidentForm.jsx    # форма, drag-and-drop загрузка .docx
 │           ├── ResultView.jsx      # кнопка ⬇️ DOCX, без прямых HTTP-запросов
 │           ├── BowtieDiagram.jsx   # диаграмма (v6), интегрирована в ResultView
-│           └── BowtieDiagram.css   # стили диаграммы (v6)
+│           └── BowtieDiagram.css
 ├── configs/prompts/            # Jinja2-шаблоны: five_why, ishikawa, fta, rca_systemic, bowtie
 ├── alembic/versions/
 │   ├── 001_initial.py
@@ -165,7 +181,7 @@ rca-analyzer/
 │   └── 004_add_refresh_tokens.py
 ├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml              # v0.4.0
+├── pyproject.toml              # v0.5.0
 └── .env                        # Создаётся вручную (не в git)
 ```
 
@@ -197,7 +213,7 @@ CSRF_PROTECTION_ENABLED=true   # выключатель защиты (dev мож
 
 ```bash
 docker-compose exec api alembic upgrade head      # применить все
-docker-compose exec api alembic revision --autogenerate -m "name"  # новая
+ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 ```
 
 ---
@@ -209,55 +225,54 @@ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 - **Refresh-token rotation** — при `POST /api/v1/auth/refresh` старый refresh-токен помечается revoked, клиент получает новую пару cookie
 - **user_id** сохраняется в `incidents` и `rca_results`; `GET /api/v1/results` возвращает только записи текущего пользователя
 - **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
-- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; компоненты не делают прямых `fetch`-вызовов; `401` вызывает авто-refresh и один retry
-- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`; деградированные барьеры выделены визуально
-- **CSRF: signed double-submit cookie** — `CSRFMiddleware` требует `X-CSRF-Token` на небезопасных методах при cookie-auth; токен подписан HMAC (привязка к секрету), Bearer/Swagger/curl освобождены; stateless (без таблицы)
-- **CORS с credentials** — backend готов принимать cookie-сессию от frontend
-- **Export DOCX** — `export_service.py` генерирует DOCX через `python-docx`; отдельные секции для каждой методологии; защищён auth-cookie/Bearer
+- **`required_keys` param** в `OpenRouterClient.complete()` — upload передаёт `{"title"}`, RCA-раннеры ничего не меняют (дефолт `{"summary", "recommendations"}`)
+- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; `401` вызывает авто-refresh и один retry
+- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`
+- **CSRF: signed double-submit cookie** — stateless, без таблицы; Bearer/Swagger/curl освобождены
+- **Export DOCX** — `export_service.py` через `python-docx`; отдельные секции для каждой методологии
 
 ---
 
 ## Production hardening (чеклист перед деплоем)
 
-Дефолты репозитория настроены под локальную разработку (HTTP, `SameSite=Lax`).
-Для продакшена:
-
-- [ ] **`JWT_SECRET`** — задать длинный случайный секрет (например `openssl rand -hex 32`); не использовать дефолт `change-me-...`.
-- [ ] **`AUTH_COOKIE_SECURE=true`** — cookie только по HTTPS.
-- [ ] **`CSRF_PROTECTION_ENABLED=true`** — оставить включённым (значение по умолчанию).
-- [ ] **`SameSite`**:
-  - frontend и API на **одном** домене → `AUTH_COOKIE_SAMESITE=lax` (двойная защита: SameSite + CSRF-токен).
-  - frontend и API на **разных** доменах → `AUTH_COOKIE_SAMESITE=none` **и обязательно** `AUTH_COOKIE_SECURE=true`. В этом случае SameSite не защищает, и CSRF-токен становится **основным** барьером.
-- [ ] **`CORS_ALLOW_ORIGINS`** — перечислить только реальные прод-домены (никаких `*` при `allow_credentials=True`).
-- [ ] **`AUTH_COOKIE_DOMAIN`** — выставить, если cookie должны шериться между поддоменами.
-- [ ] **`CSRF_SECRET`** (опционально) — отдельный секрет, если нужно ротировать CSRF независимо от JWT.
-
-> ⚠️ При смене `SameSite` на `none` без `Secure=true` браузеры **отклонят** cookie — оба параметра меняются вместе.
+- [ ] **`JWT_SECRET`** — задать длинный случайный секрет (`openssl rand -hex 32`)
+- [ ] **`AUTH_COOKIE_SECURE=true`** — cookie только по HTTPS
+- [ ] **`CSRF_PROTECTION_ENABLED=true`** — оставить включённым
+- [ ] **`SameSite`**: один домен → `lax`; разные домены → `none` + `SECURE=true`
+- [ ] **`CORS_ALLOW_ORIGINS`** — только реальные домены (no `*`)
 
 ---
 
 ## Roadmap
 
+### ✅ Реализовано
+- [x] Все 5 методологий (incl. bowtie)
+- [x] Авторизация: access JWT + refresh-token rotation в httpOnly cookie
+- [x] CSRF protection (signed double-submit)
+- [x] Export DOCX
+- [x] BowtieDiagram в UI
+- [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта
+
 ### 🟡 Следующий приоритет
-- [x] Refresh-токен / `httpOnly` cookie
-- [x] CSRF protection (signed double-submit) для cookie-auth
+- [ ] Поднять `MAX_TEXT_LENGTH` до `30 000` **или** перейти на `head + tail` (запись в `docx_fields_service.py`)
+- [ ] Поднять `max_tokens=3000` → `4096` в `docx_fields_service.py`
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
 
 ### 🟢 Развитие
-- [ ] Защита от login-CSRF (двухфазный токен на `/login`)
 - [ ] E2E-тесты `pytest` для всех методологий
-- [ ] PDF-экспорт (дополнительно к DOCX)
+- [ ] PDF-экспорт
 - [ ] Мультиязычный интерфейс (EN/RU)
 
 ---
 
-## Статус на 05.06.2026 (v0.4.0)
+## Статус на 06.06.2026 (v0.5.0)
 
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
-- ✅ API: добавлены `POST /api/v1/auth/refresh` и `POST /api/v1/auth/logout`
-- ✅ Авторизация: access JWT + refresh-token rotation в `httpOnly` cookie, bcrypt
-- ✅ CSRF protection: signed double-submit cookie + `X-CSRF-Token` для cookie-auth
-- ✅ Миграции: 4 версии (001 → 002 → 003 → 004)
-- ✅ Frontend: восстановление сессии после перезагрузки, авто-refresh при `401`, токены не хранятся в JS
+- ✅ API: все 5 методологий, refresh/logout, upload-report
+- ✅ Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
+- ✅ CSRF protection: signed double-submit cookie + `X-CSRF-Token`
+- ✅ Миграции: 4 версии (001 → 004)
+- ✅ Frontend: восстановление сессии, авто-refresh при 401, drag-and-drop загрузка .docx
 - ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
-- ✅ Исправлен authz-gap: обновление статуса рекомендации теперь проверяет владельца результата
+- ✅ Upload DOCX: `POST /api/v1/upload-report` — автозаполнение формы через LLM (6 497 токенов, 20 полей + victims_list)
+- ❗ `established_facts` пустой для документов > 15 000 сим. — исправляется поднятием `MAX_TEXT_LENGTH`
