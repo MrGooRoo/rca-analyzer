@@ -4,6 +4,7 @@ import AuthPage from './components/AuthPage.jsx'
 import IncidentForm from './components/IncidentForm.jsx'
 import ResultView from './components/ResultView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
+import AdminPage from './components/AdminPage.jsx'
 import './App.css'
 
 export default function App() {
@@ -13,6 +14,8 @@ export default function App() {
   const [result, setResult]             = useState(null)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
+
+  const isAdmin = user?.role === 'admin'
 
   useEffect(() => {
     let active = true
@@ -118,9 +121,17 @@ export default function App() {
         <nav className="app-nav">
           <button className={`nav-btn ${page === 'analyze' ? 'nav-btn--active' : ''}`} onClick={() => setPage('analyze')}>➕ Анализ</button>
           <button className={`nav-btn ${page === 'history' ? 'nav-btn--active' : ''}`} onClick={() => setPage('history')}>🗂 История</button>
+          {isAdmin && (
+            <button className={`nav-btn ${page === 'admin' ? 'nav-btn--active' : ''}`} onClick={() => setPage('admin')}>👥 Пользователи</button>
+          )}
         </nav>
         <div className="header-right">
-          <span className="header-user">{user.display_name}</span>
+          <span className="header-user">
+            {user.display_name}
+          </span>
+          <span className={`header-role-badge ${isAdmin ? 'header-role-badge--admin' : 'header-role-badge--user'}`}>
+            {isAdmin ? 'Admin' : 'User'}
+          </span>
           <button className="btn-logout" onClick={logout}>Выйти</button>
         </div>
       </header>
@@ -134,6 +145,7 @@ export default function App() {
           </>
         )}
         {page === 'history' && <HistoryPage onOpen={openResult} />}
+        {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
       </main>
     </div>
   )

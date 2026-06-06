@@ -212,5 +212,11 @@ export const api = {
     list: (limit = 20, offset = 0) =>
       req('GET', `/api/v1/results?limit=${limit}&offset=${offset}`, undefined, { authRequired: true }),
     get: (id) => req('GET', `/api/v1/results/${id}`, undefined, { authRequired: true }),
+    delete: (id) => req('DELETE', `/api/v1/results/${id}`, undefined, { authRequired: true }),
+  },
+  admin: {
+    listUsers: () => req('GET', '/api/v1/admin/users', undefined, { authRequired: true }),
+    setRole: (userId, role) =>
+      req('PUT', `/api/v1/admin/users/${userId}/role`, { role }, { authRequired: true }),
   },
 }
