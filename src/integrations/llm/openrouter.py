@@ -38,14 +38,9 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Минимально необходимые ключи во ВСЕХ методиках (contracts.md раздел 6).
-# Примечание: immediate_causes / root_causes УБРАНЫ — Bowtie строит их
-# внутри runner'а из hazard/threats/consequences, а не возвращает напрямую.
-# Пер-методика-специфичная валидация выполняется в соответствующих runner'ах.
-_REQUIRED_RESPONSE_KEYS = {
-    "summary",
-    "recommendations",
-}
+# Минимально необходимые ключи (по умолчанию) для RCA-методологий.
+# Для других вызовов (upload, etc.) передайте required_keys явно.
+_DEFAULT_REQUIRED_KEYS: frozenset[str] = frozenset({"summary", "recommendations"})
 
 # Регулярка для снятия markdown-забора ```json ... ```
 _MD_FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL)
@@ -74,10 +69,6 @@ class OpenRouterClient:
 
         self._http: httpx.AsyncClient | None = None
 
-    # ------------------------------------------------------------------
-    # Context manager
-    # ------------------------------------------------------------------
-
     async def __aenter__(self) -> "OpenRouterClient":
         self._http = httpx.AsyncClient(
             base_url=OPENROUTER_BASE_URL,
@@ -96,13 +87,8 @@ class OpenRouterClient:
             await self._http.aclose()
             self._http = None
 
-    # ------------------------------------------------------------------
-    # Public API
-    # ------------------------------------------------------------------
-
     @property
     def model_name(self) -> str:
-        """Имя модели (для тестов и логирования)."""
         return self.model
 
     async def complete(
@@ -110,24 +96,27 @@ class OpenRouterClient:
         system_prompt: str,
         user_prompt:   str,
         *,
-        temperature: float = 0.2,
-        max_tokens:  int   = 4096,
+        temperature:   float = 0.2,
+        max_tokens:    int   = 4096,
+        required_keys: frozenset[str] | set[str] | None = None,
     ) -> dict:
         """
         Отправить запрос к LLM и вернуть валидированный dict.
 
-        Returns:
-            dict — разобранный JSON + ключ _meta.
-
-        Raises:
-            LLMResponseValidationError: JSON невалиден или отсутствуют обязательные ключи.
+        Args:
+            required_keys: обязательные ключи в ответе LLM.
+                           None → используется _DEFAULT_REQUIRED_KEYS ({"summary", "recommendations"}).
+                           Передайте пустой set() чтобы отключить валидацию ключей.
         """
+        _required = _DEFAULT_REQUIRED_KEYS if required_keys is None else frozenset(required_keys)
+
         try:
             raw = await self._complete_with_retry(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                required_keys=_required,
             )
         except RetryError as exc:
             raise LLMResponseValidationError(
@@ -135,18 +124,14 @@ class OpenRouterClient:
             ) from exc
         return raw
 
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-
     async def _complete_with_retry(
         self,
         system_prompt: str,
         user_prompt:   str,
         temperature:   float,
         max_tokens:    int,
+        required_keys: frozenset[str],
     ) -> dict:
-        """Вызов LLM с retry/backoff через tenacity."""
 
         @retry(
             retry=retry_if_exception_type((
@@ -164,6 +149,7 @@ class OpenRouterClient:
                 user_prompt=user_prompt,
                 temperature=temperature,
                 max_tokens=max_tokens,
+                required_keys=required_keys,
             )
 
         return await _inner()
@@ -175,10 +161,10 @@ class OpenRouterClient:
         user_prompt:   str,
         temperature:   float,
         max_tokens:    int,
+        required_keys: frozenset[str],
     ) -> dict:
-        """Один HTTP-запрос к OpenRouter."""
         if self._http is None:
-            raise RuntimeError("OpenRouterClient используется вне контекстного менеджера.")
+            raise RuntimeError("Клиент используется вне контекстного менеджера.")
 
         payload = {
             "model":       self.model,
@@ -191,8 +177,6 @@ class OpenRouterClient:
             ],
         }
 
-        logger.debug("[OpenRouter] → model=%s tokens_max=%d", self.model, max_tokens)
-
         response = await self._http.post("/chat/completions", json=payload)
 
         if response.status_code == 429:
@@ -204,26 +188,12 @@ class OpenRouterClient:
             raise httpx.TransportError(f"Server error {response.status_code}")
 
         response.raise_for_status()
-
         data = response.json()
 
-        # OpenRouter может вернуть HTTP 200 с полем 'error' вместо 'choices'
-        # (например: модель перегружена, квота исчерпана, провайдер недоступен).
-        # В этом случае KeyError на data["choices"] приводил к необработанному краху.
-        # Теперь явно извлекаем сообщение и бросаем LLMResponseValidationError,
-        # чтобы tenacity мог сделать retry.
         if "choices" not in data:
             err = data.get("error", {})
-            err_msg = (
-                err.get("message")
-                or err.get("code")
-                or str(data)
-            )
-            logger.error(
-                "[OpenRouter] Нет 'choices' в ответе (HTTP 200). error=%s full=%s",
-                err_msg,
-                str(data)[:300],
-            )
+            err_msg = err.get("message") or err.get("code") or str(data)
+            logger.error("[OpenRouter] Нет 'choices': %s", str(data)[:300])
             raise LLMResponseValidationError(
                 f"OpenRouter вернул ответ без 'choices': {err_msg}"
             )
@@ -231,7 +201,7 @@ class OpenRouterClient:
         content = data["choices"][0]["message"]["content"]
         usage   = data.get("usage", {})
 
-        parsed = self._parse_and_validate(content)
+        parsed = self._parse_and_validate(content, required_keys=required_keys)
         parsed["_meta"] = {
             "model":  self.model,
             "tokens": usage.get("total_tokens", 0),
@@ -246,12 +216,7 @@ class OpenRouterClient:
 
         return parsed
 
-    def _parse_and_validate(self, content: str) -> dict:
-        """
-        Разобрать JSON и проверить минимальный набор ключей.
-
-        Снимает забор ```json...``` если LLM вернула markdown.
-        """
+    def _parse_and_validate(self, content: str, *, required_keys: frozenset[str]) -> dict:
         content = self._strip_markdown_fence(content)
 
         try:
@@ -267,17 +232,17 @@ class OpenRouterClient:
                 f"LLM вернул {type(parsed).__name__}, ожидался dict."
             )
 
-        missing = _REQUIRED_RESPONSE_KEYS - set(parsed.keys())
-        if missing:
-            logger.warning("[OpenRouter] Отсутствуют ключи: %s", missing)
-            raise LLMResponseValidationError(
-                f"Ответ LLM не содержит обязательных ключей: {missing}"
-            )
+        if required_keys:
+            missing = required_keys - set(parsed.keys())
+            if missing:
+                logger.warning("[OpenRouter] Отсутствуют ключи: %s", missing)
+                raise LLMResponseValidationError(
+                    f"Ответ LLM не содержит обязательных ключей: {missing}"
+                )
 
         return parsed
 
     @staticmethod
     def _strip_markdown_fence(content: str) -> str:
-        """Удаляет ```json...``` забор если LLM вернула markdown вместо чистого JSON."""
         m = _MD_FENCE_RE.match(content.strip())
         return m.group(1) if m else content
