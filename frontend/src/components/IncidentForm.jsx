@@ -29,6 +29,25 @@ const TYPES = [
   { value: 'environmental', label: 'Экология' },
 ]
 
+const EMPTY_VICTIM = {
+  full_name: '',
+  birth_date: '',
+  age: '',
+  family_status: '',
+  children_under_21: '',
+  profession: '',
+  workplace: '',
+  total_experience: '',
+  experience_in_organization: '',
+  qualification_certificate: '',
+  introductory_briefing: '',
+  workplace_briefing: '',
+  internship: '',
+  safety_knowledge_test: '',
+  medical_examination: '',
+  diagnosis_severity: '',
+}
+
 const DEFAULTS = {
   title: '', description: '', incident_date: '', location: '',
   incident_type: 'injury', severity: 'moderate', victims: 0,
@@ -45,12 +64,42 @@ export default function IncidentForm({ onSubmit, loading }) {
   const [uploadError, setUploadError] = useState(null)
   const [uploadedFile, setUploadedFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
+  const [expandedVictims, setExpandedVictims] = useState({})
   const fileInputRef = useRef(null)
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  // --- Victims list helpers ---
+  function addVictim() {
+    const newList = [...form.victims_list, { ...EMPTY_VICTIM }]
+    setForm(f => ({ ...f, victims_list: newList }))
+    setExpandedVictims(e => ({ ...e, [newList.length - 1]: true }))
+  }
+
+  function removeVictim(idx) {
+    setForm(f => ({ ...f, victims_list: f.victims_list.filter((_, i) => i !== idx) }))
+    setExpandedVictims(e => {
+      const next = {}
+      Object.keys(e).forEach(k => { if (Number(k) !== idx) next[Number(k) > idx ? k - 1 : k] = e[k] })
+      return next
+    })
+  }
+
+  function setVictim(idx, field, value) {
+    setForm(f => {
+      const list = [...f.victims_list]
+      list[idx] = { ...list[idx], [field]: value }
+      return { ...f, victims_list: list }
+    })
+  }
+
+  function toggleVictim(idx) {
+    setExpandedVictims(e => ({ ...e, [idx]: !e[idx] }))
+  }
+
+  // --- File upload ---
   async function processFile(file) {
     if (!file) return
     if (!file.name.toLowerCase().endsWith('.docx')) {
@@ -61,11 +110,9 @@ export default function IncidentForm({ onSubmit, loading }) {
       setUploadError('Файл слишком большой (макс. 10 МБ)')
       return
     }
-
     setUploading(true)
     setUploadError(null)
     setUploadedFile(file.name)
-
     try {
       const fields = await api.uploadReport(file)
       setForm(prev => ({
@@ -136,7 +183,12 @@ export default function IncidentForm({ onSubmit, loading }) {
         equipment_description: form.equipment_description || undefined,
         full_circumstances: form.full_circumstances || undefined,
         established_facts: form.established_facts || undefined,
-        victims_list: form.victims_list || [],
+        victims_list: form.victims_list.map(v => ({
+          ...v,
+          birth_date: v.birth_date || undefined,
+          age: v.age !== '' ? Number(v.age) : undefined,
+          children_under_21: v.children_under_21 !== '' ? Number(v.children_under_21) : undefined,
+        })),
       },
     })
   }
@@ -145,6 +197,7 @@ export default function IncidentForm({ onSubmit, loading }) {
     <form className="incident-form" onSubmit={handleSubmit}>
       <h2 className="form-title">Новый анализ инцидента</h2>
 
+      {/* Upload zone */}
       <div className={`upload-zone ${dragOver ? 'upload-zone--dragover' : ''} ${uploading ? 'upload-zone--uploading' : ''} ${uploadedFile ? 'upload-zone--done' : ''}`}
         onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
         onClick={() => !uploading && fileInputRef.current?.click()}>
@@ -161,6 +214,9 @@ export default function IncidentForm({ onSubmit, loading }) {
 
       {uploadError && <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>}
       <div className="form-divider" />
+
+      {/* Раздел 1: Обстоятельства */}
+      <div className="form-section-label">1. Описание обстоятельств происшествия</div>
 
       <div className="form-row">
         <div className="form-group form-group--full"><label>Заголовок инцидента</label>
@@ -191,6 +247,140 @@ export default function IncidentForm({ onSubmit, loading }) {
 
       <div className="form-divider" />
 
+      {/* Раздел 2: Фото */}
+      <div className="form-section-label">2. Фото с места происшествия</div>
+      <div className="form-row">
+        <div className="form-group form-group--full">
+          <label>Ссылки на фото (по одной на строку)</label>
+          <textarea
+            rows={3}
+            placeholder="https://..."
+            value={form.photo_urls.join('\n')}
+            onChange={e => set('photo_urls', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+          />
+          {form.photo_urls.length > 0 && (
+            <div className="photo-previews">
+              {form.photo_urls.map((url, i) => (
+                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="photo-link">📷 Фото {i + 1}</a>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="form-divider" />
+
+      {/* Раздел 3: Установленные факты */}
+      <div className="form-section-label">3. Установленные факты</div>
+
+      {/* 3.1 Пострадавшие */}
+      <div className="victims-section">
+        <div className="victims-header">
+          <span className="form-subsection-label">3.1. Сведения о пострадавших</span>
+          <button type="button" className="btn-add-victim" onClick={addVictim}>+ Добавить пострадавшего</button>
+        </div>
+
+        {form.victims_list.length === 0 && (
+          <div className="victims-empty">Нет добавленных пострадавших — заполните вручную или загрузите .docx</div>
+        )}
+
+        {form.victims_list.map((v, idx) => (
+          <div key={idx} className="victim-card">
+            <div className="victim-card__header" onClick={() => toggleVictim(idx)}>
+              <span className="victim-card__title">
+                {v.full_name ? v.full_name : `Пострадавший ${idx + 1}`}
+              </span>
+              <div className="victim-card__actions">
+                <span className="victim-card__toggle">{expandedVictims[idx] ? '▲' : '▼'}</span>
+                <button type="button" className="victim-card__remove" onClick={e => { e.stopPropagation(); removeVictim(idx) }}>✕</button>
+              </div>
+            </div>
+
+            {expandedVictims[idx] && (
+              <div className="victim-card__body">
+                <div className="form-row">
+                  <div className="form-group form-group--full"><label>ФИО</label>
+                    <input type="text" value={v.full_name} onChange={e => setVictim(idx, 'full_name', e.target.value)} placeholder="Иванов Иван Иванович" /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Дата рождения</label>
+                    <input type="date" value={v.birth_date} onChange={e => setVictim(idx, 'birth_date', e.target.value)} /></div>
+                  <div className="form-group form-group--sm"><label>Возраст</label>
+                    <input type="number" min={14} max={99} value={v.age} onChange={e => setVictim(idx, 'age', e.target.value)} /></div>
+                  <div className="form-group"><label>Семейное положение</label>
+                    <input type="text" value={v.family_status} onChange={e => setVictim(idx, 'family_status', e.target.value)} placeholder="Женат / Замужем / …" /></div>
+                  <div className="form-group form-group--sm"><label>Детей до 21 г.</label>
+                    <input type="number" min={0} value={v.children_under_21} onChange={e => setVictim(idx, 'children_under_21', e.target.value)} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Профессия / должность</label>
+                    <input type="text" value={v.profession} onChange={e => setVictim(idx, 'profession', e.target.value)} /></div>
+                  <div className="form-group"><label>Место работы</label>
+                    <input type="text" value={v.workplace} onChange={e => setVictim(idx, 'workplace', e.target.value)} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Общий стаж</label>
+                    <input type="text" value={v.total_experience} onChange={e => setVictim(idx, 'total_experience', e.target.value)} placeholder="5 лет 3 мес." /></div>
+                  <div className="form-group"><label>Стаж в организации</label>
+                    <input type="text" value={v.experience_in_organization} onChange={e => setVictim(idx, 'experience_in_organization', e.target.value)} placeholder="2 года" /></div>
+                  <div className="form-group"><label>Квалификационное удостоверение</label>
+                    <input type="text" value={v.qualification_certificate} onChange={e => setVictim(idx, 'qualification_certificate', e.target.value)} /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Вводный инструктаж</label>
+                    <input type="text" value={v.introductory_briefing} onChange={e => setVictim(idx, 'introductory_briefing', e.target.value)} placeholder="дд.мм.гггг / не проводился" /></div>
+                  <div className="form-group"><label>Первичный / повторный инструктаж</label>
+                    <input type="text" value={v.workplace_briefing} onChange={e => setVictim(idx, 'workplace_briefing', e.target.value)} placeholder="дд.мм.гггг / не проводился" /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group"><label>Стажировка / допуск к работе</label>
+                    <input type="text" value={v.internship} onChange={e => setVictim(idx, 'internship', e.target.value)} placeholder="дд.мм.гггг / не проводилась" /></div>
+                  <div className="form-group"><label>Проверка знаний по ОТ</label>
+                    <input type="text" value={v.safety_knowledge_test} onChange={e => setVictim(idx, 'safety_knowledge_test', e.target.value)} placeholder="дд.мм.гггг / не проводилась" /></div>
+                  <div className="form-group"><label>Медицинский осмотр</label>
+                    <input type="text" value={v.medical_examination} onChange={e => setVictim(idx, 'medical_examination', e.target.value)} placeholder="дд.мм.гггг / не проходил" /></div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group form-group--full"><label>Диагноз / степень тяжести</label>
+                    <input type="text" value={v.diagnosis_severity} onChange={e => setVictim(idx, 'diagnosis_severity', e.target.value)} placeholder="Перелом, лёгкая степень…" /></div>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+
+      {/* 3.2 Описание места */}
+      <div className="form-subsection-label" style={{ marginTop: 8 }}>3.2. Описание места происшествия</div>
+      <div className="form-row">
+        <div className="form-group form-group--full">
+          <textarea rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} /></div>
+      </div>
+
+      {/* 3.4 Характеристика оборудования */}
+      <div className="form-subsection-label">3.4. Характеристика оборудования / объекта</div>
+      <div className="form-row">
+        <div className="form-group form-group--full">
+          <textarea rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} /></div>
+      </div>
+
+      {/* 3.5 Полное описание */}
+      <div className="form-subsection-label">3.5. Полное описание обстоятельств</div>
+      <div className="form-row">
+        <div className="form-group form-group--full">
+          <textarea rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} /></div>
+      </div>
+
+      {/* 3.6 Установленные факты */}
+      <div className="form-subsection-label">3.6. Установленные факты</div>
+      <div className="form-row">
+        <div className="form-group form-group--full">
+          <textarea rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} /></div>
+      </div>
+
+      <div className="form-divider" />
+
+      {/* Тип / тяжесть */}
       <div className="form-row">
         <div className="form-group"><label>Тип инцидента</label>
           <select value={form.incident_type} onChange={e => set('incident_type', e.target.value)}>{TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</select>
@@ -202,28 +392,8 @@ export default function IncidentForm({ onSubmit, loading }) {
 
       <div className="form-divider" />
 
-      <div className="form-row">
-        <div className="form-group form-group--full"><label>Описание места происшествия</label>
-          <textarea rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} /></div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group form-group--full"><label>Характеристика оборудования / объекта</label>
-          <textarea rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} /></div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group form-group--full"><label>Полное описание обстоятельств</label>
-          <textarea rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} /></div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group form-group--full"><label>Установленные факты</label>
-          <textarea rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} /></div>
-      </div>
-
-      <div className="form-divider" />
-
+      {/* Параметры анализа */}
+      <div className="form-section-label">Параметры анализа</div>
       <div className="form-row">
         <div className="form-group"><label>Методология</label>
           <select value={form.methodology} onChange={e => set('methodology', e.target.value)}>{METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select>

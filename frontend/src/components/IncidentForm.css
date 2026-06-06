@@ -14,6 +14,23 @@
   margin-bottom: 4px;
 }
 
+.form-section-label {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-top: 4px;
+}
+
+.form-subsection-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
 .form-row {
   display: flex;
   gap: 14px;
@@ -63,6 +80,118 @@
   border: none;
   border-top: 1px solid var(--border);
   margin: 4px 0;
+}
+
+/* ========== Photo previews ========== */
+.photo-previews {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 6px;
+}
+.photo-link {
+  font-size: 12px;
+  color: var(--primary);
+  text-decoration: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 3px 9px;
+}
+.photo-link:hover { text-decoration: underline; }
+
+/* ========== Victims section ========== */
+.victims-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.victims-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.victims-empty {
+  font-size: 13px;
+  color: var(--muted);
+  padding: 12px 0 4px;
+}
+
+.btn-add-victim {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--primary);
+  border: 1px solid var(--primary);
+  border-radius: var(--radius);
+  padding: 5px 14px;
+  background: transparent;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+.btn-add-victim:hover {
+  background: var(--primary);
+  color: #fff;
+}
+
+.victim-card {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+
+.victim-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  cursor: pointer;
+  user-select: none;
+  background: var(--surface);
+  transition: background 0.15s;
+}
+.victim-card__header:hover { background: var(--surface-2); }
+
+.victim-card__title {
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.victim-card__actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.victim-card__toggle {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.victim-card__remove {
+  font-size: 12px;
+  color: var(--muted);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: color 0.15s, background 0.15s;
+}
+.victim-card__remove:hover {
+  color: var(--danger, #ff3b30);
+  background: rgba(255,59,48,0.08);
+}
+
+.victim-card__body {
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  border-top: 1px solid var(--border);
 }
 
 /* ========== Upload Zone ========== */
