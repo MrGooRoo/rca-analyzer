@@ -1,3 +1,4 @@
+
 """
 Сервис извлечения структурированных полей инцидента из текста отчёта через LLM.
 """
@@ -10,7 +11,10 @@ from src.integrations.llm.openrouter import OpenRouterClient
 
 logger = logging.getLogger(__name__)
 
-MAX_TEXT_LENGTH = 15_000
+# Стратегия head + tail: берём начало и конец документа,
+# чтобы не обрезать разделы типа «Установленные факты» в конце.
+HEAD_CHUNK = 8_000
+TAIL_CHUNK = 8_000
 
 SYSTEM_PROMPT = """\
 Ты — специалист по анализу отчётов об инцидентах на производстве.
@@ -71,24 +75,40 @@ SYSTEM_PROMPT = """\
 USER_PROMPT_TEMPLATE = """\
 Проанализируй следующий текст отчёта об инциденте и извлеки структурированные данные.
 
---- ТЕКСТ ОТЧЄТА ---
+--- ТЕКСТ ОТЧЁТА ---
 {report_text}
---- КОНЕЦ ОТЧЄТА ---
+--- КОНЕЦ ОТЧЁТА ---
 
 Верни JSON со всеми полями из схемы (включая victims_list, scene_description и т.д.).\
 """
+
+
+def _trim_text(text: str) -> tuple[str, bool]:
+    """Возвращает (trimmed_text, was_trimmed).
+    Если текст длиннее HEAD_CHUNK + TAIL_CHUNK — берём начало и конец,
+    пропуская середину. Это позволяет захватить разделы в конце документа
+    (например, «Установленные факты»).
+    """
+    total = HEAD_CHUNK + TAIL_CHUNK
+    if len(text) <= total:
+        return text, False
+
+    head = text[:HEAD_CHUNK]
+    tail = text[-TAIL_CHUNK:]
+    trimmed = head + "\n...[середина пропущена]...\n" + tail
+    return trimmed, True
 
 
 async def extract_fields_from_text(report_text: str) -> dict:
     if not report_text or not report_text.strip():
         raise ValueError("Текст отчёта пустой — невозможно извлечь данные.")
 
-    trimmed = report_text[:MAX_TEXT_LENGTH]
-    if len(report_text) > MAX_TEXT_LENGTH:
+    trimmed, was_trimmed = _trim_text(report_text)
+    if was_trimmed:
         logger.warning(
-            "[DocxFields] Текст обрезан: %d → %d символов",
+            "[DocxFields] Текст обрезан (head+tail): %d → %d символов",
             len(report_text),
-            MAX_TEXT_LENGTH,
+            len(trimmed),
         )
 
     user_prompt = USER_PROMPT_TEMPLATE.format(report_text=trimmed)
@@ -98,7 +118,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
             temperature=0.1,
-            max_tokens=3000,
+            max_tokens=4096,
             # upload использует свою схему — не требуем summary/recommendations
             required_keys={"title"},
         )
