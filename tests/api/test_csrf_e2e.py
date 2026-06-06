@@ -22,7 +22,7 @@ from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
 from src.auth.cookies import ACCESS_COOKIE_NAME, REFRESH_COOKIE_NAME
-from src.auth.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
+from src.auth.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME, is_valid_csrf_token
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import get_db
@@ -106,9 +106,18 @@ async def test_login_sets_all_cookies(client_with_mocked_backend):
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
+        # Phase 1: получить CSRF-cookie (safe GET, не требует токена)
+        csrf_resp = await client.get("/api/v1/auth/csrf")
+        assert csrf_resp.status_code == 200
+        csrf = _csrf_from_jar(client)
+        assert csrf is not None
+        assert is_valid_csrf_token(csrf)
+
+        # Phase 2: login с CSRF-заголовком
         resp = await client.post(
             "/api/v1/auth/login",
             json={"email": "user@example.com", "password": "secret"},
+            headers={CSRF_HEADER_NAME: csrf},
         )
         assert resp.status_code == 200
         # Все три cookie выставлены и попали в jar клиента.
@@ -122,9 +131,17 @@ async def test_protected_post_without_csrf_header_is_blocked(client_with_mocked_
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
+        # Phase 1: получить CSRF-cookie
+        csrf_resp = await client.get("/api/v1/auth/csrf")
+        assert csrf_resp.status_code == 200
+        csrf = _csrf_from_jar(client)
+        assert csrf is not None
+
+        # Phase 2: login с CSRF-заголовком — получаем access-cookie
         await client.post(
             "/api/v1/auth/login",
             json={"email": "user@example.com", "password": "secret"},
+            headers={CSRF_HEADER_NAME: csrf},
         )
         # cookie есть (включая access), но заголовок X-CSRF-Token НЕ отправлен.
         resp = await client.post("/api/v1/analyze", json={"any": "payload"})
@@ -137,14 +154,21 @@ async def test_full_cycle_login_then_protected_post(client_with_mocked_backend):
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
-        # 1. Login — ставит access/refresh/csrf cookie в jar.
+        # Phase 1: получить CSRF-cookie
+        csrf_resp = await client.get("/api/v1/auth/csrf")
+        assert csrf_resp.status_code == 200
+        csrf = _csrf_from_jar(client)
+        assert csrf is not None
+
+        # 2. Login с CSRF-заголовком — ставит access/refresh/csrf cookie в jar.
         login = await client.post(
             "/api/v1/auth/login",
             json={"email": "user@example.com", "password": "secret"},
+            headers={CSRF_HEADER_NAME: csrf},
         )
         assert login.status_code == 200
 
-        # 2. Frontend-логика: читаем csrf из cookie и кладём в заголовок.
+        # 3. Frontend-логика: читаем csrf из cookie и кладём в заголовок.
         csrf = _csrf_from_jar(client)
         assert csrf
 
@@ -180,9 +204,17 @@ async def test_logout_clears_csrf_cookie(client_with_mocked_backend):
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://test"
     ) as client:
+        # Phase 1: получить CSRF-cookie
+        csrf_resp = await client.get("/api/v1/auth/csrf")
+        assert csrf_resp.status_code == 200
+        csrf = _csrf_from_jar(client)
+        assert csrf is not None
+
+        # Phase 2: login с CSRF
         await client.post(
             "/api/v1/auth/login",
             json={"email": "user@example.com", "password": "secret"},
+            headers={CSRF_HEADER_NAME: csrf},
         )
         csrf = _csrf_from_jar(client)
         assert csrf

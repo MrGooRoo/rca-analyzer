@@ -36,6 +36,11 @@ def app() -> FastAPI:
     async def safe() -> dict:
         return {"ok": True}
 
+    @application.get("/api/v1/auth/csrf")
+    async def csrf(response: Response) -> dict:
+        set_csrf_cookie(response)
+        return {"csrf_token": "set"}
+
     @application.post("/api/v1/auth/login")
     async def login(response: Response) -> dict:
         set_csrf_cookie(response)
@@ -84,12 +89,45 @@ async def test_safe_method_no_csrf_required(app: FastAPI) -> None:
 
 
 @pytest.mark.asyncio
-async def test_login_path_exempt(app: FastAPI) -> None:
+async def test_login_path_now_requires_csrf(app: FastAPI) -> None:
+    """Login больше не exempt — без CSRF-токена 403."""
     async with _client(app) as c:
         r = await c.post("/api/v1/auth/login")
+    assert r.status_code == 403
+    assert "CSRF" in r.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_csrf_endpoint_returns_token(app: FastAPI) -> None:
+    """GET /api/v1/auth/csrf устанавливает csrf-cookie (safe-метод)."""
+    async with _client(app) as c:
+        r = await c.get("/api/v1/auth/csrf")
     assert r.status_code == 200
     assert CSRF_COOKIE_NAME in r.cookies
-    assert is_valid_csrf_token(r.cookies[CSRF_COOKIE_NAME])
+    cookie = r.cookies[CSRF_COOKIE_NAME]
+    assert is_valid_csrf_token(cookie)
+
+
+@pytest.mark.asyncio
+async def test_login_with_csrf_token_succeeds(app: FastAPI) -> None:
+    """Двухфазный CSRF: GET /csrf → POST /login с X-CSRF-Token."""
+    async with _client(app) as c:
+        # Phase 1: получить CSRF-cookie
+        r1 = await c.get("/api/v1/auth/csrf")
+        assert r1.status_code == 200
+        csrf = r1.cookies.get(CSRF_COOKIE_NAME)
+        assert csrf
+        assert is_valid_csrf_token(csrf)
+
+        # Phase 2: login с CSRF-заголовком
+        r2 = await c.post(
+            "/api/v1/auth/login",
+            cookies={ACCESS_COOKIE_NAME: "x"},
+            headers={CSRF_HEADER_NAME: csrf},
+        )
+    assert r2.status_code == 200
+    assert CSRF_COOKIE_NAME in r2.cookies
+    assert is_valid_csrf_token(r2.cookies[CSRF_COOKIE_NAME])
 
 
 @pytest.mark.asyncio
