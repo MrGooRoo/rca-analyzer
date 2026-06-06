@@ -5,7 +5,7 @@ GET /api/v1/results/{result_id}/export
   → возвращает DOCX-файл как вложение.
 
 Требует auth-cookie или Bearer-токен.
-Возвращает 403, если result принадлежит другому пользователю.
+Возвращает 403, если result принадлежит другому пользователю (и он не admin).
 """
 
 from __future__ import annotations
@@ -26,6 +26,14 @@ router = APIRouter(prefix="/api/v1", tags=["export"])
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
+
+
+def _check_owner_or_admin(result, current_user: UserInfo) -> None:
+    """Проверить, что пользователь — владелец записи или admin."""
+    if current_user.role == "admin":
+        return
+    if result.user_id and result.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
 
 
 @router.get(
@@ -51,8 +59,7 @@ async def export_result(
 
     if result is None:
         raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
-    if result.user_id and result.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Доступ запрещён")
+    _check_owner_or_admin(result, current_user)
 
     docx_bytes = generate_docx(result)
 

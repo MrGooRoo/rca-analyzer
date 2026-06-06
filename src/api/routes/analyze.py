@@ -3,6 +3,10 @@ FastAPI-роутер: анализ инцидентов.
 
 Защищённые эндпоинты требуют auth-cookie или Bearer-токен.
 Результаты привязываются к user_id текущего пользователя.
+
+Роли:
+  - admin: видит, редактирует и удаляет любые результаты.
+  - user:  видит и управляет только своими записями.
 """
 
 from __future__ import annotations
@@ -33,6 +37,14 @@ _service = AnalysisService()
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
+
+
+def _check_owner_or_admin(result: RCAResult, current_user: UserInfo) -> None:
+    """Проверить, что пользователь — владелец записи или admin."""
+    if current_user.role == "admin":
+        return
+    if result.user_id and result.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
 
 
 # ---------------------------------------------------------------------------
@@ -84,8 +96,7 @@ async def get_result(
     result = await repo.get_result(result_id)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
-    if result.user_id and result.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Доступ запрещён")
+    _check_owner_or_admin(result, current_user)
     return result
 
 
@@ -96,7 +107,7 @@ async def get_result(
 @router.get(
     "/results",
     response_model=list[RCAResult],
-    summary="Список результатов текущего пользователя",
+    summary="Список результатов (admin — все, user — свои)",
 )
 async def list_results(
     db: DbSession,
@@ -106,12 +117,36 @@ async def list_results(
     offset: int = Query(0, ge=0),
 ) -> list[RCAResult]:
     repo = RCARepository(db)
+    # Admin видит все результаты, обычный пользователь — только свои
+    user_id_filter = None if current_user.role == "admin" else current_user.user_id
     return await repo.list_results(
-        user_id=current_user.user_id,
+        user_id=user_id_filter,
         incident_id=incident_id,
         limit=limit,
         offset=offset,
     )
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/results/{result_id}
+# ---------------------------------------------------------------------------
+
+@router.delete(
+    "/results/{result_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Удалить результат анализа",
+)
+async def delete_result(
+    result_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> None:
+    repo = RCARepository(db)
+    result = await repo.get_result(result_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
+    _check_owner_or_admin(result, current_user)
+    await repo.delete_result(result_id)
 
 
 # ---------------------------------------------------------------------------
@@ -141,8 +176,7 @@ async def update_recommendation(
     result = await repo.get_result(result_id)
     if result is None:
         raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
-    if result.user_id and result.user_id != current_user.user_id:
-        raise HTTPException(status_code=403, detail="Доступ запрещён")
+    _check_owner_or_admin(result, current_user)
 
     updated = await repo.update_recommendation_status(result_id, rec_id, body.status)
     if not updated:
