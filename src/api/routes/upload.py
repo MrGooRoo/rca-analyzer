@@ -10,11 +10,10 @@ FastAPI-роутер: загрузка DOCX-отчёта и извлечение
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
-from pydantic import BaseModel
-from typing import Optional
+from pydantic import BaseModel, Field
 
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
@@ -38,18 +37,58 @@ ALLOWED_CONTENT_TYPES = {
 }
 
 
+class VictimFields(BaseModel):
+    """Сведения о пострадавшем, извлечённые из отчёта."""
+    full_name: Optional[str] = None
+    birth_date: Optional[str] = None
+    age: Optional[int] = None
+    family_status: Optional[str] = None
+    children_under_21: Optional[int] = None
+    profession: Optional[str] = None
+    workplace: Optional[str] = None
+    total_experience: Optional[str] = None
+    experience_in_organization: Optional[str] = None
+    qualification_certificate: Optional[str] = None
+    introductory_briefing: Optional[str] = None
+    workplace_briefing: Optional[str] = None
+    internship: Optional[str] = None
+    safety_knowledge_test: Optional[str] = None
+    medical_examination: Optional[str] = None
+    diagnosis_severity: Optional[str] = None
+
+
 class ExtractedFields(BaseModel):
     """Результат извлечения полей из отчёта."""
+    # Основные поля
     title: str
     description: str
-    incident_date: str
+    incident_date: Optional[str] = None
+    incident_time: Optional[str] = None
+    company: Optional[str] = None
+    department: Optional[str] = None
     location: str
     incident_type: str
     severity: str
+
+    # Числовые счётчики
     victims: int = 0
+    injured_count: Optional[int] = None
+    fatalities_count: Optional[int] = None
+
+    # Дополнительные текстовые поля (старые)
     equipment: Optional[str] = None
     conditions: Optional[str] = None
     actions_taken: Optional[str] = None
+    short_description: Optional[str] = None
+
+    # Расширенные поля (разделы 3.x)
+    scene_description: Optional[str] = None
+    equipment_description: Optional[str] = None
+    full_circumstances: Optional[str] = None
+    established_facts: Optional[str] = None
+
+    # Список пострадавших
+    victims_list: List[VictimFields] = Field(default_factory=list)
 
 
 @router.post(
@@ -122,5 +161,16 @@ async def upload_report(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(exc),
         ) from exc
+
+    # Нормализуем victims_list в объекты VictimFields
+    raw_victims = fields.get("victims_list", [])
+    victims_parsed = []
+    for v in raw_victims:
+        if isinstance(v, dict):
+            try:
+                victims_parsed.append(VictimFields(**v))
+            except Exception:
+                victims_parsed.append(VictimFields())
+    fields["victims_list"] = victims_parsed
 
     return ExtractedFields(**fields)
