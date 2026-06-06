@@ -32,53 +32,59 @@
   font-size: 14px;
 }
 
-.admin-table-wrap {
-  overflow-x: auto;
-  border-radius: 10px;
+/* ---- Grid-таблица ---- */
+
+.admin-grid {
   border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
 }
 
-.admin-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 14px;
+.admin-grid-header,
+.admin-grid-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 90px 90px 150px;
+  align-items: center;
 }
 
-.admin-table th:nth-child(3),
-.admin-table td:nth-child(3),
-.admin-table th:nth-child(4),
-.admin-table td:nth-child(4),
-.admin-table th:nth-child(5),
-.admin-table td:nth-child(5) { text-align: center; white-space: nowrap; }
+.admin-grid-header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
 
-.admin-table th {
-  text-align: left;
+.admin-grid-header span {
   padding: 12px 16px;
   font-size: 12px;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: var(--muted);
-  background: var(--surface);
+}
+
+.admin-grid-header span:nth-child(n+3) {
+  text-align: center;
+}
+
+.admin-grid-row {
   border-bottom: 1px solid var(--border);
-}
-
-.admin-table td {
-  padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
-  vertical-align: middle;
-}
-
-.admin-table tbody tr:last-child td {
-  border-bottom: none;
-}
-
-.admin-table tbody tr {
   transition: background 0.15s;
 }
 
-.admin-table tbody tr:hover {
+.admin-grid-row:last-child {
+  border-bottom: none;
+}
+
+.admin-grid-row:hover {
   background: var(--surface);
+}
+
+.admin-grid-row > div {
+  padding: 12px 16px;
+  font-size: 14px;
+}
+
+.admin-grid-row > div:nth-child(n+3) {
+  text-align: center;
 }
 
 .admin-row--self {
@@ -90,12 +96,20 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
+}
+
+.admin-cell-name-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .admin-you {
   font-size: 11px;
   color: var(--muted);
   font-weight: 400;
+  flex-shrink: 0;
 }
 
 .admin-cell-email {
@@ -104,6 +118,7 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  min-width: 0;
 }
 
 .admin-badge {
@@ -142,6 +157,7 @@
   border: 1px solid;
   transition: background 0.15s, color 0.15s, border-color 0.15s;
   cursor: pointer;
+  white-space: nowrap;
 }
 
 .admin-btn-role:disabled {
