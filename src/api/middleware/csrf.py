@@ -4,13 +4,20 @@
 аутентифицирован через cookie. Освобождаются:
 
   * safe-методы (GET/HEAD/OPTIONS/TRACE);
-  * bootstrap-эндпоинты auth (login/register/refresh) — у клиента ещё нет
-    валидной csrf-cookie до первого успешного ответа;
+  * bootstrap-эндпоинт refresh — у клиента может не быть валидной csrf-cookie
+    после перезагрузки страницы до первого успешного refresh-ответа;
   * любой настраиваемый exempt-путь;
   * запросы с ``Authorization: Bearer ...`` и без access-cookie — такие
     запросы не подвержены CSRF (браузер не шлёт кастомные заголовки
     cross-origin без CORS), поэтому Swagger "Authorize" и curl работают
     без CSRF-токена.
+
+Защита login/register (двухфазный CSRF-токен):
+  /login и /register удалены из DEFAULT_EXEMPT_PATHS. Они принимают
+  анонимные POST-запросы (без access-cookie), но при успехе устанавливают
+  auth-cookie. Поэтому CSRF проверяется на них всегда, даже при отсутствии
+  существующей сессии. Frontend получает csrf-cookie через GET /api/v1/auth/csrf
+  перед отправкой login/register.
 
 Поведение управляется переменными окружения:
   CSRF_PROTECTION_ENABLED  (default "true")
@@ -38,11 +45,23 @@ from src.auth.csrf import (
 SAFE_METHODS: Final[frozenset[str]] = frozenset({"GET", "HEAD", "OPTIONS", "TRACE"})
 
 # Пути, для которых CSRF не требуется (точное совпадение path).
+# /login и /register убраны из exempt — теперь они защищены двухфазным
+# CSRF-токеном: frontend сначала вызывает GET /api/v1/auth/csrf (safe),
+# получает csrf-cookie, и отправляет её в заголовке X-CSRF-Token.
+# /refresh остаётся exempt, чтобы авто-refresh после перезагрузки страницы
+# мог восстановить сессию без предварительного запроса CSRF-токена.
 DEFAULT_EXEMPT_PATHS: Final[frozenset[str]] = frozenset(
+    {
+        "/api/v1/auth/refresh",
+    }
+)
+
+# Пути, доступные без access-cookie, но устанавливающие auth-cookie.
+# Они должны проходить CSRF-проверку даже при отсутствии сессии.
+LOGIN_LIKE_PATHS: Final[frozenset[str]] = frozenset(
     {
         "/api/v1/auth/login",
         "/api/v1/auth/register",
-        "/api/v1/auth/refresh",
     }
 )
 
@@ -93,10 +112,12 @@ class CSRFMiddleware(BaseHTTPMiddleware):
         if is_bearer and not has_access_cookie:
             return True
 
-        # Если нет access-cookie вообще (анонимный запрос / Bearer) — нечего
-        # защищать: CSRF имеет смысл только при cookie-based auth.
+        # Если нет access-cookie — это анонимный запрос без сессии.
+        # Для большинства эндпоинтов CSRF не имеет смысла (нечего защищать).
+        # Но login/register доступны анонимно и при успехе устанавливают
+        # auth-cookie — они должны проходить CSRF-проверку.
         if not has_access_cookie:
-            return True
+            return request.url.path not in LOGIN_LIKE_PATHS
 
         return False
 

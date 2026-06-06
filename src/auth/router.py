@@ -79,6 +79,18 @@ async def logout(request: Request, response: Response, db: Db) -> dict:
     return {"ok": True}
 
 
+@router.get("/csrf")
+async def get_csrf_token(response: Response) -> dict:
+    """Установить CSRF-cookie и вернуть токен (двухфазная защита login/register).
+
+    GET-метод (safe), поэтому не требует CSRF-токена. Используется frontend
+    перед отправкой POST на ``/login`` или ``/register``, чтобы получить
+    подписанную CSRF-cookie до того, как пользователь аутентифицирован.
+    """
+    token = set_csrf_cookie(response)
+    return {"csrf_token": token}
+
+
 @router.get("/me", response_model=UserInfo)
 async def me(current_user: Annotated[UserInfo, Depends(get_current_user)]) -> UserInfo:
     """Информация о текущем пользователе."""

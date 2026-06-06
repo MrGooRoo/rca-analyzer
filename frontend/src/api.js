@@ -44,6 +44,22 @@ function readCsrfToken() {
   return match ? decodeURIComponent(match[1]) : null
 }
 
+/**
+ * Обеспечить наличие CSRF-cookie перед небезопасным запросом.
+ *
+ * Двухфазная CSRF-защита для login/register: сначала GET /api/v1/auth/csrf
+ * (safe-метод, не требует CSRF-токена), который ставит подписанную
+ * csrf-cookie, затем POST с заголовком X-CSRF-Token, прочитанным из cookie.
+ */
+async function ensureCsrf() {
+  if (!readCsrfToken()) {
+    await fetch('/api/v1/auth/csrf', {
+      method: 'GET',
+      credentials: 'include',
+    })
+  }
+}
+
 function withCsrf(headers, method) {
   if (SAFE_METHODS.has(method.toUpperCase())) return headers
   const token = readCsrfToken()
@@ -178,10 +194,14 @@ async function exportDocx(resultId, methodology, retryOn401 = true) {
 
 export const api = {
   auth: {
-    register: (email, display_name, password) =>
-      req('POST', '/api/v1/auth/register', { email, display_name, password }, { retryOn401: false }),
-    login: (email, password) =>
-      req('POST', '/api/v1/auth/login', { email, password }, { retryOn401: false }),
+    register: async (email, display_name, password) => {
+      await ensureCsrf()
+      return req('POST', '/api/v1/auth/register', { email, display_name, password }, { retryOn401: false })
+    },
+    login: async (email, password) => {
+      await ensureCsrf()
+      return req('POST', '/api/v1/auth/login', { email, password }, { retryOn401: false })
+    },
     me: () => req('GET', '/api/v1/auth/me', undefined, { authRequired: true }),
     refresh: () => req('POST', '/api/v1/auth/refresh', undefined, { retryOn401: false }),
     logout: () => req('POST', '/api/v1/auth/logout', undefined, { retryOn401: false }),
