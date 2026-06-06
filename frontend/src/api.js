@@ -192,6 +192,45 @@ async function exportDocx(resultId, methodology, retryOn401 = true) {
   URL.revokeObjectURL(url)
 }
 
+async function uploadFile(path, file, options = {}) {
+  const {
+    authRequired = true,
+    retryOn401 = true,
+  } = options
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const headers = {}
+  // Add CSRF header for cookie-based auth
+  const csrfToken = readCsrfToken()
+  if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
+
+  const response = await fetch(path, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  })
+
+  if (response.status === 401 && canAutoRefresh(path, authRequired, retryOn401)) {
+    const refreshed = await tryRefresh()
+    if (refreshed) {
+      return uploadFile(path, file, { ...options, retryOn401: false })
+    }
+    notifyAuthLost()
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 && authRequired) {
+      notifyAuthLost()
+    }
+    throw new Error(await readError(response))
+  }
+
+  return response.json()
+}
+
 export const api = {
   auth: {
     register: async (email, display_name, password) => {
@@ -207,6 +246,7 @@ export const api = {
     logout: () => req('POST', '/api/v1/auth/logout', undefined, { retryOn401: false }),
   },
   analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
+  uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
   exportDocx,
   results: {
     list: (limit = 20, offset = 0) =>

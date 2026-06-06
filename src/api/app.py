@@ -18,6 +18,7 @@ from src.api.middleware.csrf import CSRFMiddleware
 from src.api.routes.admin import router as admin_router
 from src.api.routes.analyze import router as analyze_router
 from src.api.routes.export import router as export_router
+from src.api.routes.upload import router as upload_router
 from src.auth.router import router as auth_router
 from src.auth.seed import ensure_admin_exists
 from src.db.base import AsyncSessionLocal
@@ -100,6 +101,7 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
 app.include_router(auth_router)
 app.include_router(analyze_router)
 app.include_router(export_router)
+app.include_router(upload_router)
 app.include_router(admin_router)
 
 
