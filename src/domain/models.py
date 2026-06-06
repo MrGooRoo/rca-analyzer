@@ -61,6 +61,8 @@ class RCAResult(BaseModel):
     result_id:           str
     incident_id:         str
     user_id:             Optional[str]              = None
+    user_display_name:   Optional[str]              = None
+    user_email:          Optional[str]              = None
     methodology:         MethodologyType
     created_at:          datetime
     immediate_causes:    list[CauseNode]            = []

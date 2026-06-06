@@ -144,7 +144,7 @@ export default function App() {
             {result && <ResultView result={result} />}
           </>
         )}
-        {page === 'history' && <HistoryPage onOpen={openResult} />}
+        {page === 'history' && <HistoryPage onOpen={openResult} currentUser={user} />}
         {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
       </main>
     </div>

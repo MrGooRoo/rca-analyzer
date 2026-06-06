@@ -104,6 +104,7 @@ class RCARepository:
             .options(
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
+                selectinload(RCAResultORM.user),
             )
         )
         row = (await self._session.execute(stmt)).scalar_one_or_none()
@@ -121,6 +122,7 @@ class RCARepository:
             .options(
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
+                selectinload(RCAResultORM.user),
             )
             .order_by(RCAResultORM.created_at.desc())
             .limit(limit)
@@ -177,10 +179,13 @@ def _orm_to_domain(row: RCAResultORM) -> RCAResult:
         )
 
     nodes = row.causal_nodes
+    owner = row.user
     return RCAResult(
         result_id=row.result_id,
         incident_id=row.incident_id,
         user_id=row.user_id,
+        user_display_name=owner.display_name if owner else None,
+        user_email=owner.email if owner else None,
         methodology=MethodologyType(row.methodology),
         created_at=row.created_at,
         immediate_causes=[_to_cause(n) for n in nodes if n.node_role == "immediate"],

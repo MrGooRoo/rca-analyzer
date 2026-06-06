@@ -115,6 +115,23 @@
   letter-spacing: 0.3px;
 }
 
+.hcard-author {
+  font-size: 11px;
+  font-weight: 500;
+  background: rgba(124,131,168,0.1);
+  color: var(--muted);
+  border: 1px solid rgba(124,131,168,0.2);
+  border-radius: 5px;
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+.hcard-author--self {
+  background: rgba(79,142,247,0.1);
+  color: var(--primary);
+  border-color: rgba(79,142,247,0.25);
+}
+
 .hcard-date {
   font-size: 12px;
   color: var(--muted);
