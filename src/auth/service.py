@@ -63,11 +63,12 @@ def verify_password(plain: str, hashed: str) -> bool:
 
 
 # ---- Access JWT -------------------------------------------------------------
-def create_access_token(user_id: str, email: str, display_name: str) -> str:
+def create_access_token(user_id: str, email: str, display_name: str, role: str = "user") -> str:
     payload = {
         "sub": user_id,
         "email": email,
         "name": display_name,
+        "role": role,
         "exp": utcnow() + ACCESS_TOKEN_TTL,
     }
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)
@@ -94,7 +95,12 @@ def hash_refresh_token(token: str) -> str:
 
 
 def build_user_info(user: UserORM) -> UserInfo:
-    return UserInfo(user_id=user.id, email=user.email, display_name=user.display_name)
+    return UserInfo(
+        user_id=user.id,
+        email=user.email,
+        display_name=user.display_name,
+        role=user.role,
+    )
 
 
 async def create_refresh_token(db: AsyncSession, user_id: str) -> str:
@@ -111,7 +117,7 @@ async def create_refresh_token(db: AsyncSession, user_id: str) -> str:
 
 
 async def issue_auth_tokens(db: AsyncSession, user: UserORM) -> tuple[str, str]:
-    access_token = create_access_token(user.id, user.email, user.display_name)
+    access_token = create_access_token(user.id, user.email, user.display_name, user.role)
     refresh_token = await create_refresh_token(db, user.id)
     return access_token, refresh_token
 
@@ -147,7 +153,7 @@ async def rotate_refresh_token(
     )
     await db.commit()
 
-    access_token = create_access_token(user.id, user.email, user.display_name)
+    access_token = create_access_token(user.id, user.email, user.display_name, user.role)
     return user, access_token, new_refresh_token
 
 
@@ -213,6 +219,13 @@ async def get_current_user_optional(
         return await get_current_user(request, credentials, db)
     except HTTPException:
         return None
+
+
+# ---- Утилита: require_admin -------------------------------------------------
+def require_admin(current_user: UserInfo) -> None:
+    """Выбросить 403, если пользователь не admin."""
+    if current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Требуются права администратора")
 
 
 # ---- DB-операции ------------------------------------------------------------

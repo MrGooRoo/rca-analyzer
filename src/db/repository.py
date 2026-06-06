@@ -134,6 +134,15 @@ class RCARepository:
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_orm_to_domain(r) for r in rows]
 
+    async def delete_result(self, result_id: str) -> bool:
+        """Удалить результат анализа и все связанные записи (каскадно)."""
+        row = await self._session.get(RCAResultORM, result_id)
+        if row is None:
+            return False
+        await self._session.delete(row)
+        await self._session.commit()
+        return True
+
     async def update_recommendation_status(
         self, result_id: str, rec_id: str, status: str
     ) -> bool:

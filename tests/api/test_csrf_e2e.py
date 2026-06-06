@@ -33,7 +33,7 @@ from src.domain.models import (
     Recommendation,
 )
 
-TEST_USER = UserInfo(user_id="u-1", email="user@example.com", display_name="Tester")
+TEST_USER = UserInfo(user_id="u-1", email="user@example.com", display_name="Tester", role="user")
 
 
 def _fake_rca_result() -> RCAResult:

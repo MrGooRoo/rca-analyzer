@@ -20,6 +20,7 @@ class UserInfo(BaseModel):
     user_id: str
     email: str
     display_name: str
+    role: str = "user"
 
 
 class AuthResponse(UserInfo):
