@@ -20,7 +20,8 @@ const SEVERITY_COLORS = {
 
 const PAGE_SIZE = 10
 
-export default function HistoryPage({ onOpen }) {
+export default function HistoryPage({ onOpen, currentUser }) {
+  const isAdmin = currentUser?.role === 'admin'
   const [items, setItems]     = useState([])
   const [offset, setOffset]   = useState(0)
   const [loading, setLoading] = useState(false)
@@ -84,7 +85,7 @@ export default function HistoryPage({ onOpen }) {
 
       <div className="history-list">
         {filtered.map(r => (
-          <HistoryCard key={r.result_id} result={r} onOpen={onOpen} />
+          <HistoryCard key={r.result_id} result={r} onOpen={onOpen} isAdmin={isAdmin} currentUserId={currentUser?.user_id} />
         ))}
       </div>
 
@@ -99,18 +100,26 @@ export default function HistoryPage({ onOpen }) {
   )
 }
 
-function HistoryCard({ result, onOpen }) {
+function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
   const sev = SEVERITY_COLORS[result.incident?.severity] || SEVERITY_COLORS.moderate
   const date = new Date(result.created_at).toLocaleString('ru-RU', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
 
+  const isMine = result.user_id === currentUserId
+  const authorName = result.user_display_name || result.user_email || null
+
   return (
     <div className="hcard" onClick={() => onOpen(result)}>
       <div className="hcard-left">
         <div className="hcard-top">
           <span className="hcard-method">{METHODOLOGY_LABELS[result.methodology] || result.methodology}</span>
+          {isAdmin && authorName && (
+            <span className={`hcard-author ${isMine ? 'hcard-author--self' : ''}`}>
+              👤 {authorName}{isMine ? ' (вы)' : ''}
+            </span>
+          )}
           {result.incident?.severity && (
             <span
               className="hcard-severity"
