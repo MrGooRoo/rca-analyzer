@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import logging
 import os
+from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
@@ -14,15 +15,20 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from src.api.middleware.csrf import CSRFMiddleware
+from src.api.routes.admin import router as admin_router
 from src.api.routes.analyze import router as analyze_router
 from src.api.routes.export import router as export_router
 from src.auth.router import router as auth_router
+from src.auth.seed import ensure_admin_exists
+from src.db.base import AsyncSessionLocal
 from src.domain.models import LLMResponseValidationError, MethodologyNotSupportedError
 
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
 )
+
+logger = logging.getLogger(__name__)
 
 
 def _parse_origins(raw: str | None) -> list[str]:
@@ -36,12 +42,26 @@ def _parse_origins(raw: str | None) -> list[str]:
     ]
 
 
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Startup / shutdown."""
+    # --- Startup: seed admin из ADMIN_EMAIL ---
+    try:
+        async with AsyncSessionLocal() as session:
+            await ensure_admin_exists(session)
+    except Exception:
+        logger.warning("[SEED] Не удалось выполнить admin-seed (БД недоступна?)", exc_info=True)
+    yield
+    # --- Shutdown ---
+
+
 app = FastAPI(
     title="RCA Analyzer API",
     version="0.4.0",
     description="Root cause analysis for industrial incidents.",
     docs_url="/docs",
     redoc_url="/redoc",
+    lifespan=lifespan,
 )
 
 # CSRF добавляется ПЕРВЫМ (внутренний слой), CORS — ПОСЛЕДНИМ (внешний слой).
@@ -80,6 +100,7 @@ async def generic_error_handler(request: Request, exc: Exception) -> JSONRespons
 app.include_router(auth_router)
 app.include_router(analyze_router)
 app.include_router(export_router)
+app.include_router(admin_router)
 
 
 @app.get("/health", tags=["infra"])
