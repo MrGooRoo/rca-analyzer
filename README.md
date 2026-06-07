@@ -1,7 +1,7 @@
 # RCA Analyzer
 
 Веб-приложение для анализа корневых причин (RCA) производственных инцидентов.
-Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, изолированную историю результатов по пользователям, загрузку DOCX-отчёта для автозаполнения формы и экспорт результатов.
+Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, роли admin/user с изоляцией истории результатов по пользователям, загрузку DOCX-отчёта для автозаполнения формы и экспорт результатов в DOCX и PDF.
 
 ---
 
@@ -43,7 +43,7 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 | `fta` | ✅ работает | ~1446 |
 | `bowtie` | ✅ работает | ~3138 |
 
-Все 5 методологий прошли полный smoke-test (UI → анализ → скачивание DOCX) 05.06.2026.
+Все 5 методологий прошли полный smoke-test (UI → анализ → экспорт DOCX/PDF) и покрыты E2E-тестами.
 
 ---
 
@@ -163,7 +163,7 @@ rca-analyzer/
 ├── src/
 │   ├── auth/                   # Access JWT, refresh-token rotation, cookies, bcrypt
 │   ├── api/
-│   │   ├── app.py              # CORS + credentials, роутеры (v0.5.0)
+│   │   ├── app.py              # CORS + credentials, роутеры
 │   │   └── routes/
 │   │       ├── analyze.py      # Защищён cookie/Bearer auth, пишет user_id
 │   │       ├── export.py       # GET /results/{id}/export → DOCX
@@ -202,7 +202,7 @@ rca-analyzer/
 │   └── 004_add_refresh_tokens.py
 ├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml              # v0.5.0
+├── pyproject.toml              # зависимости проекта
 └── .env                        # Создаётся вручную (не в git)
 ```
 
@@ -294,30 +294,41 @@ pytest tests/unit/test_pdf_export_service.py
 ## Roadmap
 
 ### ✅ Реализовано
-- [x] Все 5 методологий (incl. bowtie)
-- [x] Авторизация: access JWT + refresh-token rotation в httpOnly cookie
-- [x] CSRF protection (signed double-submit)
-- [x] Export DOCX
+- [x] Все 5 методологий (five_why, ishikawa, rca_systemic, fta, bowtie)
+- [x] Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
+- [x] CSRF protection (signed double-submit cookie + `X-CSRF-Token`)
+- [x] Роли `admin` / `user` — admin видит/редактирует/удаляет любые результаты, user только свои
 - [x] BowtieDiagram в UI
-- [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта
+- [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта через LLM
 - [x] Извлечение `established_facts` из длинных документов (head + tail + section-aware)
-- [x] Роли: `admin` (все результаты) / `user` (только свои)
-- [x] E2E-тесты `pytest` для всех 5 методологий (`tests/integration/test_methodologies_e2e.py`)
-- [x] PDF-экспорт (`fpdf2`, `?format=pdf`, кнопка ⬇️ PDF в UI)
+- [x] Экспорт **DOCX** и **PDF** (`?format=docx|pdf`, кнопки ⬇️ DOCX / ⬇️ PDF в UI)
+- [x] E2E-тесты `pytest` для всех 5 методологий + unit-тесты сервисов и роутеров
 
-### 🟢 Развитие
-- [ ] Мультиязычный интерфейс (EN/RU)
+### 🟡 В работе / следующее
+- [ ] _нет активных задач — основной функционал реализован_
+
+### 🟢 Идеи на будущее (backlog)
+- [ ] Дополнительные форматы экспорта (XLSX / CSV выгрузка рекомендаций)
+- [ ] Дашборд статистики по инцидентам (методики, тяжесть, динамика)
+- [ ] Сравнение результатов нескольких методик по одному инциденту
+- [ ] Прикрепление фото/файлов к инциденту и их учёт в анализе
+- [ ] Уведомления / экспорт по расписанию
 
 ---
 
-## Статус на 06.06.2026 (v0.5.0)
+## Статус на 07.06.2026
+
+**Реализован полный целевой функционал.** Активных задач в работе нет —
+дальнейшие пункты вынесены в backlog «Идеи на будущее».
 
 - ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
-- ✅ API: все 5 методологий, refresh/logout, upload-report
+- ✅ API: все 5 методологий, register/login/refresh/logout, upload-report, export (DOCX/PDF)
 - ✅ Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
+- ✅ Роли: `admin` / `user` (изоляция результатов, admin-роутер `/api/v1/admin/users`)
 - ✅ CSRF protection: signed double-submit cookie + `X-CSRF-Token`
-- ✅ Миграции: 4 версии (001 → 004)
+- ✅ Миграции: 5 версий (001 → 005, включая `005_add_user_role`)
 - ✅ Frontend: восстановление сессии, авто-refresh при 401, drag-and-drop загрузка .docx
-- ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
-- ✅ Upload DOCX: `POST /api/v1/upload-report` — автозаполнение формы через LLM (6 497 токенов, 20 полей + victims_list)
-- ✅ `established_facts` корректно извлекается из длинных документов — стратегия head + tail + section-aware в `docx_fields_service._trim_text`, `max_tokens=4096`
+- ✅ Export: `GET /api/v1/results/{id}/export?format=docx|pdf` + кнопки ⬇️ DOCX / ⬇️ PDF в ResultView.jsx
+- ✅ Upload DOCX: `POST /api/v1/upload-report` — автозаполнение формы через LLM (20 полей + victims_list)
+- ✅ `established_facts` корректно извлекается из длинных документов — head + tail + section-aware в `docx_fields_service._trim_text`, `max_tokens=4096`
+- ✅ Тесты: E2E всех методологий, PDF-экспорт, извлечение полей DOCX, роли, CSRF
