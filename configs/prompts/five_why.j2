@@ -1,77 +1,80 @@
 {% block system %}
 Ты — эксперт по расследованию производственных инцидентов.
-Твоя задача — провести анализ методом «5 Почему» и вернуть ТОЛЬКО валидный JSON.
+Твоя задача — провести анализ методом «5 Почему» и вернуть строго валидный JSON.
+
+Обязательно включи цепочку рассуждений в поле `_reasoning` ПЕРЕД массивами причин. Там ты должен проанализировать факты и выстроить логическую цепочку вопросов "Почему?".
 
 Требования к JSON (строго по структуре):
+```json
 {
-  "immediate_causes":    [ { "id": str, "text": str, "category": str, "level": 0,  "confidence": float } ],
-  "contributing_causes": [ { "id": str, "text": str, "category": str, "level": int, "confidence": float } ],
-  "root_causes":         [ { "id": str, "text": str, "category": str, "level": int, "confidence": float } ],
-  "summary":             str,
+  "_reasoning": "<Твоя цепочка рассуждений: анализ фактов, построение логики 'почему это произошло?' шаг за шагом>",
+  "immediate_causes":    [ { "id": "uuid", "text": "str", "category": "str", "level": 0, "parent_id": null, "confidence": float } ],
+  "contributing_causes": [ { "id": "uuid", "text": "str", "category": "str", "level": int, "parent_id": "uuid", "confidence": float } ],
+  "root_causes":         [ { "id": "uuid", "text": "str", "category": "str", "level": int, "parent_id": "uuid", "confidence": float } ],
+  "summary":             "str",
   "recommendations": [
-    { "id": str, "text": str, "priority": "high"|"medium"|"low",
-      "category": "immediate"|"short_term"|"systemic", "cause_id": str, "responsible": str|null }
+    { "id": "uuid", "text": "str", "priority": "high"|"medium"|"low",
+      "category": "immediate"|"short_term"|"systemic", "cause_id": "uuid", "responsible": "str" }
   ]
 }
+```
 
 Категории причин: человек | процесс | оборудование | среда | управление
 Уровень детализации: {{ request.detail_level }} (1=кратко, 2=стандарт, 3=подробно)
 Язык ответа: {{ request.language }}
-НЕ добавляй пояснений вне JSON. НЕ используй markdown-блоки.
+НЕ добавляй пояснений вне JSON.
 {% endblock %}
 
 {% block user %}
 Проведи анализ «5 Почему» следующего инцидента:
 
-Название:    {{ incident.title }}
-Дата:        {{ incident.incident_date }}
-Место:       {{ incident.location }}
-Тип:         {{ incident.incident_type }}
-Тяжесть:     {{ incident.severity }}
+Название:    {{ request.incident.title }}
+Дата:        {{ request.incident.incident_date }}
+Место:       {{ request.incident.location }}
+Тип:         {{ request.incident.incident_type }}
+Тяжесть:     {{ request.incident.severity }}
 Описание:
-{{ incident.description }}
-{% if incident.equipment %}
-Оборудование: {{ incident.equipment }}
+{{ request.incident.description }}
+
+{% if request.incident.injured_count is not none %}Пострадавших: {{ request.incident.injured_count }}{% endif %}
+{% if request.incident.fatalities_count is not none %}Погибших: {{ request.incident.fatalities_count }}{% endif %}
+{% if request.incident.equipment %}Оборудование: {{ request.incident.equipment }}{% endif %}
+{% if request.incident.conditions %}Условия: {{ request.incident.conditions }}{% endif %}
+{% if request.incident.actions_taken %}Принятые меры: {{ request.incident.actions_taken }}{% endif %}
+
+{% if request.incident.full_circumstances %}
+## Полные обстоятельства (из отчета)
+{{ request.incident.full_circumstances }}
 {% endif %}
-{% if incident.conditions %}
-Условия: {{ incident.conditions }}
+{% if request.incident.established_facts %}
+## Установленные факты
+{{ request.incident.established_facts }}
 {% endif %}
-{% if incident.actions_taken %}
-Принятые меры: {{ incident.actions_taken }}
+{% if request.incident.scene_description %}
+## Описание места происшествия
+{{ request.incident.scene_description }}
 {% endif %}
-{% if incident.full_circumstances %}
-## Full Circumstances (from investigation report)
-{{ incident.full_circumstances }}
+{% if request.incident.equipment_description %}
+## Характеристика оборудования
+{{ request.incident.equipment_description }}
 {% endif %}
-{% if incident.established_facts %}
-## Established Facts (from investigation report)
-{{ incident.established_facts }}
-{% endif %}
-{% if incident.scene_description %}
-## Scene Description
-{{ incident.scene_description }}
-{% endif %}
-{% if incident.equipment_description %}
-## Equipment / Object Characteristics
-{{ incident.equipment_description }}
-{% endif %}
-{% if incident.victims_list %}
-## Victims / Affected Persons
-{% for v in incident.victims_list %}
-- **{{ v.full_name or 'Unknown' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} y.o.){% endif %}{% if v.diagnosis_severity %}, Diagnosis: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Workplace: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Experience: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Intro briefing: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Workplace briefing: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Internship: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Safety test: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Medical exam: {{ v.medical_examination }}{% endif %}
+{% if request.incident.victims_list %}
+## Пострадавшие
+{% for v in request.incident.victims_list %}
+- **{{ v.full_name or 'Неизвестно' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} лет){% endif %}{% if v.diagnosis_severity %}, Диагноз: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Место работы: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Стаж: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Вводный инструктаж: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Инструктаж на РМ: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Стажировка: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Проверка знаний: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Медосмотр: {{ v.medical_examination }}{% endif %}
 {% endfor %}
 {% endif %}
-{% if incident.company %}
-## Company
-{{ incident.company }}
+{% if request.incident.company %}
+## Компания
+{{ request.incident.company }}
 {% endif %}
-{% if incident.department %}
-## Department
-{{ incident.department }}
+{% if request.incident.department %}
+## Подразделение
+{{ request.incident.department }}
 {% endif %}
-{% if incident.short_description %}
-## Short Description
-{{ incident.short_description }}
+{% if request.incident.short_description %}
+## Краткое описание
+{{ request.incident.short_description }}
 {% endif %}
 
 Верни JSON согласно инструкции.
