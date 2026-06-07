@@ -11,10 +11,36 @@ from src.integrations.llm.openrouter import OpenRouterClient
 
 logger = logging.getLogger(__name__)
 
-# Стратегия head + tail: берём начало и конец документа,
-# чтобы не обрезать разделы типа «Установленные факты» в конце.
+# Стратегия head + tail + section-aware:
+#   * head  — начало документа (обзор, пострадавшие, даты);
+#   * tail  — конец документа (часто там выводы/заключение);
+#   * section slices — целевые срезы вокруг ключевых разделов
+#     («Установленные факты», «Обстоятельства», «Причины» и т.д.),
+#     чтобы они не терялись в «мёртвой зоне» между head и tail
+#     в очень длинных документах (>16 000 символов).
 HEAD_CHUNK = 8_000
 TAIL_CHUNK = 8_000
+
+# Сколько символов захватывать вокруг найденного заголовка раздела.
+# Заголовок может быть в любом месте документа; берём весь раздел целиком
+# (до следующего известного заголовка или до SECTION_WINDOW символов).
+SECTION_WINDOW = 6_000
+
+# Ключевые заголовки разделов, которые ОБЯЗАТЕЛЬНО должны попасть в срез.
+# Сопоставление регистронезависимое, по вхождению подстроки в строку-начало абзаца.
+SECTION_KEYWORDS: tuple[str, ...] = (
+    "установленные факты",
+    "установленные обстоятельства",
+    "обстоятельства несчастного случая",
+    "обстоятельства происшествия",
+    "обстоятельства и причины",
+    "причины несчастного случая",
+    "причины происшествия",
+    "причины инцидента",
+    "сведения о пострадавш",
+    "лица, допустившие нарушения",
+    "мероприятия по устранению",
+)
 
 SYSTEM_PROMPT = """\
 Ты — специалист по анализу отчётов об инцидентах на производстве.
@@ -83,19 +109,76 @@ USER_PROMPT_TEMPLATE = """\
 """
 
 
+def _find_section_spans(text: str) -> list[tuple[int, int]]:
+    """Находит позиции ключевых разделов в тексте.
+
+    Возвращает список (start, end) для каждого найденного раздела —
+    срез от начала заголовка на SECTION_WINDOW символов (или до конца текста).
+    Регистронезависимый поиск по вхождению ключевых слов.
+    """
+    lowered = text.lower()
+    spans: list[tuple[int, int]] = []
+    for kw in SECTION_KEYWORDS:
+        start = 0
+        while True:
+            idx = lowered.find(kw, start)
+            if idx == -1:
+                break
+            end = min(idx + SECTION_WINDOW, len(text))
+            spans.append((idx, end))
+            start = idx + len(kw)
+    return spans
+
+
+def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
+    """Сливает пересекающиеся/смежные диапазоны в упорядоченный список."""
+    if not spans:
+        return []
+    spans = sorted(spans)
+    merged = [spans[0]]
+    for start, end in spans[1:]:
+        last_start, last_end = merged[-1]
+        if start <= last_end:
+            merged[-1] = (last_start, max(last_end, end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
 def _trim_text(text: str) -> tuple[str, bool]:
     """Возвращает (trimmed_text, was_trimmed).
-    Если текст длиннее HEAD_CHUNK + TAIL_CHUNK — берём начало и конец,
-    пропуская середину. Это позволяет захватить разделы в конце документа
-    (например, «Установленные факты»).
+
+    Стратегия для длинных документов (> HEAD_CHUNK + TAIL_CHUNK):
+      1. Берём head (начало) и tail (конец).
+      2. Дополнительно ищем ключевые разделы по всему документу
+         («Установленные факты» и т.п.) и принудительно включаем
+         их срезы, даже если они находятся в середине.
+      3. Все диапазоны сливаются и склеиваются по порядку с метками
+         о пропущенных фрагментах.
+
+    Так раздел «Установленные факты» гарантированно попадёт в срез
+    независимо от его положения в документе.
     """
     total = HEAD_CHUNK + TAIL_CHUNK
     if len(text) <= total:
         return text, False
 
-    head = text[:HEAD_CHUNK]
-    tail = text[-TAIL_CHUNK:]
-    trimmed = head + "\n...[середина пропущена]...\n" + tail
+    n = len(text)
+    spans: list[tuple[int, int]] = [(0, HEAD_CHUNK), (n - TAIL_CHUNK, n)]
+    spans.extend(_find_section_spans(text))
+    merged = _merge_spans(spans)
+
+    parts: list[str] = []
+    prev_end = 0
+    for start, end in merged:
+        if start > prev_end:
+            parts.append(f"\n...[пропущено {start - prev_end} символов]...\n")
+        parts.append(text[start:end])
+        prev_end = end
+    if prev_end < n:
+        parts.append(f"\n...[пропущено {n - prev_end} символов]...\n")
+
+    trimmed = "".join(parts)
     return trimmed, True
 
 

@@ -105,17 +105,30 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 
 **Что происходит:**
 1. `DocxExtractor` извлекает текст из DOCX (абзацы + таблицы)
-2. Текст обрезается до `MAX_TEXT_LENGTH` символов
+2. Текст обрезается стратегией **head + tail + section-aware** (см. ниже)
 3. LLM извлекает до 20 полей (заголовок, описание, дата, место, установленные факты, пострадавшие и др.)
 4. Форма в UI заполняется извлечёнными данными
 
-**Известные ограничения:**
-- ❗ `MAX_TEXT_LENGTH = 15 000` символов — для больших документов (тестовый `165 066` сим.) поля из разделов в конце документа (напр., `established_facts`) могут быть пустыми
-- Решение (план): поднять `MAX_TEXT_LENGTH` до `30 000` **или** использовать `head + tail` по 8 000 сим. — берём начало и конец документа
+**Стратегия обрезки текста (`docx_fields_service._trim_text`):**
+- Документы ≤ `HEAD_CHUNK + TAIL_CHUNK` (16 000 сим.) передаются целиком.
+- Для длинных документов берём:
+  - **head** — первые `8 000` сим. (обзор, даты, пострадавшие);
+  - **tail** — последние `8 000` сим. (часто заключение);
+  - **section slices** — целевые срезы (`SECTION_WINDOW = 6 000`) вокруг ключевых
+    разделов (`Установленные факты`, `Обстоятельства`, `Причины` и др.),
+    найденных **в любом месте** документа.
+- Это решает проблему пустого `established_facts`: раздел гарантированно попадает
+  в срез, даже если он в «мёртвой зоне» между head и tail (тестовый документ
+  `165 066` сим. — раздел на позиции ~48 895, успешно захватывается).
+- Между сохранёнными фрагментами вставляется метка `...[пропущено N символов]...`.
 
 **LLM клиент (upload):**
 - `required_keys={"title"}` — не проверяет `summary`/`recommendations` (они нужны только RCA-методологиям)
-- `max_tokens=3000` — недостаточно для крупных JSON с `victims_list`; поднять до `4096`
+- `max_tokens=4096` — достаточно для крупных JSON с `victims_list`
+
+**Проверка / тесты:**
+- `pytest tests/unit/test_docx_fields_service.py` — 13 тестов на `_trim_text`
+- `python scripts/verify_established_facts.py [path.docx]` — e2e-проверка без LLM
 
 ---
 
@@ -252,10 +265,9 @@ docker-compose exec api alembic upgrade head      # применить все
 - [x] Export DOCX
 - [x] BowtieDiagram в UI
 - [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта
+- [x] Извлечение `established_facts` из длинных документов (head + tail + section-aware)
 
 ### 🟡 Следующий приоритет
-- [ ] Поднять `MAX_TEXT_LENGTH` до `30 000` **или** перейти на `head + tail` (запись в `docx_fields_service.py`)
-- [ ] Поднять `max_tokens=3000` → `4096` в `docx_fields_service.py`
 - [ ] Роли: `admin` (все результаты) / `user` (только свои)
 
 ### 🟢 Развитие
@@ -275,4 +287,4 @@ docker-compose exec api alembic upgrade head      # применить все
 - ✅ Frontend: восстановление сессии, авто-refresh при 401, drag-and-drop загрузка .docx
 - ✅ Export DOCX: `GET /api/v1/results/{id}/export` + кнопка ⬇️ DOCX в ResultView.jsx
 - ✅ Upload DOCX: `POST /api/v1/upload-report` — автозаполнение формы через LLM (6 497 токенов, 20 полей + victims_list)
-- ❗ `established_facts` пустой для документов > 15 000 сим. — исправляется поднятием `MAX_TEXT_LENGTH`
+- ✅ `established_facts` корректно извлекается из длинных документов — стратегия head + tail + section-aware в `docx_fields_service._trim_text`, `max_tokens=4096`
