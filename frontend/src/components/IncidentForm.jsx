@@ -61,6 +61,7 @@ const DEFAULTS = {
 export default function IncidentForm({ onSubmit, loading }) {
   const [form, setForm] = useState(DEFAULTS)
   const [uploading, setUploading] = useState(false)
+  const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState(null)
   const [uploadedFile, setUploadedFile] = useState(null)
   const [dragOver, setDragOver] = useState(false)
@@ -111,10 +112,14 @@ export default function IncidentForm({ onSubmit, loading }) {
       return
     }
     setUploading(true)
+    setUploadMessage('Начинаем загрузку...')
     setUploadError(null)
     setUploadedFile(file.name)
     try {
-      const fields = await api.uploadReport(file)
+      const fields = await api.uploadReportStream(file, (evt) => {
+        if (evt.status === 'reading') setUploadMessage('Извлечение текста из DOCX...')
+        else if (evt.status === 'analyzing') setUploadMessage('Анализ текста в LLM (это может занять до 1-2 минут)...')
+      })
       setForm(prev => ({
         ...prev,
         title: fields.title || prev.title,
@@ -206,7 +211,7 @@ export default function IncidentForm({ onSubmit, loading }) {
         onClick={() => !uploading && fileInputRef.current?.click()}>
         <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileSelect} style={{ display: 'none' }} />
         {uploading ? (
-          <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">ИИ анализирует отчёт…</span></div>
+          <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">{uploadMessage}</span></div>
         ) : uploadedFile ? (
           <div className="upload-zone__content"><span className="upload-zone__icon">✅</span><span className="upload-zone__text">Поля заполнены из «{uploadedFile}»</span>
             <button type="button" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }}>✕ Сбросить</button></div>

@@ -249,6 +249,76 @@ async function uploadFile(path, file, options = {}) {
   return response.json()
 }
 
+async function uploadFileStream(path, file, onProgress, options = {}) {
+  const {
+    authRequired = true,
+    retryOn401 = true,
+  } = options
+
+  const formData = new FormData()
+  formData.append('file', file)
+
+  const headers = {}
+  const csrfToken = readCsrfToken()
+  if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
+
+  const response = await fetch(path, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  })
+
+  if (response.status === 401 && canAutoRefresh(path, authRequired, retryOn401)) {
+    const refreshed = await tryRefresh()
+    if (refreshed) {
+      return uploadFileStream(path, file, onProgress, { ...options, retryOn401: false })
+    }
+    notifyAuthLost()
+  }
+
+  if (!response.ok) {
+    if (response.status === 401 && authRequired) {
+      notifyAuthLost()
+    }
+    throw new Error(await readError(response))
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+    
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const chunk = buffer.slice(0, boundary).trim()
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf('\n\n')
+      
+      if (chunk.startsWith('data: ')) {
+        try {
+          const data = JSON.parse(chunk.slice(6))
+          if (data.status === 'error') {
+            throw new Error(data.message || 'Unknown error')
+          }
+          onProgress(data)
+          if (data.status === 'done') {
+            return data.result
+          }
+        } catch(e) {
+          if (e.message !== 'Unexpected end of JSON input') {
+            if (chunk.includes('"status": "error"')) throw e
+          }
+        }
+      }
+    }
+  }
+}
+
 export const api = {
   auth: {
     register: async (email, display_name, password) => {
@@ -265,6 +335,7 @@ export const api = {
   },
   analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
   uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
+  uploadReportStream: (file, onProgress) => uploadFileStream('/api/v1/upload-report-stream', file, onProgress, { authRequired: true }),
   exportDocx,
   exportResult,
   results: {

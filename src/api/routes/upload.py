@@ -13,7 +13,10 @@ import logging
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+import json
+import asyncio
 
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
@@ -174,3 +177,80 @@ async def upload_report(
     fields["victims_list"] = victims_parsed
 
     return ExtractedFields(**fields)
+
+@router.post(
+    "/upload-report-stream",
+    status_code=status.HTTP_200_OK,
+    summary="Загрузить DOCX-отчёт и извлечь поля инцидента через LLM (SSE-поток)",
+)
+async def upload_report_stream(
+    current_user: CurrentUser,
+    file: UploadFile = File(..., description="DOCX-файл отчёта об инциденте"),
+):
+    # --- Валидация файла ---
+    filename = file.filename or ""
+    if not filename.lower().endswith(".docx"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Допустимы только файлы формата .docx",
+        )
+
+    file_bytes = await file.read()
+
+    if len(file_bytes) == 0:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл пустой")
+
+    if len(file_bytes) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"Файл слишком большой (макс. {MAX_FILE_SIZE // (1024*1024)} МБ)",
+        )
+
+    async def event_generator():
+        # Стадия 1: Чтение документа
+        yield f"data: {json.dumps({'status': 'reading', 'message': 'Извлечение текста из документа...'})}\n\n"
+        await asyncio.sleep(0.1) # Даем событию отправиться
+        
+        try:
+            report_text = extract_text_from_docx(file_bytes)
+        except Exception as exc:
+            logger.error("[UploadStream] Ошибка парсинга DOCX: %s", exc)
+            yield f"data: {json.dumps({'status': 'error', 'message': 'Не удалось прочитать DOCX-файл. Убедитесь, что файл не повреждён.'})}\n\n"
+            return
+
+        if not report_text.strip():
+            yield f"data: {json.dumps({'status': 'error', 'message': 'Документ не содержит текста'})}\n\n"
+            return
+
+        # Стадия 2: LLM
+        yield f"data: {json.dumps({'status': 'analyzing', 'message': 'Анализ текста в LLM (это может занять до 1-2 минут)...'})}\n\n"
+        
+        try:
+            fields = await extract_fields_from_text(report_text)
+        except LLMResponseValidationError as exc:
+            logger.error("[UploadStream] LLM не вернул валидный ответ: %s", exc)
+            yield f"data: {json.dumps({'status': 'error', 'message': 'ИИ не смог обработать отчёт. Попробуйте ещё раз.'})}\n\n"
+            return
+        except ValueError as exc:
+            yield f"data: {json.dumps({'status': 'error', 'message': str(exc)})}\n\n"
+            return
+        except Exception as exc:
+            logger.error("[UploadStream] Неизвестная ошибка: %s", exc)
+            yield f"data: {json.dumps({'status': 'error', 'message': 'Произошла непредвиденная ошибка при анализе отчёта.'})}\n\n"
+            return
+
+        # Нормализуем victims_list
+        raw_victims = fields.get("victims_list", [])
+        victims_parsed = []
+        for v in raw_victims:
+            if isinstance(v, dict):
+                try:
+                    victims_parsed.append(VictimFields(**v).model_dump())
+                except Exception:
+                    pass
+        fields["victims_list"] = victims_parsed
+
+        # Стадия 3: Готово
+        yield f"data: {json.dumps({'status': 'done', 'result': fields})}\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
