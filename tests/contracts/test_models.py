@@ -199,3 +199,14 @@ class TestIncidentInputExpanded:
         assert obj.victims_list[0].profession == "Электрик"
         assert obj.established_facts == "Установлено: отсутствие ограждения."
         assert obj.photo_urls == []  # default
+
+from src.domain.models import MultiAnalysisRequest, ComparisonResult
+
+
+class TestMultiAnalysisRequest:
+    def test_valid(self, valid_incident):
+        req = MultiAnalysisRequest(
+            methodologies=[MethodologyType.FIVE_WHY, MethodologyType.ISHIKAWA],
+            incident=valid_incident,
+        )
+        assert len(req.methodologies) == 2

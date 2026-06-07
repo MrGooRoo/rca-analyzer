@@ -191,3 +191,36 @@ async def update_recommendation(
 @router.get("/methodologies", summary="Список реализованных методик RCA")
 async def list_methodologies() -> dict:
     return {"supported": [m.value for m in _service.supported_methodologies()]}
+
+@router.post(
+    "/analyze-multi",
+    response_model=list[RCAResult],
+    status_code=status.HTTP_201_CREATED,
+)
+async def analyze_multi(
+    request: MultiAnalysisRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[RCAResult]:
+    results = await _service.analyze_multi(request)
+    repo = RCARepository(db)
+    for result in results:
+        await repo.save_result(result, user_id=current_user.user_id)
+        result.user_id = current_user.user_id
+    return results
+
+
+@router.get("/results/compare", response_model=ComparisonResult)
+async def compare_results(
+    incident_id: str = Query(..., description="ID инцидента"),
+    db: DbSession,
+    current_user: CurrentUser,
+) -> ComparisonResult:
+    repo = RCARepository(db)
+    user_filter = None if current_user.role == "admin" else current_user.user_id
+    results = await repo.list_results(user_id=user_filter, incident_id=incident_id, limit=10)
+    if not results:
+        raise HTTPException(status_code=404, detail="Нет результатов")
+    for r in results:
+        _check_owner_or_admin(r, current_user)
+    return _service.compare(results)

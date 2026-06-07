@@ -133,3 +133,21 @@ class MethodologyNotSupportedError(Exception):
 
 class LLMResponseValidationError(Exception):
     pass
+
+# ----------------------------------------------------------------------
+# Сравнение методик (добавлено 08.06.2026)
+# ----------------------------------------------------------------------
+
+class MultiAnalysisRequest(BaseModel):
+    methodologies: list[MethodologyType] = Field(..., min_items=1, max_items=5)
+    language: str = "ru"
+    detail_level: int = Field(default=2, ge=1, le=3)
+    incident: IncidentInput
+
+
+class ComparisonResult(BaseModel):
+    incident_id: str
+    results: list[RCAResult]
+    common_recommendations: list[Recommendation] = Field(default_factory=list)
+    differing_causes: dict[str, list[str]] = Field(default_factory=dict)
+    summary: str = ""

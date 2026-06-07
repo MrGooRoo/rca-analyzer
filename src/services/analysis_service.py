@@ -16,6 +16,14 @@ from __future__ import annotations
 
 import logging
 
+
+import uuid
+from src.domain.models import (
+    ComparisonResult,
+    MultiAnalysisRequest,
+    Recommendation,
+)
+
 from src.domain.models import (
     AnalysisRequest,
     MethodologyNotSupportedError,
@@ -105,3 +113,29 @@ class AnalysisService:
     @classmethod
     def supported_methodologies(cls) -> list[MethodologyType]:
         return list(_RUNNERS.keys())
+
+    async def analyze_multi(self, request: MultiAnalysisRequest) -> list[RCAResult]:
+        incident_id = str(uuid.uuid4())
+        results: list[RCAResult] = []
+        for methodology in request.methodologies:
+            single_request = AnalysisRequest(
+                methodology=methodology,
+                language=request.language,
+                detail_level=request.detail_level,
+                incident=request.incident,
+            )
+            result = await self.analyze(single_request)
+            result.incident_id = incident_id
+            results.append(result)
+        return results
+
+    @staticmethod
+    def compare(results: list[RCAResult]) -> ComparisonResult:
+        if not results:
+            raise ValueError("Нет результатов для сравнения")
+        incident_id = results[0].incident_id
+        return ComparisonResult(
+            incident_id=incident_id,
+            results=results,
+            summary=f"Сравнено {len(results)} методологий по инциденту",
+        )
