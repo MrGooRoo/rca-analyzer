@@ -11,6 +11,103 @@ from src.integrations.llm.openrouter import OpenRouterClient
 
 logger = logging.getLogger(__name__)
 
+# ---------------------------------------------------------------------------
+# Адаптивная стратегия обрезки текста в зависимости от контекстного окна модели.
+# Модели с контекстом ≥ 200 000 токенов получают полный текст без обрезки.
+# Для остальных — сохраняется section-aware head+tail стратегия.
+# ---------------------------------------------------------------------------
+
+# Порог: если модель поддерживает ≥ столько токенов контекста — не обрезаем.
+_LARGE_CONTEXT_THRESHOLD_TOKENS = 200_000
+
+# Известные модели с большим контекстом (бесплатные через OpenRouter).
+# Ключ — подстрока из OPENROUTER_MODEL, значение — размер контекста в токенах.
+_KNOWN_MODEL_CONTEXTS: dict[str, int] = {
+    # NVIDIA Nemotron (1M)
+    "nemotron-3-ultra":   1_000_000,
+    "nemotron-3-super":   1_000_000,
+    "nemotron-3-nano":      256_000,
+    # Qwen (256K–1M)
+    "qwen3-next":           262_144,
+    "qwen3-coder":        1_048_576,
+    # Google Gemma 4 (262K)
+    "gemma-4":              262_144,
+    # Moonshot Kimi (262K)
+    "kimi":                 262_144,
+    # Poolside Laguna (262K)
+    "laguna":               262_144,
+    # OpenRouter meta-models
+    "openrouter/owl":     1_048_756,
+    "openrouter/free":      200_000,
+    # Google Lyria
+    "lyria":              1_048_576,
+    # Llama 3.3 70B (131K — ниже порога, но всё ещё прилично)
+    "llama-3.3-70b":        131_072,
+    # GPT-OSS (131K)
+    "gpt-oss-120b":         131_072,
+    "gpt-oss-20b":          131_072,
+    # Hermes 405B (131K)
+    "hermes-3-llama-3.1-405b": 131_072,
+}
+
+
+def _get_model_context_limit() -> int:
+    """Возвращает размер контекстного окна модели в токенах.
+
+    Источники (в порядке приоритета):
+      1. OPENROUTER_MODEL_MAX_CONTEXT (явное указание пользователем)
+      2. _KNOWN_MODEL_CONTEXTS (по подстроке model_id)
+      3. 131_072 (консервативное значение по умолчанию)
+    """
+    from os import getenv
+
+    explicit = getenv("OPENROUTER_MODEL_MAX_CONTEXT")
+    if explicit:
+        try:
+            return int(explicit)
+        except ValueError:
+            logger.warning(
+                "[DocxFields] Некорректный OPENROUTER_MODEL_MAX_CONTEXT=%s — "
+                "использую автоопределение",
+                explicit,
+            )
+
+    model_id = getenv("OPENROUTER_MODEL", "").lower()
+    for key, ctx in _KNOWN_MODEL_CONTEXTS.items():
+        if key in model_id:
+            return ctx
+
+    return 131_072  # консервативный дефолт
+
+
+def _model_supports_full_text(model_ctx_tokens: int) -> bool:
+    """True если контекст модели позволяет отправить весь документ без обрезки."""
+    # Порог: ≈ 200K токенов → ~600K–800K символов (русский текст).
+    # Типичный большой DOCX: 150–200K символов → ~40–55K токенов.
+    # С запасом на системный промпт + ответ (8K токенов) + оверхед.
+    return model_ctx_tokens >= _LARGE_CONTEXT_THRESHOLD_TOKENS
+
+
+# Максимальный размер текста для отправки в LLM (с обрезкой).
+# Используется ТОЛЬКО когда модель НЕ поддерживает полный текст.
+# Настраивается через DOCX_MAX_INPUT_CHARS (по умолчанию 20_000).
+_DEFAULT_MAX_INPUT_CHARS = 20_000
+
+
+def _get_max_input_chars() -> int:
+    """Максимальное кол-во символов текста отчёта для отправки в LLM."""
+    from os import getenv
+
+    val = getenv("DOCX_MAX_INPUT_CHARS")
+    if val:
+        try:
+            return int(val)
+        except ValueError:
+            logger.warning(
+                "[DocxFields] Некорректный DOCX_MAX_INPUT_CHARS=%s", val
+            )
+    return _DEFAULT_MAX_INPUT_CHARS
+
 # Стратегия head + tail + section-aware:
 #   * head  — начало документа (обзор, пострадавшие, даты);
 #   * tail  — конец документа (часто там выводы/заключение);
@@ -180,10 +277,10 @@ def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
     return merged
 
 
-def _trim_text(text: str) -> tuple[str, bool]:
+def _trim_text(text: str, max_input_chars: int | None = None) -> tuple[str, bool]:
     """Возвращает (trimmed_text, was_trimmed).
 
-    Стратегия для длинных документов (> HEAD_CHUNK + TAIL_CHUNK):
+    Стратегия для длинных документов (> max_input_chars):
       1. Берём head (начало) и tail (конец).
       2. Дополнительно ищем ключевые разделы по всему документу
          («Установленные факты» и т.п.) и принудительно включаем
@@ -193,13 +290,20 @@ def _trim_text(text: str) -> tuple[str, bool]:
 
     Так раздел «Установленные факты» гарантированно попадёт в срез
     независимо от его положения в документе.
+
+    Если max_input_chars не задан — используется _get_max_input_chars().
     """
-    total = HEAD_CHUNK + TAIL_CHUNK  # 20 000 — не обрезаем короткие документы
-    if len(text) <= total:
+    if max_input_chars is None:
+        max_input_chars = _get_max_input_chars()
+
+    if len(text) <= max_input_chars:
         return text, False
 
     n = len(text)
-    spans: list[tuple[int, int]] = [(0, HEAD_CHUNK), (n - TAIL_CHUNK, n)]
+    # Динамический head/tail: пропорционально лимиту
+    head_sz = min(HEAD_CHUNK, max_input_chars // 2)
+    tail_sz = min(TAIL_CHUNK, max_input_chars // 2)
+    spans: list[tuple[int, int]] = [(0, head_sz), (n - tail_sz, n)]
     spans.extend(_find_section_spans(text))
     merged = _merge_spans(spans)
 
@@ -221,22 +325,48 @@ async def extract_fields_from_text(report_text: str) -> dict:
     if not report_text or not report_text.strip():
         raise ValueError("Текст отчёта пустой — невозможно извлечь данные.")
 
-    trimmed, was_trimmed = _trim_text(report_text)
-    if was_trimmed:
-        logger.warning(
-            "[DocxFields] Текст обрезан (head+tail): %d → %d символов",
+    model_ctx = _get_model_context_limit()
+    full_text_ok = _model_supports_full_text(model_ctx)
+
+    if full_text_ok:
+        # Модель с большим контекстом — отправляем ВЕСЬ документ
+        trimmed = report_text
+        was_trimmed = False
+        logger.info(
+            "[DocxFields] Модель с контекстом %d токенов — "
+            "отправляю полный текст (%d символов) без обрезки",
+            model_ctx,
             len(report_text),
-            len(trimmed),
         )
+    else:
+        max_chars = _get_max_input_chars()
+        trimmed, was_trimmed = _trim_text(report_text, max_input_chars=max_chars)
+        if was_trimmed:
+            logger.warning(
+                "[DocxFields] Текст обрезан (контекст модели %d токенов): "
+                "%d → %d символов",
+                model_ctx,
+                len(report_text),
+                len(trimmed),
+            )
+        else:
+            logger.info(
+                "[DocxFields] Текст уместился в лимит %d символов, не обрезан",
+                max_chars,
+            )
 
     user_prompt = USER_PROMPT_TEMPLATE.format(report_text=trimmed)
+
+    # Для полного текста увеличиваем max_tokens чтобы модель могла
+    # вернуть все поля без урезания
+    response_tokens = 16384 if full_text_ok else 8192
 
     async with OpenRouterClient() as client:
         raw = await client.complete(
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
             temperature=0.1,
-            max_tokens=8192,
+            max_tokens=response_tokens,
             # upload использует свою схему — не требуем summary/recommendations
             required_keys={"title"},
         )
