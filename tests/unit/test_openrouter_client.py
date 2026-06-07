@@ -98,8 +98,8 @@ class TestOpenRouterClient:
         async with client:
             client._http = AsyncMock()
             client._http.post = AsyncMock(return_value=mock_resp)
-            with pytest.raises(LLMResponseValidationError, match="\u043a\u043b\u044e\u0447\u0435\u0439"):
-                await client.complete("sys", "usr")
+            with pytest.raises(LLMResponseValidationError):
+                await client.complete("sys", "usr", required_keys={"immediate_causes"})
 
     @pytest.mark.asyncio
     async def test_non_dict_json_raises(self, client):

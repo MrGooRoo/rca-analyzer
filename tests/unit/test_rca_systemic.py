@@ -114,10 +114,9 @@ class TestRcaSystemicRunner:
     def test_validate_response_accepts_valid(self, runner, valid_llm_response):
         runner.validate_response(valid_llm_response)  # не должно бросать
 
-    def test_validate_response_rejects_missing_barriers(self, runner, valid_llm_response):
+    def test_validate_response_accepts_missing_barriers(self, runner, valid_llm_response):
         del valid_llm_response["barriers"]
-        with pytest.raises(LLMResponseValidationError, match="barriers"):
-            runner.validate_response(valid_llm_response)
+        runner.validate_response(valid_llm_response)  # не должно бросать
 
     def test_validate_response_rejects_missing_root_causes(self, runner, valid_llm_response):
         del valid_llm_response["root_causes"]

@@ -59,15 +59,32 @@ class OpenRouterClient:
         self,
         api_key:     str | None = None,
         model:       str | None = None,
+        fallback_models: list[str] | None = None,
         timeout:     int | None = None,
         max_retries: int | None = None,
     ) -> None:
-        self.api_key     = api_key     or os.environ["OPENROUTER_API_KEY"]
-        self.model       = model       or os.getenv("OPENROUTER_MODEL", "openai/gpt-4o-mini")
-        self.timeout     = timeout     or int(os.getenv("OPENROUTER_TIMEOUT", "60"))
+        self.api_key     = api_key     or os.environ.get("OPENROUTER_API_KEY", "")
+        self.primary_model = model     or os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
+        
+        if fallback_models is None:
+            # Загружаем fallbacks из переменной окружения (CSV) или используем дефолтные
+            fb_env = os.getenv("OPENROUTER_FALLBACK_MODELS", "")
+            if fb_env:
+                self.fallback_models = [m.strip() for m in fb_env.split(",") if m.strip()]
+            else:
+                self.fallback_models = [
+                    "google/gemma-4-26b-a4b-it:free",
+                    "meta-llama/llama-3.3-70b-instruct:free"
+                ]
+        else:
+            self.fallback_models = fallback_models
+            
+        self.timeout     = timeout     or int(os.getenv("OPENROUTER_TIMEOUT", "120"))
         self.max_retries = max_retries or int(os.getenv("OPENROUTER_MAX_RETRIES", "3"))
 
         self._http: httpx.AsyncClient | None = None
+        # Текущая модель, которая используется в вызове
+        self.current_model = self.primary_model
 
     async def __aenter__(self) -> "OpenRouterClient":
         self._http = httpx.AsyncClient(
@@ -89,7 +106,7 @@ class OpenRouterClient:
 
     @property
     def model_name(self) -> str:
-        return self.model
+        return self.current_model
 
     async def complete(
         self,
@@ -111,7 +128,7 @@ class OpenRouterClient:
         _required = _DEFAULT_REQUIRED_KEYS if required_keys is None else frozenset(required_keys)
 
         try:
-            raw = await self._complete_with_retry(
+            raw = await self._complete_with_fallbacks(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=temperature,
@@ -119,10 +136,60 @@ class OpenRouterClient:
                 required_keys=_required,
             )
         except RetryError as exc:
+            # Пытаемся достать оригинальную ошибку из tenacity
+            if exc.last_attempt and exc.last_attempt.exception():
+                orig_exc = exc.last_attempt.exception()
+                if isinstance(orig_exc, LLMResponseValidationError):
+                    raise orig_exc from exc
+            
             raise LLMResponseValidationError(
-                f"LLM не вернул валидный ответ после {self.max_retries} попыток."
+                f"Не удалось получить валидный ответ ни от одной модели (включая fallbacks): {exc}"
             ) from exc
+        except Exception as exc:
+            raise LLMResponseValidationError(
+                f"Не удалось получить валидный ответ ни от одной модели (включая fallbacks): {exc}"
+            ) from exc
+            
         return raw
+
+    async def _complete_with_fallbacks(
+        self,
+        system_prompt: str,
+        user_prompt:   str,
+        temperature:   float,
+        max_tokens:    int,
+        required_keys: frozenset[str],
+    ) -> dict:
+        models_to_try = [self.primary_model] + self.fallback_models
+        
+        last_error = None
+        for model in models_to_try:
+            self.current_model = model
+            logger.info(f"[OpenRouter] Попытка вызова модели: {model}")
+            try:
+                # Внутренний метод с retry для каждой модели
+                return await self._complete_with_retry(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    required_keys=required_keys,
+                )
+            except RetryError as exc:
+                if exc.last_attempt and exc.last_attempt.exception():
+                    last_error = exc.last_attempt.exception()
+                else:
+                    last_error = exc
+                logger.warning(f"[OpenRouter] Модель {model} не справилась (RetryError): {last_error}")
+                continue
+            except LLMResponseValidationError as exc:
+                logger.warning(f"[OpenRouter] Модель {model} не справилась: {exc}")
+                last_error = exc
+                continue
+                
+        if last_error:
+            raise last_error
+        raise LLMResponseValidationError("Список моделей пуст")
 
     async def _complete_with_retry(
         self,
@@ -167,7 +234,7 @@ class OpenRouterClient:
             raise RuntimeError("Клиент используется вне контекстного менеджера.")
 
         payload = {
-            "model":       self.model,
+            "model":       self.current_model,
             "temperature": temperature,
             "max_tokens":  max_tokens,
             "response_format": {"type": "json_object"},
@@ -203,13 +270,13 @@ class OpenRouterClient:
 
         parsed = self._parse_and_validate(content, required_keys=required_keys)
         parsed["_meta"] = {
-            "model":  self.model,
+            "model":  self.current_model,
             "tokens": usage.get("total_tokens", 0),
         }
 
         logger.info(
             "[OpenRouter] ← model=%s tokens=%d keys=%s",
-            self.model,
+            self.current_model,
             parsed["_meta"]["tokens"],
             [k for k in parsed if not k.startswith("_")],
         )
