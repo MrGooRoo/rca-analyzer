@@ -11,7 +11,7 @@
 |---|---|
 | Backend | FastAPI (Python 3.11) |
 | База данных | PostgreSQL + SQLAlchemy + Alembic |
-| LLM | OpenRouter → `openai/gpt-4o-mini` (fallback: `gpt-oss-120b:free`) |
+| LLM | OpenRouter → `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст; есть fallback-цепочка) |
 | Frontend | React (Vite) |
 | Контейнеризация | Docker Compose |
 | Авторизация | JWT access + refresh-token в httpOnly cookie, bcrypt |

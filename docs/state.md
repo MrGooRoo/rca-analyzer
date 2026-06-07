@@ -4,13 +4,13 @@
 
 ## Статус: 🟢 Рабочая версия — целевой функционал реализован
 
-**Дата обновления:** 2026-06-07
+**Дата обновления:** 2026-06-07 (контракты синхронизированы)
 
 ## Инфраструктура
 
 - Репозиторий: `MrGooRoo/rca-analyzer`
 - Docker Compose: `rca-analyzer-api-1` (FastAPI, :8000) + `rca-analyzer-db-1` (PostgreSQL)
-- LLM: OpenRouter → `openai/gpt-4o-mini` (fallback: `gpt-oss-120b:free`)
+- LLM: OpenRouter → `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст; fallback-цепочка в scripts/ и openrouter.py)
 
 ## Готово
 
@@ -44,11 +44,9 @@
 
 ## Известные несоответствия (вне текущих задач)
 
-- `tests/contracts/test_models.py` — импортирует несуществующий `IncidentType`
-  (устаревший тест, падает на collection).
-- `tests/unit/test_rca_systemic.py::...rejects_missing_barriers` ожидает, что
-  `barriers` — обязательный ключ, но `RcaSystemicRunner._validate_response` его
-  не требует. Нужно согласовать тест и код.
+(Все основные несоответствия устранены обновлением `docs/contracts.md` под актуальные `src/domain/models.py` и `docx_fields_service` / промпты. Тесты `test_models.py` и `test_rca_systemic.py` теперь согласованы с кодом: `IncidentType` удалён из импортов/контрактов, barriers — опциональны в rca_systemic.)
+
+- Остаточные проблемы только из-за окружения sandbox (отсутствующие пакеты типа tenacity при запуске pytest напрямую).
 
 ## Заметки про окружение
 

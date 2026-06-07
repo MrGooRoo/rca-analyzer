@@ -16,6 +16,7 @@ from src.domain.models import (
     MethodologyType,
     RCAResult,
     Recommendation,
+    Victim,
 )
 
 
@@ -142,3 +143,59 @@ class TestRCAResult:
         assert result.result_id == "res-001"
         assert len(result.root_causes) == 1
         assert result.confidence_avg == 0.84
+        assert result.user_id is None  # optional, added for roles
+
+
+# ---------------------------------------------------------------------------
+
+
+# Victim + expanded IncidentInput (из DOCX и новых промптов)
+# ---------------------------------------------------------------------------
+
+
+class TestVictim:
+    def test_valid(self):
+        v = Victim(
+            full_name="Иванов Иван Иванович",
+            birth_date="1990-05-15",
+            age=34,
+            profession="Слесарь",
+            diagnosis_severity="лёгкая травма",
+        )
+        assert v.full_name == "Иванов Иван Иванович"
+        assert v.birth_date.year == 1990
+
+    def test_birth_date_none(self):
+        v = Victim(birth_date=None)
+        assert v.birth_date is None
+
+    def test_birth_date_invalid(self):
+        v = Victim(birth_date="bad-date")
+        assert v.birth_date is None
+
+
+class TestIncidentInputExpanded:
+    def test_with_docx_fields(self):
+        data = {
+            "title": "Падение",
+            "description": "Описание",
+            "incident_date": "2026-06-01T09:30:00",
+            "location": "Цех",
+            "incident_type": "injury",
+            "severity": "moderate",
+            "company": "ООО Рога и Копыта",
+            "department": "Цех №3",
+            "injured_count": 1,
+            "established_facts": "Установлено: отсутствие ограждения.",
+            "victims_list": [
+                {"full_name": "Петров", "profession": "Электрик", "diagnosis_severity": "средняя"}
+            ],
+            "scene_description": "Лестница в цехе.",
+        }
+        obj = IncidentInput(**data)
+        assert obj.company == "ООО Рога и Копыта"
+        assert obj.injured_count == 1
+        assert len(obj.victims_list) == 1
+        assert obj.victims_list[0].profession == "Электрик"
+        assert obj.established_facts == "Установлено: отсутствие ограждения."
+        assert obj.photo_urls == []  # default
