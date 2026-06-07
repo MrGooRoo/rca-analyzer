@@ -30,10 +30,14 @@
 - [x] E2E-тесты всех 5 методологий через полный конвейер сервиса
       (`tests/integration/test_methodologies_e2e.py`, 21 тест) — реальные промпты
       и runner'ы, мокается только сетевой вызов LLM
+- [x] PDF-экспорт (`pdf_export_service.generate_pdf`, fpdf2 + встроенные
+      DejaVu-шрифты для кириллицы); эндпоинт `GET …/export?format=pdf`;
+      в UI кнопка ⬇️ PDF (`api.exportResult`, `ResultView.jsx`);
+      тесты `tests/unit/test_pdf_export_service.py` (8)
 
 ## В работе / следующий приоритет
 
-- [ ] PDF-экспорт (дополнительно к DOCX)
+- [ ] Мультиязычный интерфейс (EN/RU)
 
 ## Известные несоответствия (вне текущих задач)
 

@@ -20,18 +20,18 @@ const PRIORITY_COLORS = {
 export default function ResultView({ result }) {
   const isBowtie = result.methodology === 'bowtie'
   const [tab, setTab]           = useState(isBowtie ? 'bowtie' : 'tree')
-  const [exporting, setExporting] = useState(false)
+  const [exporting, setExporting] = useState(null) // null | 'docx' | 'pdf'
   const [exportError, setExportError] = useState(null)
 
-  async function handleExport() {
-    setExporting(true)
+  async function handleExport(format) {
+    setExporting(format)
     setExportError(null)
     try {
-      await api.exportDocx(result.result_id, result.methodology)
+      await api.exportResult(result.result_id, result.methodology, format)
     } catch (e) {
       setExportError(e.message)
     } finally {
-      setExporting(false)
+      setExporting(null)
     }
   }
 
@@ -60,18 +60,32 @@ export default function ResultView({ result }) {
             <Stat label="Уверенность" value={(result.confidence_avg * 100).toFixed(0) + '%'} />
             <Stat label="Модель" value={result.model_used.split('/')[1] || result.model_used} />
           </div>
-          <button
-            className={`btn-export ${exporting ? 'btn-export--loading' : ''}`}
-            onClick={handleExport}
-            disabled={exporting}
-            title="Скачать отчёт в DOCX"
-          >
-            {exporting ? (
-              <><span className="spinner spinner--sm" /> Скачиваю…</>
-            ) : (
-              '⬇️ DOCX'
-            )}
-          </button>
+          <div className="export-buttons">
+            <button
+              className={`btn-export ${exporting === 'docx' ? 'btn-export--loading' : ''}`}
+              onClick={() => handleExport('docx')}
+              disabled={!!exporting}
+              title="Скачать отчёт в DOCX"
+            >
+              {exporting === 'docx' ? (
+                <><span className="spinner spinner--sm" /> Скачиваю…</>
+              ) : (
+                '⬇️ DOCX'
+              )}
+            </button>
+            <button
+              className={`btn-export ${exporting === 'pdf' ? 'btn-export--loading' : ''}`}
+              onClick={() => handleExport('pdf')}
+              disabled={!!exporting}
+              title="Скачать отчёт в PDF"
+            >
+              {exporting === 'pdf' ? (
+                <><span className="spinner spinner--sm" /> Скачиваю…</>
+              ) : (
+                '⬇️ PDF'
+              )}
+            </button>
+          </div>
         </div>
       </div>
 

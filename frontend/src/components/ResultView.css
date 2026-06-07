@@ -69,7 +69,12 @@
   color: #cdccca;
 }
 
-/* ---- Export button ---- */
+/* ---- Export buttons ---- */
+.export-buttons {
+  display: inline-flex;
+  gap: 0.4rem;
+}
+
 .btn-export {
   display: inline-flex;
   align-items: center;

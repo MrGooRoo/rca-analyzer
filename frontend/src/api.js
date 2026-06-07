@@ -162,15 +162,16 @@ function filenameFromDisposition(value, fallback) {
   return match?.[1] || fallback
 }
 
-async function exportDocx(resultId, methodology, retryOn401 = true) {
-  const response = await fetch(`/api/v1/results/${resultId}/export`, {
+async function exportResult(resultId, methodology, format = 'docx', retryOn401 = true) {
+  const fmt = format === 'pdf' ? 'pdf' : 'docx'
+  const response = await fetch(`/api/v1/results/${resultId}/export?format=${fmt}`, {
     method: 'GET',
     credentials: 'include',
   })
 
   if (response.status === 401 && retryOn401) {
     const refreshed = await tryRefresh()
-    if (refreshed) return exportDocx(resultId, methodology, false)
+    if (refreshed) return exportResult(resultId, methodology, fmt, false)
     notifyAuthLost()
   }
 
@@ -182,7 +183,7 @@ async function exportDocx(resultId, methodology, retryOn401 = true) {
   const blob = await response.blob()
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  const fallback = `rca_${methodology}_${resultId.slice(0, 8)}.docx`
+  const fallback = `rca_${methodology}_${resultId.slice(0, 8)}.${fmt}`
 
   a.href = url
   a.download = filenameFromDisposition(response.headers.get('content-disposition'), fallback)
@@ -190,6 +191,11 @@ async function exportDocx(resultId, methodology, retryOn401 = true) {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
+}
+
+// Обратная совместимость: тонкая обёртка над exportResult.
+async function exportDocx(resultId, methodology) {
+  return exportResult(resultId, methodology, 'docx')
 }
 
 async function uploadFile(path, file, options = {}) {
@@ -248,6 +254,7 @@ export const api = {
   analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
   uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
   exportDocx,
+  exportResult,
   results: {
     list: (limit = 20, offset = 0) =>
       req('GET', `/api/v1/results?limit=${limit}&offset=${offset}`, undefined, { authRequired: true }),

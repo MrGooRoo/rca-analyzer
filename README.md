@@ -132,11 +132,12 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## Экспорт DOCX
+## Экспорт DOCX / PDF
 
-Эндпойнт: `GET /api/v1/results/{result_id}/export` (требует auth-cookie или Bearer-токен)
+Эндпойнт: `GET /api/v1/results/{result_id}/export?format=docx|pdf`
+(требует auth-cookie или Bearer-токен; `format` по умолчанию `docx`)
 
-DOCX-файл содержит:
+Документ (одинаковая структура для DOCX и PDF) содержит:
 
 1. Заголовок — методология, ID, дата, модель, токены, уверенность
 2. Резюме
@@ -144,9 +145,14 @@ DOCX-файл содержит:
 4. Рекомендации — таблица с приоритетом, категорией, ответственным
 5. Техническая информация
 
-Имя файла: `rca_{methodology}_{result_id[:8]}.docx`
+Имя файла: `rca_{methodology}_{result_id[:8]}.{docx|pdf}`
 
-В UI: кнопка **⬇️ DOCX** в шапке каждого результата (`ResultView.jsx`).
+- **DOCX** — `export_service.py` через `python-docx`.
+- **PDF** — `pdf_export_service.py` через `fpdf2`; кириллица обеспечивается
+  встроенными TTF-шрифтами `src/services/fonts/DejaVuSans*.ttf` (работает в Docker
+  без системных шрифтов). Палитра и секции идентичны DOCX.
+
+В UI: кнопки **⬇️ DOCX** и **⬇️ PDF** в шапке каждого результата (`ResultView.jsx`).
 
 ---
 
@@ -173,6 +179,8 @@ rca-analyzer/
 │   └── services/
 │       ├── analysis_service.py # Оркестратор, реестр _RUNNERS (все 5)
 │       ├── export_service.py   # Генерация DOCX (все 5 методологий)
+│       ├── pdf_export_service.py    # Генерация PDF (fpdf2 + DejaVu-шрифты)
+│       ├── fonts/              # DejaVuSans*.ttf для PDF (кириллица)
 │       ├── docx_extractor.py   # Извлечение текста из DOCX
 │       └── docx_fields_service.py  # LLM-парсинг полей из текста отчёта
 ├── frontend/
@@ -270,6 +278,9 @@ pytest tests/api/test_roles.py tests/api/test_admin.py
 
 # Извлечение полей из DOCX
 pytest tests/unit/test_docx_fields_service.py
+
+# PDF-экспорт всех методологий
+pytest tests/unit/test_pdf_export_service.py
 ```
 
 - `tests/integration/test_methodologies_e2e.py` — 21 тест: для каждой методики
@@ -292,9 +303,7 @@ pytest tests/unit/test_docx_fields_service.py
 - [x] Извлечение `established_facts` из длинных документов (head + tail + section-aware)
 - [x] Роли: `admin` (все результаты) / `user` (только свои)
 - [x] E2E-тесты `pytest` для всех 5 методологий (`tests/integration/test_methodologies_e2e.py`)
-
-### 🟡 Следующий приоритет
-- [ ] PDF-экспорт
+- [x] PDF-экспорт (`fpdf2`, `?format=pdf`, кнопка ⬇️ PDF в UI)
 
 ### 🟢 Развитие
 - [ ] Мультиязычный интерфейс (EN/RU)
