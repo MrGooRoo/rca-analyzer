@@ -78,7 +78,19 @@ function isJsonResponse(response) {
 async function readError(response) {
   if (isJsonResponse(response)) {
     const err = await response.json().catch(() => null)
-    if (err?.detail) return err.detail
+    if (err?.detail) {
+      // FastAPI 422 возвращает detail как массив объектов валидации;
+      // HTTPException — как строку. Обрабатываем оба случая.
+      if (typeof err.detail === 'string') return err.detail
+      if (Array.isArray(err.detail)) {
+        return err.detail
+          .map(e => `${e.loc?.join('.') || '?'}: ${e.msg}`)
+          .join('; ')
+      }
+      try { return JSON.stringify(err.detail) } catch { return String(err.detail) }
+    }
+    // Если detail нет — отдаём весь JSON как строку
+    try { return JSON.stringify(err) } catch { return String(err) }
   }
   const text = await response.text().catch(() => '')
   return text || `HTTP ${response.status}`

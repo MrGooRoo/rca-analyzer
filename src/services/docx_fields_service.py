@@ -18,13 +18,13 @@ logger = logging.getLogger(__name__)
 #     («Установленные факты», «Обстоятельства», «Причины» и т.д.),
 #     чтобы они не терялись в «мёртвой зоне» между head и tail
 #     в очень длинных документах (>16 000 символов).
-HEAD_CHUNK = 8_000
-TAIL_CHUNK = 8_000
+HEAD_CHUNK = 10_000
+TAIL_CHUNK = 10_000
 
 # Сколько символов захватывать вокруг найденного заголовка раздела.
 # Заголовок может быть в любом месте документа; берём весь раздел целиком
 # (до следующего известного заголовка или до SECTION_WINDOW символов).
-SECTION_WINDOW = 6_000
+SECTION_WINDOW = 14_000
 
 # Ключевые заголовки разделов, которые ОБЯЗАТЕЛЬНО должны попасть в срез.
 # Сопоставление регистронезависимое, по вхождению подстроки в строку-начало абзаца.
@@ -40,6 +40,18 @@ SECTION_KEYWORDS: tuple[str, ...] = (
     "сведения о пострадавш",
     "лица, допустившие нарушения",
     "мероприятия по устранению",
+    "описание места происшествия",
+    "характеристика оборудования",
+    "характеристика объекта",
+    "основная причина",
+    "выводы",
+    "заключение",
+    "рекомендации",
+    "принятые меры",
+    "дополнительные сведения",
+    "акт расследования",
+    "акт о несчастном случае",
+    "результаты расследования",
 )
 
 SYSTEM_PROMPT = """\
@@ -93,6 +105,8 @@ SYSTEM_PROMPT = """\
 
 Правила:
 - Если поле невозможно определить — используй null.
+- НЕ сокращай и НЕ обрезай значения полей — извлекай полный текст из отчёта.
+- Для established_facts, full_circumstances, scene_description, equipment_description и description сохраняй максимально полный текст (до 3000 символов на поле).
 - victims_list может быть пустым массивом.
 - incident_type и severity — строго из перечисленных значений.
 - Ответ — ТОЛЬКО JSON, без markdown.\
@@ -112,21 +126,42 @@ USER_PROMPT_TEMPLATE = """\
 def _find_section_spans(text: str) -> list[tuple[int, int]]:
     """Находит позиции ключевых разделов в тексте.
 
-    Возвращает список (start, end) для каждого найденного раздела —
-    срез от начала заголовка на SECTION_WINDOW символов (или до конца текста).
+    Для каждого найденного заголовка раздела захватывает текст
+    либо до следующего известного заголовка, либо до SECTION_WINDOW
+    символов — что больше (чтобы не обрезать длинные разделы).
     Регистронезависимый поиск по вхождению ключевых слов.
     """
     lowered = text.lower()
-    spans: list[tuple[int, int]] = []
+    n = len(text)
+
+    # Собираем все позиции всех ключевых слов
+    positions: list[tuple[int, str]] = []  # (индекс, ключевое_слово)
     for kw in SECTION_KEYWORDS:
         start = 0
         while True:
             idx = lowered.find(kw, start)
             if idx == -1:
                 break
-            end = min(idx + SECTION_WINDOW, len(text))
-            spans.append((idx, end))
+            positions.append((idx, kw))
             start = idx + len(kw)
+
+    if not positions:
+        return []
+
+    positions.sort()
+
+    spans: list[tuple[int, int]] = []
+    for i, (pos, _kw) in enumerate(positions):
+        # Конец раздела: либо позиция следующего заголовка, либо SECTION_WINDOW
+        # Используем max, чтобы гарантированно захватить SECTION_WINDOW минимум
+        if i + 1 < len(positions):
+            next_pos = positions[i + 1][0]
+            end = max(pos + SECTION_WINDOW, next_pos)
+        else:
+            end = pos + SECTION_WINDOW
+        end = min(end, n)
+        spans.append((pos, end))
+
     return spans
 
 
@@ -159,7 +194,7 @@ def _trim_text(text: str) -> tuple[str, bool]:
     Так раздел «Установленные факты» гарантированно попадёт в срез
     независимо от его положения в документе.
     """
-    total = HEAD_CHUNK + TAIL_CHUNK
+    total = HEAD_CHUNK + TAIL_CHUNK  # 20 000 — не обрезаем короткие документы
     if len(text) <= total:
         return text, False
 
@@ -201,7 +236,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
             system_prompt=SYSTEM_PROMPT,
             user_prompt=user_prompt,
             temperature=0.1,
-            max_tokens=4096,
+            max_tokens=8192,
             # upload использует свою схему — не требуем summary/recommendations
             required_keys={"title"},
         )

@@ -39,6 +39,40 @@
 {% if incident.actions_taken %}
 Принятые меры: {{ incident.actions_taken }}
 {% endif %}
+{% if incident.full_circumstances %}
+## Full Circumstances (from investigation report)
+{{ incident.full_circumstances }}
+{% endif %}
+{% if incident.established_facts %}
+## Established Facts (from investigation report)
+{{ incident.established_facts }}
+{% endif %}
+{% if incident.scene_description %}
+## Scene Description
+{{ incident.scene_description }}
+{% endif %}
+{% if incident.equipment_description %}
+## Equipment / Object Characteristics
+{{ incident.equipment_description }}
+{% endif %}
+{% if incident.victims_list %}
+## Victims / Affected Persons
+{% for v in incident.victims_list %}
+- **{{ v.full_name or 'Unknown' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} y.o.){% endif %}{% if v.diagnosis_severity %}, Diagnosis: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Workplace: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Experience: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Intro briefing: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Workplace briefing: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Internship: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Safety test: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Medical exam: {{ v.medical_examination }}{% endif %}
+{% endfor %}
+{% endif %}
+{% if incident.company %}
+## Company
+{{ incident.company }}
+{% endif %}
+{% if incident.department %}
+## Department
+{{ incident.department }}
+{% endif %}
+{% if incident.short_description %}
+## Short Description
+{{ incident.short_description }}
+{% endif %}
 
 Верни JSON согласно инструкции.
 {% endblock %}

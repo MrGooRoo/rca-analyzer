@@ -19,6 +19,40 @@ Detail level: {{ detail_map[request.detail_level] }}.
 {% if request.incident.conditions %}- **Conditions**: {{ request.incident.conditions }}{% endif %}
 {% if request.incident.actions_taken %}- **Actions taken**: {{ request.incident.actions_taken }}{% endif %}
 {% if request.incident.witnesses %}- **Witnesses**: {{ request.incident.witnesses | join(", ") }}{% endif %}
+{% if request.incident.full_circumstances %}
+## Full Circumstances (from investigation report)
+{{ request.incident.full_circumstances }}
+{% endif %}
+{% if request.incident.established_facts %}
+## Established Facts (from investigation report)
+{{ request.incident.established_facts }}
+{% endif %}
+{% if request.incident.scene_description %}
+## Scene Description
+{{ request.incident.scene_description }}
+{% endif %}
+{% if request.incident.equipment_description %}
+## Equipment / Object Characteristics
+{{ request.incident.equipment_description }}
+{% endif %}
+{% if request.incident.victims_list %}
+## Victims / Affected Persons
+{% for v in request.incident.victims_list %}
+- **{{ v.full_name or 'Unknown' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} y.o.){% endif %}{% if v.diagnosis_severity %}, Diagnosis: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Workplace: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Experience: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Intro briefing: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Workplace briefing: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Internship: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Safety test: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Medical exam: {{ v.medical_examination }}{% endif %}
+{% endfor %}
+{% endif %}
+{% if request.incident.company %}
+## Company
+{{ request.incident.company }}
+{% endif %}
+{% if request.incident.department %}
+## Department
+{{ request.incident.department }}
+{% endif %}
+{% if request.incident.short_description %}
+## Short Description
+{{ request.incident.short_description }}
+{% endif %}
 
 ## FTA Structure Rules
 - **top_event**: the undesired top-level event (the incident itself), gate = OR

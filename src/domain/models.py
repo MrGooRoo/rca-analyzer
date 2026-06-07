@@ -8,7 +8,7 @@ from datetime import date, datetime, time
 from enum import Enum
 from typing import Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 
 class MethodologyType(str, Enum):
@@ -38,13 +38,28 @@ class Victim(BaseModel):
     medical_examination: str | None = None
     diagnosis_severity: str | None = None
 
+    @field_validator('birth_date', mode='before')
+    @classmethod
+    def parse_birth_date(cls, v):
+        """Принимает строку 'YYYY-MM-DD', date или None."""
+        if v is None or v == '' or v == 'None':
+            return None
+        if isinstance(v, date):
+            return v
+        if isinstance(v, str):
+            try:
+                return date.fromisoformat(v.strip())
+            except (ValueError, TypeError):
+                return None
+        return None
+
 
 class IncidentInput(BaseModel):
     # --- Старые поля (оставлены для обратной совместимости) ---
     title: str
     description: str
-    incident_date: datetime
-    location: str
+    incident_date: datetime | None = None
+    location: str = ""
     incident_type: str
     severity: str
     victims: Optional[int] = None
