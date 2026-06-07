@@ -23,16 +23,29 @@
       (head + tail + section-aware в `docx_fields_service._trim_text`, `max_tokens=4096`)
 - [x] Unit-тесты `_trim_text` (`tests/unit/test_docx_fields_service.py`, 13 шт.)
 - [x] Скрипт ручной проверки `scripts/verify_established_facts.py`
+- [x] Роли `admin` / `user` — admin видит/редактирует/удаляет любые результаты,
+      user только свои (`analyze._check_owner_or_admin`, `auth.service.require_admin`,
+      admin-роутер `/api/v1/admin/users`, миграция `005_add_user_role`,
+      seed по `ADMIN_EMAIL`); тесты `tests/api/test_roles.py` (10) + `test_admin.py` (8)
+- [x] E2E-тесты всех 5 методологий через полный конвейер сервиса
+      (`tests/integration/test_methodologies_e2e.py`, 21 тест) — реальные промпты
+      и runner'ы, мокается только сетевой вызов LLM
 
 ## В работе / следующий приоритет
 
-- [ ] Роли `admin` / `user` (admin видит все результаты) — есть `tests/api/test_roles.py`, `test_admin.py`
-- [ ] E2E-тесты `pytest` для всех 5 методологий
 - [ ] PDF-экспорт (дополнительно к DOCX)
 
-## Заметки
+## Известные несоответствия (вне текущих задач)
 
-- В чистом sandbox без `respx` / `pytest-asyncio` часть валидационных тестов
-  (`test_openrouter*`, `test_rca_systemic`, `test_analysis_service`) падает на
-  collection/версиях библиотек — это окружение, не код. В проектном окружении
-  (`pip install -e .`) запускать как обычно.
+- `tests/contracts/test_models.py` — импортирует несуществующий `IncidentType`
+  (устаревший тест, падает на collection).
+- `tests/unit/test_rca_systemic.py::...rejects_missing_barriers` ожидает, что
+  `barriers` — обязательный ключ, но `RcaSystemicRunner._validate_response` его
+  не требует. Нужно согласовать тест и код.
+
+## Заметки про окружение
+
+- В чистом sandbox (новые версии pydantic/httpx/respx, без реальной БД) часть
+  валидационных тестов (`test_openrouter*`, `test_analyze_router`,
+  `test_analysis_service`) падает из-за версий библиотек — это окружение, не код.
+  В проектном Docker/`pip install -e .` запускать как обычно.

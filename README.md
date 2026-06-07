@@ -256,6 +256,30 @@ docker-compose exec api alembic upgrade head      # применить все
 
 ---
 
+## Тесты
+
+```bash
+# Все тесты (в окружении проекта / Docker, где заданы env-переменные)
+pytest
+
+# Только E2E всех 5 методологий (полный конвейер, без сети)
+pytest tests/integration/test_methodologies_e2e.py
+
+# Роли admin/user
+pytest tests/api/test_roles.py tests/api/test_admin.py
+
+# Извлечение полей из DOCX
+pytest tests/unit/test_docx_fields_service.py
+```
+
+- `tests/integration/test_methodologies_e2e.py` — 21 тест: для каждой методики
+  прогоняется `AnalysisRequest → PromptRenderer → (fake LLM) → Runner → RCAResult`.
+  Мокается только сетевой вызов LLM; промпты и парсеры — настоящие.
+- `tests/unit/` — модульные тесты runner'ов, обрезки текста, OpenRouter-клиента.
+- `tests/api/` — HTTP-слой: analyze-роутер, CSRF, роли.
+
+---
+
 ## Roadmap
 
 ### ✅ Реализовано
@@ -266,13 +290,13 @@ docker-compose exec api alembic upgrade head      # применить все
 - [x] BowtieDiagram в UI
 - [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта
 - [x] Извлечение `established_facts` из длинных документов (head + tail + section-aware)
+- [x] Роли: `admin` (все результаты) / `user` (только свои)
+- [x] E2E-тесты `pytest` для всех 5 методологий (`tests/integration/test_methodologies_e2e.py`)
 
 ### 🟡 Следующий приоритет
-- [ ] Роли: `admin` (все результаты) / `user` (только свои)
+- [ ] PDF-экспорт
 
 ### 🟢 Развитие
-- [ ] E2E-тесты `pytest` для всех методологий
-- [ ] PDF-экспорт
 - [ ] Мультиязычный интерфейс (EN/RU)
 
 ---
