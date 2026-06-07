@@ -1,0 +1,11 @@
+*.md text eol=lf
+*.py text eol=lf
+*.txt text eol=lf
+*.j2 text eol=lf
+*.html text eol=lf
+*.css text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf

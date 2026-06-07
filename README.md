@@ -1,25 +1,25 @@
-﻿# RCA Analyzer
+# RCA Analyzer
 
-Р’РµР±-РїСЂРёР»РѕР¶РµРЅРёРµ РґР»СЏ Р°РЅР°Р»РёР·Р° РєРѕСЂРЅРµРІС‹С… РїСЂРёС‡РёРЅ (RCA) РїСЂРѕРёР·РІРѕРґСЃС‚РІРµРЅРЅС‹С… РёРЅС†РёРґРµРЅС‚РѕРІ.
-РџРѕРґРґРµСЂР¶РёРІР°РµС‚ 5 РјРµС‚РѕРґРѕР»РѕРіРёР№, cookie-Р°РІС‚РѕСЂРёР·Р°С†РёСЋ СЃ refresh-rotation, СЂРѕР»Рё admin/user СЃ РёР·РѕР»СЏС†РёРµР№ РёСЃС‚РѕСЂРёРё СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РїРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏРј, Р·Р°РіСЂСѓР·РєСѓ DOCX-РѕС‚С‡С‘С‚Р° РґР»СЏ Р°РІС‚РѕР·Р°РїРѕР»РЅРµРЅРёСЏ С„РѕСЂРјС‹ Рё СЌРєСЃРїРѕСЂС‚ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РІ DOCX Рё PDF.
+Веб-приложение для анализа корневых причин (RCA) производственных инцидентов.
+Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, роли admin/user с изоляцией истории результатов по пользователям, загрузку DOCX-отчёта для автозаполнения формы и экспорт результатов в DOCX и PDF.
 
 ---
 
-## РЎС‚РµРє
+## Стек
 
-| РЎР»РѕР№ | РўРµС…РЅРѕР»РѕРіРёСЏ |
+| Слой | Технология |
 |---|---|
 | Backend | FastAPI (Python 3.11) |
-| Р‘Р°Р·Р° РґР°РЅРЅС‹С… | PostgreSQL + SQLAlchemy + Alembic |
-| LLM | OpenRouter в†’ `nvidia/nemotron-3-super-120b-a12b:free` (1M РєРѕРЅС‚РµРєСЃС‚; РµСЃС‚СЊ fallback-С†РµРїРѕС‡РєР°) |
+| База данных | PostgreSQL + SQLAlchemy + Alembic |
+| LLM | OpenRouter → `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст; есть fallback-цепочка) |
 | Frontend | React (Vite) |
-| РљРѕРЅС‚РµР№РЅРµСЂРёР·Р°С†РёСЏ | Docker Compose |
-| РђРІС‚РѕСЂРёР·Р°С†РёСЏ | JWT access + refresh-token РІ httpOnly cookie, bcrypt |
-| Р­РєСЃРїРѕСЂС‚ | python-docx в†’ DOCX-С„Р°Р№Р» |
+| Контейнеризация | Docker Compose |
+| Авторизация | JWT access + refresh-token в httpOnly cookie, bcrypt |
+| Экспорт | python-docx → DOCX-файл |
 
 ---
 
-## Р‘С‹СЃС‚СЂС‹Р№ СЃС‚Р°СЂС‚
+## Быстрый старт
 
 ```bash
 cd C:\Users\Mr_GooRoo\rca-analyzer
@@ -33,303 +33,302 @@ Frontend: [http://localhost:5173](http://localhost:5173)
 
 ---
 
-## РњРµС‚РѕРґРѕР»РѕРіРёРё
+## Методологии
 
-| РњРµС‚РѕРґРѕР»РѕРіРёСЏ | РЎС‚Р°С‚СѓСЃ | ~РўРѕРєРµРЅС‹ |
+| Методология | Статус | ~Токены |
 |---|---|---|
-| `five_why` | вњ… СЂР°Р±РѕС‚Р°РµС‚ | ~951 |
-| `ishikawa` | вњ… СЂР°Р±РѕС‚Р°РµС‚ | ~2267 |
-| `rca_systemic` | вњ… СЂР°Р±РѕС‚Р°РµС‚ | ~1504 |
-| `fta` | вњ… СЂР°Р±РѕС‚Р°РµС‚ | ~1446 |
-| `bowtie` | вњ… СЂР°Р±РѕС‚Р°РµС‚ | ~3138 |
+| `five_why` | ✅ работает | ~951 |
+| `ishikawa` | ✅ работает | ~2267 |
+| `rca_systemic` | ✅ работает | ~1504 |
+| `fta` | ✅ работает | ~1446 |
+| `bowtie` | ✅ работает | ~3138 |
 
-Р’СЃРµ 5 РјРµС‚РѕРґРѕР»РѕРіРёР№ РїСЂРѕС€Р»Рё РїРѕР»РЅС‹Р№ smoke-test (UI в†’ Р°РЅР°Р»РёР· в†’ СЌРєСЃРїРѕСЂС‚ DOCX/PDF) Рё РїРѕРєСЂС‹С‚С‹ E2E-С‚РµСЃС‚Р°РјРё.
+Все 5 методологий прошли полный smoke-test (UI → анализ → экспорт DOCX/PDF) и покрыты E2E-тестами.
 
 ---
 
 ## API
 
-### РђРІС‚РѕСЂРёР·Р°С†РёСЏ
+### Авторизация
 
-| РњРµС‚РѕРґ | Р­РЅРґРїРѕР№РЅС‚ | РћРїРёСЃР°РЅРёРµ |
+| Метод | Эндпойнт | Описание |
 |---|---|---|
-| POST | `/api/v1/auth/register` | Р РµРіРёСЃС‚СЂР°С†РёСЏ в†’ СѓСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ access/refresh cookie |
-| POST | `/api/v1/auth/login` | Р’С…РѕРґ в†’ СѓСЃС‚Р°РЅР°РІР»РёРІР°РµС‚ access/refresh cookie |
-| POST | `/api/v1/auth/refresh` | РћР±РЅРѕРІРёС‚СЊ СЃРµСЃСЃРёСЋ РїРѕ refresh cookie (rotation) |
-| POST | `/api/v1/auth/logout` | РћС‚РѕР·РІР°С‚СЊ С‚РµРєСѓС‰РёР№ refresh-С‚РѕРєРµРЅ Рё РѕС‡РёСЃС‚РёС‚СЊ cookie |
-| GET | `/api/v1/auth/me` | РџСЂРѕС„РёР»СЊ С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ |
+| POST | `/api/v1/auth/register` | Регистрация → устанавливает access/refresh cookie |
+| POST | `/api/v1/auth/login` | Вход → устанавливает access/refresh cookie |
+| POST | `/api/v1/auth/refresh` | Обновить сессию по refresh cookie (rotation) |
+| POST | `/api/v1/auth/logout` | Отозвать текущий refresh-токен и очистить cookie |
+| GET | `/api/v1/auth/me` | Профиль текущего пользователя |
 
-### CSRF-Р·Р°С‰РёС‚Р° (cookie-based auth)
+### CSRF-защита (cookie-based auth)
 
-РџРѕСЃРєРѕР»СЊРєСѓ access/refresh-С‚РѕРєРµРЅС‹ Р¶РёРІСѓС‚ РІ `httpOnly` cookie, РєРѕС‚РѕСЂС‹Рµ Р±СЂР°СѓР·РµСЂ
-РѕС‚РїСЂР°РІР»СЏРµС‚ Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё, РїСЂРёР»РѕР¶РµРЅРёРµ Р·Р°С‰РёС‰РµРЅРѕ РѕС‚ CSRF РїРѕ СЃС…РµРјРµ
-**signed double-submit cookie** (defense-in-depth РїРѕРІРµСЂС… `SameSite`).
+Поскольку access/refresh-токены живут в `httpOnly` cookie, которые браузер
+отправляет автоматически, приложение защищено от CSRF по схеме
+**signed double-submit cookie** (defense-in-depth поверх `SameSite`).
 
-**РљР°Рє СЌС‚Рѕ СЂР°Р±РѕС‚Р°РµС‚:**
+**Как это работает:**
 
-1. РќР° `register` / `login` / `refresh` СЃРµСЂРІРµСЂ СЃС‚Р°РІРёС‚ **РЅРµ-httpOnly** cookie
-   `csrf_token` СЃРѕ Р·РЅР°С‡РµРЅРёРµРј `<random>.<hmac_sha256(random, secret)>`.
-2. Frontend С‡РёС‚Р°РµС‚ Р·РЅР°С‡РµРЅРёРµ РёР· `document.cookie` Рё РѕС‚РїСЂР°РІР»СЏРµС‚ РµРіРѕ РІ Р·Р°РіРѕР»РѕРІРєРµ
-   `X-CSRF-Token` РїСЂРё РєР°Р¶РґРѕРј **РЅРµР±РµР·РѕРїР°СЃРЅРѕРј** Р·Р°РїСЂРѕСЃРµ (POST/PUT/PATCH/DELETE).
-3. `CSRFMiddleware` РїСЂРѕРІРµСЂСЏРµС‚, С‡С‚Рѕ cookie РїСЂРёСЃСѓС‚СЃС‚РІСѓРµС‚, РїРѕРґРїРёСЃСЊ РІР°Р»РёРґРЅР°, Р°
-   Р·РЅР°С‡РµРЅРёСЏ cookie Рё Р·Р°РіРѕР»РѕРІРєР° СЃРѕРІРїР°РґР°СЋС‚. РРЅР°С‡Рµ вЂ” `403`.
+1. На `register` / `login` / `refresh` сервер ставит **не-httpOnly** cookie
+   `csrf_token` со значением `<random>.<hmac_sha256(random, secret)>`.
+2. Frontend читает значение из `document.cookie` и отправляет его в заголовке
+   `X-CSRF-Token` при каждом **небезопасном** запросе (POST/PUT/PATCH/DELETE).
+3. `CSRFMiddleware` проверяет, что cookie присутствует, подпись валидна, а
+   значения cookie и заголовка совпадают. Иначе — `403`.
 
-**Р§С‚Рѕ РѕСЃРІРѕР±РѕР¶РґРµРЅРѕ РѕС‚ РїСЂРѕРІРµСЂРєРё (РЅРµ СЃР»РѕРјР°РµС‚ РёРЅС‚РµРіСЂР°С†РёРё):**
+**Что освобождено от проверки (не сломает интеграции):**
 
-| РЎР»СѓС‡Р°Р№ | РџРѕС‡РµРјСѓ exempt |
+| Случай | Почему exempt |
 |---|---|
-| GET / HEAD / OPTIONS | safe-РјРµС‚РѕРґС‹, РЅРµ РјРµРЅСЏСЋС‚ СЃРѕСЃС‚РѕСЏРЅРёРµ |
-| `login` / `register` / `refresh` | bootstrap: Сѓ РєР»РёРµРЅС‚Р° РµС‰С‘ РЅРµС‚ csrf-cookie |
-| `Authorization: Bearer ...` Р±РµР· access-cookie | РЅРµ РїРѕРґРІРµСЂР¶РµРЅ РЎРЎР Р¤ в†’ Swagger В«РђСѓС‚С…РѕСЂРёР·РµВ» Рё `curl` СЂР°Р±РѕС‚Р°СЋС‚ РєР°Рє СЂР°РЅСЊС€Рµ |
-| Р°РЅРѕРЅРёРјРЅС‹Рµ Р·Р°РїСЂРѕСЃС‹ (РЅРµС‚ access-cookie) | РЅРµС‡РµРіРѕ Р·Р°С‰РёС‰Р°С‚СЊ |
+| GET / HEAD / OPTIONS | safe-методы, не меняют состояние |
+| `login` / `register` / `refresh` | bootstrap: у клиента ещё нет csrf-cookie |
+| `Authorization: Bearer ...` без access-cookie | не подвержен ССРФ → Swagger «Аутхоризе» и `curl` работают как раньше |
+| анонимные запросы (нет access-cookie) | нечего защищать |
 
-**РџРѕРІРµРґРµРЅРёРµ СѓРїСЂР°РІР»СЏРµС‚СЃСЏ** РїРµСЂРµРјРµРЅРЅС‹РјРё `CSRF_PROTECTION_ENABLED`,
-`CSRF_EXEMPT_PATHS`, `CSRF_SECRET` (СЃРј. СЂР°Р·РґРµР» В«РџРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏВ»).
-РЎРµСЂРІРµСЂРЅРѕРіРѕ С…СЂР°РЅРёР»РёС‰Р° CSRF-С‚РѕРєРµРЅРѕРІ РЅРµС‚ вЂ” stateless, Р±РµР· РЅРѕРІРѕР№ С‚Р°Р±Р»РёС†С‹/РјРёРіСЂР°С†РёРё.
+**Поведение управляется** переменными `CSRF_PROTECTION_ENABLED`,
+`CSRF_EXEMPT_PATHS`, `CSRF_SECRET` (см. раздел «Переменные окружения»).
+Серверного хранилища CSRF-токенов нет — stateless, без новой таблицы/миграции.
 
-### РђРЅР°Р»РёР· (С‚СЂРµР±СѓРµС‚ auth-cookie РёР»Рё Bearer-С‚РѕРєРµРЅ)
+### Анализ (требует auth-cookie или Bearer-токен)
 
-| РњРµС‚РѕРґ | Р­РЅРґРїРѕР№РЅС‚ | РћРїРёСЃР°РЅРёРµ |
+| Метод | Эндпойнт | Описание |
 |---|---|---|
-| POST | `/api/v1/analyze` | Р—Р°РїСѓСЃРє RCA-Р°РЅР°Р»РёР·Р° |
-| GET | `/api/v1/results` | РСЃС‚РѕСЂРёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ |
-| GET | `/api/v1/results/{id}` | Р РµР·СѓР»СЊС‚Р°С‚ РїРѕ ID |
-| GET | `/api/v1/results/{id}/export` | РЎРєР°С‡Р°С‚СЊ DOCX-РѕС‚С‡С‘С‚ |
-| POST | `/api/v1/upload-report` | Р—Р°РіСЂСѓР·РёС‚СЊ DOCX в†’ Р°РІС‚РѕР·Р°РїРѕР»РЅРёС‚СЊ С„РѕСЂРјСѓ С‡РµСЂРµР· LLM |
+| POST | `/api/v1/analyze` | Запуск RCA-анализа |
+| GET | `/api/v1/results` | История результатов текущего пользователя |
+| GET | `/api/v1/results/{id}` | Результат по ID |
+| GET | `/api/v1/results/{id}/export` | Скачать DOCX-отчёт |
+| POST | `/api/v1/upload-report` | Загрузить DOCX → автозаполнить форму через LLM |
 
 ---
 
-## Р—Р°РіСЂСѓР·РєР° DOCX-РѕС‚С‡С‘С‚Р°
+## Загрузка DOCX-отчёта
 
-Р­РЅРґРїРѕР№РЅС‚: `POST /api/v1/upload-report` (multipart/form-data, С„Р°Р№Р» `file`)
+Эндпойнт: `POST /api/v1/upload-report` (multipart/form-data, файл `file`)
 
-**Р§С‚Рѕ РїСЂРѕРёСЃС…РѕРґРёС‚:**
-1. `DocxExtractor` РёР·РІР»РµРєР°РµС‚ С‚РµРєСЃС‚ РёР· DOCX (Р°Р±Р·Р°С†С‹ + С‚Р°Р±Р»РёС†С‹)
-2. РўРµРєСЃС‚ РѕР±СЂРµР·Р°РµС‚СЃСЏ СЃС‚СЂР°С‚РµРіРёРµР№ **head + tail + section-aware** (СЃРј. РЅРёР¶Рµ)
-3. LLM РёР·РІР»РµРєР°РµС‚ РґРѕ 20 РїРѕР»РµР№ (Р·Р°РіРѕР»РѕРІРѕРє, РѕРїРёСЃР°РЅРёРµ, РґР°С‚Р°, РјРµСЃС‚Рѕ, СѓСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹Рµ С„Р°РєС‚С‹, РїРѕСЃС‚СЂР°РґР°РІС€РёРµ Рё РґСЂ.)
-4. Р¤РѕСЂРјР° РІ UI Р·Р°РїРѕР»РЅСЏРµС‚СЃСЏ РёР·РІР»РµС‡С‘РЅРЅС‹РјРё РґР°РЅРЅС‹РјРё
+**Что происходит:**
+1. `DocxExtractor` извлекает текст из DOCX (абзацы + таблицы)
+2. Текст обрезается стратегией **head + tail + section-aware** (см. ниже)
+3. LLM извлекает до 20 полей (заголовок, описание, дата, место, установленные факты, пострадавшие и др.)
+4. Форма в UI заполняется извлечёнными данными
 
-**РЎС‚СЂР°С‚РµРіРёСЏ РѕР±СЂРµР·РєРё С‚РµРєСЃС‚Р° (`docx_fields_service._trim_text`):**
-- Р”РѕРєСѓРјРµРЅС‚С‹ в‰¤ `HEAD_CHUNK + TAIL_CHUNK` (16 000 СЃРёРј.) РїРµСЂРµРґР°СЋС‚СЃСЏ С†РµР»РёРєРѕРј.
-- Р”Р»СЏ РґР»РёРЅРЅС‹С… РґРѕРєСѓРјРµРЅС‚РѕРІ Р±РµСЂС‘Рј:
-  - **head** вЂ” РїРµСЂРІС‹Рµ `8 000` СЃРёРј. (РѕР±Р·РѕСЂ, РґР°С‚С‹, РїРѕСЃС‚СЂР°РґР°РІС€РёРµ);
-  - **tail** вЂ” РїРѕСЃР»РµРґРЅРёРµ `8 000` СЃРёРј. (С‡Р°СЃС‚Рѕ Р·Р°РєР»СЋС‡РµРЅРёРµ);
-  - **section slices** вЂ” С†РµР»РµРІС‹Рµ СЃСЂРµР·С‹ (`SECTION_WINDOW = 6 000`) РІРѕРєСЂСѓРі РєР»СЋС‡РµРІС‹С…
-    СЂР°Р·РґРµР»РѕРІ (`РЈСЃС‚Р°РЅРѕРІР»РµРЅРЅС‹Рµ С„Р°РєС‚С‹`, `РћР±СЃС‚РѕСЏС‚РµР»СЊСЃС‚РІР°`, `РџСЂРёС‡РёРЅС‹` Рё РґСЂ.),
-    РЅР°Р№РґРµРЅРЅС‹С… **РІ Р»СЋР±РѕРј РјРµСЃС‚Рµ** РґРѕРєСѓРјРµРЅС‚Р°.
-- Р­С‚Рѕ СЂРµС€Р°РµС‚ РїСЂРѕР±Р»РµРјСѓ РїСѓСЃС‚РѕРіРѕ `established_facts`: СЂР°Р·РґРµР» РіР°СЂР°РЅС‚РёСЂРѕРІР°РЅРЅРѕ РїРѕРїР°РґР°РµС‚
-  РІ СЃСЂРµР·, РґР°Р¶Рµ РµСЃР»Рё РѕРЅ РІ В«РјС‘СЂС‚РІРѕР№ Р·РѕРЅРµВ» РјРµР¶РґСѓ head Рё tail (С‚РµСЃС‚РѕРІС‹Р№ РґРѕРєСѓРјРµРЅС‚
-  `165 066` СЃРёРј. вЂ” СЂР°Р·РґРµР» РЅР° РїРѕР·РёС†РёРё ~48 895, СѓСЃРїРµС€РЅРѕ Р·Р°С…РІР°С‚С‹РІР°РµС‚СЃСЏ).
-- РњРµР¶РґСѓ СЃРѕС…СЂР°РЅС‘РЅРЅС‹РјРё С„СЂР°РіРјРµРЅС‚Р°РјРё РІСЃС‚Р°РІР»СЏРµС‚СЃСЏ РјРµС‚РєР° `...[РїСЂРѕРїСѓС‰РµРЅРѕ N СЃРёРјРІРѕР»РѕРІ]...`.
+**Стратегия обрезки текста (`docx_fields_service._trim_text`):**
+- Документы ≤ `HEAD_CHUNK + TAIL_CHUNK` (16 000 сим.) передаются целиком.
+- Для длинных документов берём:
+  - **head** — первые `8 000` сим. (обзор, даты, пострадавшие);
+  - **tail** — последние `8 000` сим. (часто заключение);
+  - **section slices** — целевые срезы (`SECTION_WINDOW = 6 000`) вокруг ключевых
+    разделов (`Установленные факты`, `Обстоятельства`, `Причины` и др.),
+    найденных **в любом месте** документа.
+- Это решает проблему пустого `established_facts`: раздел гарантированно попадает
+  в срез, даже если он в «мёртвой зоне» между head и tail (тестовый документ
+  `165 066` сим. — раздел на позиции ~48 895, успешно захватывается).
+- Между сохранёнными фрагментами вставляется метка `...[пропущено N символов]...`.
 
-**LLM РєР»РёРµРЅС‚ (upload):**
-- `required_keys={"title"}` вЂ” РЅРµ РїСЂРѕРІРµСЂСЏРµС‚ `summary`/`recommendations` (РѕРЅРё РЅСѓР¶РЅС‹ С‚РѕР»СЊРєРѕ RCA-РјРµС‚РѕРґРѕР»РѕРіРёСЏРј)
-- `max_tokens=4096` вЂ” РґРѕСЃС‚Р°С‚РѕС‡РЅРѕ РґР»СЏ РєСЂСѓРїРЅС‹С… JSON СЃ `victims_list`
+**LLM клиент (upload):**
+- `required_keys={"title"}` — не проверяет `summary`/`recommendations` (они нужны только RCA-методологиям)
+- `max_tokens=4096` — достаточно для крупных JSON с `victims_list`
 
-**РџСЂРѕРІРµСЂРєР° / С‚РµСЃС‚С‹:**
-- `pytest tests/unit/test_docx_fields_service.py` вЂ” 13 С‚РµСЃС‚РѕРІ РЅР° `_trim_text`
-- `python scripts/verify_established_facts.py [path.docx]` вЂ” e2e-РїСЂРѕРІРµСЂРєР° Р±РµР· LLM
-
----
-
-## Р­РєСЃРїРѕСЂС‚ DOCX / PDF
-
-Р­РЅРґРїРѕР№РЅС‚: `GET /api/v1/results/{result_id}/export?format=docx|pdf`
-(С‚СЂРµР±СѓРµС‚ auth-cookie РёР»Рё Bearer-С‚РѕРєРµРЅ; `format` РїРѕ СѓРјРѕР»С‡Р°РЅРёСЋ `docx`)
-
-Р”РѕРєСѓРјРµРЅС‚ (РѕРґРёРЅР°РєРѕРІР°СЏ СЃС‚СЂСѓРєС‚СѓСЂР° РґР»СЏ DOCX Рё PDF) СЃРѕРґРµСЂР¶РёС‚:
-
-1. Р—Р°РіРѕР»РѕРІРѕРє вЂ” РјРµС‚РѕРґРѕР»РѕРіРёСЏ, ID, РґР°С‚Р°, РјРѕРґРµР»СЊ, С‚РѕРєРµРЅС‹, СѓРІРµСЂРµРЅРЅРѕСЃС‚СЊ
-2. Р РµР·СЋРјРµ
-3. РџСЂРёС‡РёРЅС‹ (РґР»СЏ bowtie: Hazard, РўРѕРї-СЃРѕР±С‹С‚РёРµ, РЈРіСЂРѕР·С‹, Р‘Р°СЂСЊРµСЂС‹ РїСЂРµРґРѕС‚РІСЂР°С‰РµРЅРёСЏ, РџРѕСЃР»РµРґСЃС‚РІРёСЏ, Р‘Р°СЂСЊРµСЂС‹ СЃРјСЏРіС‡РµРЅРёСЏ; РґРµРіСЂР°РґРёСЂРѕРІР°РЅРЅС‹Рµ Р±Р°СЂСЊРµСЂС‹ РїРѕРјРµС‡РµРЅС‹ вљ )
-4. Р РµРєРѕРјРµРЅРґР°С†РёРё вЂ” С‚Р°Р±Р»РёС†Р° СЃ РїСЂРёРѕСЂРёС‚РµС‚РѕРј, РєР°С‚РµРіРѕСЂРёРµР№, РѕС‚РІРµС‚СЃС‚РІРµРЅРЅС‹Рј
-5. РўРµС…РЅРёС‡РµСЃРєР°СЏ РёРЅС„РѕСЂРјР°С†РёСЏ
-
-РРјСЏ С„Р°Р№Р»Р°: `rca_{methodology}_{result_id[:8]}.{docx|pdf}`
-
-- **DOCX** вЂ” `export_service.py` С‡РµСЂРµР· `python-docx`.
-- **PDF** вЂ” `pdf_export_service.py` С‡РµСЂРµР· `fpdf2`; РєРёСЂРёР»Р»РёС†Р° РѕР±РµСЃРїРµС‡РёРІР°РµС‚СЃСЏ
-  РІСЃС‚СЂРѕРµРЅРЅС‹РјРё TTF-С€СЂРёС„С‚Р°РјРё `src/services/fonts/DejaVuSans*.ttf` (СЂР°Р±РѕС‚Р°РµС‚ РІ Docker
-  Р±РµР· СЃРёСЃС‚РµРјРЅС‹С… С€СЂРёС„С‚РѕРІ). РџР°Р»РёС‚СЂР° Рё СЃРµРєС†РёРё РёРґРµРЅС‚РёС‡РЅС‹ DOCX.
-
-Р’ UI: РєРЅРѕРїРєРё **в¬‡пёЏ DOCX** Рё **в¬‡пёЏ PDF** РІ С€Р°РїРєРµ РєР°Р¶РґРѕРіРѕ СЂРµР·СѓР»СЊС‚Р°С‚Р° (`ResultView.jsx`).
+**Проверка / тесты:**
+- `pytest tests/unit/test_docx_fields_service.py` — 13 тестов на `_trim_text`
+- `python scripts/verify_established_facts.py [path.docx]` — e2e-проверка без LLM
 
 ---
 
-## РЎС‚СЂСѓРєС‚СѓСЂР° РїСЂРѕРµРєС‚Р°
+## Экспорт DOCX / PDF
+
+Эндпойнт: `GET /api/v1/results/{result_id}/export?format=docx|pdf`
+(требует auth-cookie или Bearer-токен; `format` по умолчанию `docx`)
+
+Документ (одинаковая структура для DOCX и PDF) содержит:
+
+1. Заголовок — методология, ID, дата, модель, токены, уверенность
+2. Резюме
+3. Причины (для bowtie: Hazard, Топ-событие, Угрозы, Барьеры предотвращения, Последствия, Барьеры смягчения; деградированные барьеры помечены ⚠)
+4. Рекомендации — таблица с приоритетом, категорией, ответственным
+5. Техническая информация
+
+Имя файла: `rca_{methodology}_{result_id[:8]}.{docx|pdf}`
+
+- **DOCX** — `export_service.py` через `python-docx`.
+- **PDF** — `pdf_export_service.py` через `fpdf2`; кириллица обеспечивается
+  встроенными TTF-шрифтами `src/services/fonts/DejaVuSans*.ttf` (работает в Docker
+  без системных шрифтов). Палитра и секции идентичны DOCX.
+
+В UI: кнопки **⬇️ DOCX** и **⬇️ PDF** в шапке каждого результата (`ResultView.jsx`).
+
+---
+
+## Структура проекта
 
 ```
 rca-analyzer/
-в”њв”Ђв”Ђ src/
-в”‚   в”њв”Ђв”Ђ auth/                   # Access JWT, refresh-token rotation, cookies, bcrypt
-в”‚   в”њв”Ђв”Ђ api/
-в”‚   в”‚   в”њв”Ђв”Ђ app.py              # CORS + credentials, СЂРѕСѓС‚РµСЂС‹
-в”‚   в”‚   в””в”Ђв”Ђ routes/
-в”‚   в”‚       в”њв”Ђв”Ђ analyze.py      # Р—Р°С‰РёС‰С‘РЅ cookie/Bearer auth, РїРёС€РµС‚ user_id
-в”‚   в”‚       в”њв”Ђв”Ђ export.py       # GET /results/{id}/export в†’ DOCX
-в”‚   в”‚       в””в”Ђв”Ђ upload.py       # POST /upload-report в†’ РёР·РІР»РµС‡РµРЅРёРµ РїРѕР»РµР№ С‡РµСЂРµР· LLM
-в”‚   в”њв”Ђв”Ђ db/
-в”‚   в”‚   в”њв”Ђв”Ђ orm_models.py       # UserORM, RefreshTokenORM, IncidentORM, RCAResultORM
-в”‚   в”‚   в””в”Ђв”Ђ repository.py       # CRUD
-в”‚   в”њв”Ђв”Ђ domain/
-в”‚   в”‚   в”њв”Ђв”Ђ models.py           # RCAResult, CauseNode, Recommendation
-в”‚   в”‚   в””в”Ђв”Ђ methodologies/      # five_why, ishikawa, rca_systemic, fta, bowtie
-в”‚   в”њв”Ђв”Ђ integrations/llm/
-в”‚   в”‚   в””в”Ђв”Ђ openrouter.py       # AsyncClient; required_keys param; retry x3
-в”‚   в””в”Ђв”Ђ services/
-в”‚       в”њв”Ђв”Ђ analysis_service.py # РћСЂРєРµСЃС‚СЂР°С‚РѕСЂ, СЂРµРµСЃС‚СЂ _RUNNERS (РІСЃРµ 5)
-в”‚       в”њв”Ђв”Ђ export_service.py   # Р“РµРЅРµСЂР°С†РёСЏ DOCX (РІСЃРµ 5 РјРµС‚РѕРґРѕР»РѕРіРёР№)
-в”‚       в”њв”Ђв”Ђ pdf_export_service.py    # Р“РµРЅРµСЂР°С†РёСЏ PDF (fpdf2 + DejaVu-С€СЂРёС„С‚С‹)
-в”‚       в”њв”Ђв”Ђ fonts/              # DejaVuSans*.ttf РґР»СЏ PDF (РєРёСЂРёР»Р»РёС†Р°)
-в”‚       в”њв”Ђв”Ђ docx_extractor.py   # РР·РІР»РµС‡РµРЅРёРµ С‚РµРєСЃС‚Р° РёР· DOCX
-в”‚       в””в”Ђв”Ђ docx_fields_service.py  # LLM-РїР°СЂСЃРёРЅРі РїРѕР»РµР№ РёР· С‚РµРєСЃС‚Р° РѕС‚С‡С‘С‚Р°
-в”њв”Ђв”Ђ frontend/
-в”‚   в””в”Ђв”Ђ src/
-в”‚       в”њв”Ђв”Ђ api.js              # Р¦РµРЅС‚СЂР°Р»РёР·РѕРІР°РЅРЅС‹Р№ fetch; exportDocx() СЃРєР°С‡РёРІР°РµС‚ blob; uploadReport()
-в”‚       в”њв”Ђв”Ђ App.jsx             # Login-gate, РЅР°РІРёРіР°С†РёСЏ, logout, РѕР±СЂР°Р±РѕС‚РєР° 401
-в”‚       в””в”Ђв”Ђ components/
-в”‚           в”њв”Ђв”Ђ AuthPage.jsx        # РІС…РѕРґ / СЂРµРіРёСЃС‚СЂР°С†РёСЏ
-в”‚           в”њв”Ђв”Ђ HistoryPage.jsx     # РёСЃС‚РѕСЂРёСЏ С‡РµСЂРµР· api.js
-в”‚           в”њв”Ђв”Ђ IncidentForm.jsx    # С„РѕСЂРјР°, drag-and-drop Р·Р°РіСЂСѓР·РєР° .docx
-в”‚           в”њв”Ђв”Ђ ResultView.jsx      # РєРЅРѕРїРєР° в¬‡пёЏ DOCX, Р±РµР· РїСЂСЏРјС‹С… HTTP-Р·Р°РїСЂРѕСЃРѕРІ
-в”‚           в”њв”Ђв”Ђ BowtieDiagram.jsx   # РґРёР°РіСЂР°РјРјР° (v6), РёРЅС‚РµРіСЂРёСЂРѕРІР°РЅР° РІ ResultView
-в”‚           в””в”Ђв”Ђ BowtieDiagram.css
-в”њв”Ђв”Ђ configs/prompts/            # Jinja2-С€Р°Р±Р»РѕРЅС‹: five_why, ishikawa, fta, rca_systemic, bowtie
-в”њв”Ђв”Ђ alembic/versions/
-в”‚   в”њв”Ђв”Ђ 001_initial.py
-в”‚   в”њв”Ђв”Ђ 002_fix_varchar_lengths.py
-в”‚   в”њв”Ђв”Ђ 003_add_users.py        # users + user_id РІ incidents/rca_results
-в”‚   в””в”Ђв”Ђ 004_add_refresh_tokens.py
-в”њв”Ђв”Ђ Dockerfile
-в”њв”Ђв”Ђ docker-compose.yml
-в”њв”Ђв”Ђ pyproject.toml              # Р·Р°РІРёСЃРёРјРѕСЃС‚Рё РїСЂРѕРµРєС‚Р°
-в””в”Ђв”Ђ .env                        # РЎРѕР·РґР°С‘С‚СЃСЏ РІСЂСѓС‡РЅСѓСЋ (РЅРµ РІ git)
+├── src/
+│   ├── auth/                   # Access JWT, refresh-token rotation, cookies, bcrypt
+│   ├── api/
+│   │   ├── app.py              # CORS + credentials, роутеры
+│   │   └── routes/
+│   │       ├── analyze.py      # Защищён cookie/Bearer auth, пишет user_id
+│   │       ├── export.py       # GET /results/{id}/export → DOCX
+│   │       └── upload.py       # POST /upload-report → извлечение полей через LLM
+│   ├── db/
+│   │   ├── orm_models.py       # UserORM, RefreshTokenORM, IncidentORM, RCAResultORM
+│   │   └── repository.py       # CRUD
+│   ├── domain/
+│   │   ├── models.py           # RCAResult, CauseNode, Recommendation
+│   │   └── methodologies/      # five_why, ishikawa, rca_systemic, fta, bowtie
+│   ├── integrations/llm/
+│   │   └── openrouter.py       # AsyncClient; required_keys param; retry x3
+│   └── services/
+│       ├── analysis_service.py # Оркестратор, реестр _RUNNERS (все 5)
+│       ├── export_service.py   # Генерация DOCX (все 5 методологий)
+│       ├── pdf_export_service.py    # Генерация PDF (fpdf2 + DejaVu-шрифты)
+│       ├── fonts/              # DejaVuSans*.ttf для PDF (кириллица)
+│       ├── docx_extractor.py   # Извлечение текста из DOCX
+│       └── docx_fields_service.py  # LLM-парсинг полей из текста отчёта
+├── frontend/
+│   └── src/
+│       ├── api.js              # Централизованный fetch; exportDocx() скачивает blob; uploadReport()
+│       ├── App.jsx             # Login-gate, навигация, logout, обработка 401
+│       └── components/
+│           ├── AuthPage.jsx        # вход / регистрация
+│           ├── HistoryPage.jsx     # история через api.js
+│           ├── IncidentForm.jsx    # форма, drag-and-drop загрузка .docx
+│           ├── ResultView.jsx      # кнопка ⬇️ DOCX, без прямых HTTP-запросов
+│           ├── BowtieDiagram.jsx   # диаграмма (v6), интегрирована в ResultView
+│           └── BowtieDiagram.css
+├── configs/prompts/            # Jinja2-шаблоны: five_why, ishikawa, fta, rca_systemic, bowtie
+├── alembic/versions/
+│   ├── 001_initial.py
+│   ├── 002_fix_varchar_lengths.py
+│   ├── 003_add_users.py        # users + user_id в incidents/rca_results
+│   └── 004_add_refresh_tokens.py
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml              # зависимости проекта
+└── .env                        # Создаётся вручную (не в git)
 ```
 
 ---
 
-## РџРµСЂРµРјРµРЅРЅС‹Рµ РѕРєСЂСѓР¶РµРЅРёСЏ (`.env`)
+## Переменные окружения (`.env`)
 
 ```env
 DATABASE_URL=postgresql+asyncpg://...
 OPENROUTER_API_KEY=...
-JWT_SECRET=...                # СЃРµРєСЂРµС‚ РґР»СЏ HS256
+JWT_SECRET=...                # секрет для HS256
 ACCESS_TOKEN_TTL_MINUTES=15
 REFRESH_TOKEN_TTL_DAYS=30
-AUTH_COOKIE_SECURE=false       # prod: true (cookie С‚РѕР»СЊРєРѕ РїРѕ HTTPS)
+AUTH_COOKIE_SECURE=false       # prod: true (cookie только по HTTPS)
 AUTH_COOKIE_SAMESITE=lax       # cross-domain prod: none (+ AUTH_COOKIE_SECURE=true)
 CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:3000
 
 # CSRF (signed double-submit cookie)
-CSRF_PROTECTION_ENABLED=true   # РІС‹РєР»СЋС‡Р°С‚РµР»СЊ Р·Р°С‰РёС‚С‹ (dev РјРѕР¶РЅРѕ false)
-# CSRF_SECRET=                 # СЃРµРєСЂРµС‚ РїРѕРґРїРёСЃРё; РµСЃР»Рё РїСѓСЃС‚Рѕ вЂ” РёСЃРїРѕР»СЊР·СѓРµС‚СЃСЏ JWT_SECRET
-# CSRF_EXEMPT_PATHS=           # РґРѕРї. exempt-РїСѓС‚Рё С‡РµСЂРµР· Р·Р°РїСЏС‚СѓСЋ (С‚РѕС‡РЅРѕРµ СЃРѕРІРїР°РґРµРЅРёРµ)
+CSRF_PROTECTION_ENABLED=true   # выключатель защиты (dev можно false)
+# CSRF_SECRET=                 # секрет подписи; если пусто — используется JWT_SECRET
+# CSRF_EXEMPT_PATHS=           # доп. exempt-пути через запятую (точное совпадение)
 # CSRF_COOKIE_NAME=csrf_token
 # CSRF_HEADER_NAME=X-CSRF-Token
 ```
 
 ---
 
-## РњРёРіСЂР°С†РёРё
+## Миграции
 
 ```bash
-docker-compose exec api alembic upgrade head      # РїСЂРёРјРµРЅРёС‚СЊ РІСЃРµ
- docker-compose exec api alembic revision --autogenerate -m "name"  # РЅРѕРІР°СЏ
+docker-compose exec api alembic upgrade head      # применить все
+ docker-compose exec api alembic revision --autogenerate -m "name"  # новая
 ```
 
 ---
 
-## РљР»СЋС‡РµРІС‹Рµ Р°СЂС…РёС‚РµРєС‚СѓСЂРЅС‹Рµ СЂРµС€РµРЅРёСЏ
+## Ключевые архитектурные решения
 
-- **bcrypt РЅР°РїСЂСЏРјСѓСЋ** (Р±РµР· passlib) вЂ” РѕР±С…РѕРґ Р±Р°РіР° СЃРѕРІРјРµСЃС‚РёРјРѕСЃС‚Рё СЃ `bcrypt в‰Ґ 4.x`
-- **Access/refresh РІ httpOnly cookie** вЂ” frontend РЅРµ С…СЂР°РЅРёС‚ С‚РѕРєРµРЅС‹ РЅРё РІ РїР°РјСЏС‚Рё, РЅРё РІ `localStorage`
-- **Refresh-token rotation** вЂ” РїСЂРё `POST /api/v1/auth/refresh` СЃС‚Р°СЂС‹Р№ refresh-С‚РѕРєРµРЅ РїРѕРјРµС‡Р°РµС‚СЃСЏ revoked, РєР»РёРµРЅС‚ РїРѕР»СѓС‡Р°РµС‚ РЅРѕРІСѓСЋ РїР°СЂСѓ cookie
-- **user_id** СЃРѕС…СЂР°РЅСЏРµС‚СЃСЏ РІ `incidents` Рё `rca_results`; `GET /api/v1/results` РІРѕР·РІСЂР°С‰Р°РµС‚ С‚РѕР»СЊРєРѕ Р·Р°РїРёСЃРё С‚РµРєСѓС‰РµРіРѕ РїРѕР»СЊР·РѕРІР°С‚РµР»СЏ
-- **OpenRouterClient** СЃРѕР·РґР°С‘С‚СЃСЏ РЅР° РєР°Р¶РґС‹Р№ Р·Р°РїСЂРѕСЃ (`async with`) вЂ” РїСЂРµРґРѕС‚РІСЂР°С‰Р°РµС‚ РїРѕРІС‚РѕСЂРЅРѕРµ РёСЃРїРѕР»СЊР·РѕРІР°РЅРёРµ Р·Р°РєСЂС‹С‚РѕРіРѕ `httpx.AsyncClient`
-- **`required_keys` param** РІ `OpenRouterClient.complete()` вЂ” upload РїРµСЂРµРґР°С‘С‚ `{"title"}`, RCA-СЂР°РЅРЅРµСЂС‹ РЅРёС‡РµРіРѕ РЅРµ РјРµРЅСЏСЋС‚ (РґРµС„РѕР»С‚ `{"summary", "recommendations"}`)
-- **Frontend HTTP** вЂ” РІСЃСЏ СЃРµС‚РµРІР°СЏ Р»РѕРіРёРєР° С†РµРЅС‚СЂР°Р»РёР·РѕРІР°РЅР° РІ `api.js`; `401` РІС‹Р·С‹РІР°РµС‚ Р°РІС‚Рѕ-refresh Рё РѕРґРёРЅ retry
-- **BowtieDiagram** РёРЅС‚РµРіСЂРёСЂРѕРІР°РЅ РІ `ResultView` вЂ” Р°РІС‚РѕРјР°С‚РёС‡РµСЃРєРё РѕС‚РѕР±СЂР°Р¶Р°РµС‚СЃСЏ РґР»СЏ `methodology === 'bowtie'`
-- **CSRF: signed double-submit cookie** вЂ” stateless, Р±РµР· С‚Р°Р±Р»РёС†С‹; Bearer/Swagger/curl РѕСЃРІРѕР±РѕР¶РґРµРЅС‹
-- **Export DOCX** вЂ” `export_service.py` С‡РµСЂРµР· `python-docx`; РѕС‚РґРµР»СЊРЅС‹Рµ СЃРµРєС†РёРё РґР»СЏ РєР°Р¶РґРѕР№ РјРµС‚РѕРґРѕР»РѕРіРёРё
-
----
-
-## Production hardening (С‡РµРєР»РёСЃС‚ РїРµСЂРµРґ РґРµРїР»РѕРµРј)
-
-- [ ] **`JWT_SECRET`** вЂ” Р·Р°РґР°С‚СЊ РґР»РёРЅРЅС‹Р№ СЃР»СѓС‡Р°Р№РЅС‹Р№ СЃРµРєСЂРµС‚ (`openssl rand -hex 32`)
-- [ ] **`AUTH_COOKIE_SECURE=true`** вЂ” cookie С‚РѕР»СЊРєРѕ РїРѕ HTTPS
-- [ ] **`CSRF_PROTECTION_ENABLED=true`** вЂ” РѕСЃС‚Р°РІРёС‚СЊ РІРєР»СЋС‡С‘РЅРЅС‹Рј
-- [ ] **`SameSite`**: РѕРґРёРЅ РґРѕРјРµРЅ в†’ `lax`; СЂР°Р·РЅС‹Рµ РґРѕРјРµРЅС‹ в†’ `none` + `SECURE=true`
-- [ ] **`CORS_ALLOW_ORIGINS`** вЂ” С‚РѕР»СЊРєРѕ СЂРµР°Р»СЊРЅС‹Рµ РґРѕРјРµРЅС‹ (no `*`)
+- **bcrypt напрямую** (без passlib) — обход бага совместимости с `bcrypt ≥ 4.x`
+- **Access/refresh в httpOnly cookie** — frontend не хранит токены ни в памяти, ни в `localStorage`
+- **Refresh-token rotation** — при `POST /api/v1/auth/refresh` старый refresh-токен помечается revoked, клиент получает новую пару cookie
+- **user_id** сохраняется в `incidents` и `rca_results`; `GET /api/v1/results` возвращает только записи текущего пользователя
+- **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
+- **`required_keys` param** в `OpenRouterClient.complete()` — upload передаёт `{"title"}`, RCA-раннеры ничего не меняют (дефолт `{"summary", "recommendations"}`)
+- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; `401` вызывает авто-refresh и один retry
+- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`
+- **CSRF: signed double-submit cookie** — stateless, без таблицы; Bearer/Swagger/curl освобождены
+- **Export DOCX** — `export_service.py` через `python-docx`; отдельные секции для каждой методологии
 
 ---
 
-## РўРµСЃС‚С‹
+## Production hardening (чеклист перед деплоем)
+
+- [ ] **`JWT_SECRET`** — задать длинный случайный секрет (`openssl rand -hex 32`)
+- [ ] **`AUTH_COOKIE_SECURE=true`** — cookie только по HTTPS
+- [ ] **`CSRF_PROTECTION_ENABLED=true`** — оставить включённым
+- [ ] **`SameSite`**: один домен → `lax`; разные домены → `none` + `SECURE=true`
+- [ ] **`CORS_ALLOW_ORIGINS`** — только реальные домены (no `*`)
+
+---
+
+## Тесты
 
 ```bash
-# Р’СЃРµ С‚РµСЃС‚С‹ (РІ РѕРєСЂСѓР¶РµРЅРёРё РїСЂРѕРµРєС‚Р° / Docker, РіРґРµ Р·Р°РґР°РЅС‹ env-РїРµСЂРµРјРµРЅРЅС‹Рµ)
+# Все тесты (в окружении проекта / Docker, где заданы env-переменные)
 pytest
 
-# РўРѕР»СЊРєРѕ E2E РІСЃРµС… 5 РјРµС‚РѕРґРѕР»РѕРіРёР№ (РїРѕР»РЅС‹Р№ РєРѕРЅРІРµР№РµСЂ, Р±РµР· СЃРµС‚Рё)
+# Только E2E всех 5 методологий (полный конвейер, без сети)
 pytest tests/integration/test_methodologies_e2e.py
 
-# Р РѕР»Рё admin/user
+# Роли admin/user
 pytest tests/api/test_roles.py tests/api/test_admin.py
 
-# РР·РІР»РµС‡РµРЅРёРµ РїРѕР»РµР№ РёР· DOCX
+# Извлечение полей из DOCX
 pytest tests/unit/test_docx_fields_service.py
 
-# PDF-СЌРєСЃРїРѕСЂС‚ РІСЃРµС… РјРµС‚РѕРґРѕР»РѕРіРёР№
+# PDF-экспорт всех методологий
 pytest tests/unit/test_pdf_export_service.py
 ```
 
-- `tests/integration/test_methodologies_e2e.py` вЂ” 21 С‚РµСЃС‚: РґР»СЏ РєР°Р¶РґРѕР№ РјРµС‚РѕРґРёРєРё
-  РїСЂРѕРіРѕРЅСЏРµС‚СЃСЏ `AnalysisRequest в†’ PromptRenderer в†’ (fake LLM) в†’ Runner в†’ RCAResult`.
-  РњРѕРєР°РµС‚СЃСЏ С‚РѕР»СЊРєРѕ СЃРµС‚РµРІРѕР№ РІС‹Р·РѕРІ LLM; РїСЂРѕРјРїС‚С‹ Рё РїР°СЂСЃРµСЂС‹ вЂ” РЅР°СЃС‚РѕСЏС‰РёРµ.
-- `tests/unit/` вЂ” РјРѕРґСѓР»СЊРЅС‹Рµ С‚РµСЃС‚С‹ runner'РѕРІ, РѕР±СЂРµР·РєРё С‚РµРєСЃС‚Р°, OpenRouter-РєР»РёРµРЅС‚Р°.
-- `tests/api/` вЂ” HTTP-СЃР»РѕР№: analyze-СЂРѕСѓС‚РµСЂ, CSRF, СЂРѕР»Рё.
+- `tests/integration/test_methodologies_e2e.py` — 21 тест: для каждой методики
+  прогоняется `AnalysisRequest → PromptRenderer → (fake LLM) → Runner → RCAResult`.
+  Мокается только сетевой вызов LLM; промпты и парсеры — настоящие.
+- `tests/unit/` — модульные тесты runner'ов, обрезки текста, OpenRouter-клиента.
+- `tests/api/` — HTTP-слой: analyze-роутер, CSRF, роли.
 
 ---
 
 ## Roadmap
 
-### вњ… Р РµР°Р»РёР·РѕРІР°РЅРѕ
-- [x] Р’СЃРµ 5 РјРµС‚РѕРґРѕР»РѕРіРёР№ (five_why, ishikawa, rca_systemic, fta, bowtie)
-- [x] РђРІС‚РѕСЂРёР·Р°С†РёСЏ: access JWT + refresh-token rotation РІ httpOnly cookie, bcrypt
+### ✅ Реализовано
+- [x] Все 5 методологий (five_why, ishikawa, rca_systemic, fta, bowtie)
+- [x] Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
 - [x] CSRF protection (signed double-submit cookie + `X-CSRF-Token`)
-- [x] Р РѕР»Рё `admin` / `user` вЂ” admin РІРёРґРёС‚/СЂРµРґР°РєС‚РёСЂСѓРµС‚/СѓРґР°Р»СЏРµС‚ Р»СЋР±С‹Рµ СЂРµР·СѓР»СЊС‚Р°С‚С‹, user С‚РѕР»СЊРєРѕ СЃРІРѕРё
-- [x] BowtieDiagram РІ UI
-- [x] `POST /api/v1/upload-report` вЂ” Р°РІС‚РѕР·Р°РїРѕР»РЅРµРЅРёРµ С„РѕСЂРјС‹ РёР· DOCX-РѕС‚С‡С‘С‚Р° С‡РµСЂРµР· LLM
-- [x] РР·РІР»РµС‡РµРЅРёРµ `established_facts` РёР· РґР»РёРЅРЅС‹С… РґРѕРєСѓРјРµРЅС‚РѕРІ (head + tail + section-aware)
-- [x] Р­РєСЃРїРѕСЂС‚ **DOCX** Рё **PDF** (`?format=docx|pdf`, РєРЅРѕРїРєРё в¬‡пёЏ DOCX / в¬‡пёЏ PDF РІ UI)
-- [x] E2E-С‚РµСЃС‚С‹ `pytest` РґР»СЏ РІСЃРµС… 5 РјРµС‚РѕРґРѕР»РѕРіРёР№ + unit-С‚РµСЃС‚С‹ СЃРµСЂРІРёСЃРѕРІ Рё СЂРѕСѓС‚РµСЂРѕРІ
+- [x] Роли `admin` / `user` — admin видит/редактирует/удаляет любые результаты, user только свои
+- [x] BowtieDiagram в UI
+- [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта через LLM
+- [x] Извлечение `established_facts` из длинных документов (head + tail + section-aware)
+- [x] Экспорт **DOCX** и **PDF** (`?format=docx|pdf`, кнопки ⬇️ DOCX / ⬇️ PDF в UI)
+- [x] E2E-тесты `pytest` для всех 5 методологий + unit-тесты сервисов и роутеров
 
-### рџџЎ Р’ СЂР°Р±РѕС‚Рµ / СЃР»РµРґСѓСЋС‰РµРµ
-- [ ] _РЅРµС‚ Р°РєС‚РёРІРЅС‹С… Р·Р°РґР°С‡ вЂ” РѕСЃРЅРѕРІРЅРѕР№ С„СѓРЅРєС†РёРѕРЅР°Р» СЂРµР°Р»РёР·РѕРІР°РЅ_
+### 🟡 В работе / следующее
+- [ ] _нет активных задач — основной функционал реализован_
 
-### рџџў РРґРµРё РЅР° Р±СѓРґСѓС‰РµРµ (backlog)
-- [ ] Р”РѕРїРѕР»РЅРёС‚РµР»СЊРЅС‹Рµ С„РѕСЂРјР°С‚С‹ СЌРєСЃРїРѕСЂС‚Р° (XLSX / CSV РІС‹РіСЂСѓР·РєР° СЂРµРєРѕРјРµРЅРґР°С†РёР№)
-- [ ] Р”Р°С€Р±РѕСЂРґ СЃС‚Р°С‚РёСЃС‚РёРєРё РїРѕ РёРЅС†РёРґРµРЅС‚Р°Рј (РјРµС‚РѕРґРёРєРё, С‚СЏР¶РµСЃС‚СЊ, РґРёРЅР°РјРёРєР°)
-- [ ] РЎСЂР°РІРЅРµРЅРёРµ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ РЅРµСЃРєРѕР»СЊРєРёС… РјРµС‚РѕРґРёРє РїРѕ РѕРґРЅРѕРјСѓ РёРЅС†РёРґРµРЅС‚Сѓ
-- [ ] РџСЂРёРєСЂРµРїР»РµРЅРёРµ С„РѕС‚Рѕ/С„Р°Р№Р»РѕРІ Рє РёРЅС†РёРґРµРЅС‚Сѓ Рё РёС… СѓС‡С‘С‚ РІ Р°РЅР°Р»РёР·Рµ
-- [ ] РЈРІРµРґРѕРјР»РµРЅРёСЏ / СЌРєСЃРїРѕСЂС‚ РїРѕ СЂР°СЃРїРёСЃР°РЅРёСЋ
+### 🟢 Идеи на будущее (backlog)
+- [ ] Дополнительные форматы экспорта (XLSX / CSV выгрузка рекомендаций)
+- [ ] Дашборд статистики по инцидентам (методики, тяжесть, динамика)
+- [ ] Сравнение результатов нескольких методик по одному инциденту
+- [ ] Прикрепление фото/файлов к инциденту и их учёт в анализе
+- [ ] Уведомления / экспорт по расписанию
 
 ---
 
-## РЎС‚Р°С‚СѓСЃ РЅР° 07.06.2026
+## Статус на 07.06.2026
 
-**Р РµР°Р»РёР·РѕРІР°РЅ РїРѕР»РЅС‹Р№ С†РµР»РµРІРѕР№ С„СѓРЅРєС†РёРѕРЅР°Р».** РђРєС‚РёРІРЅС‹С… Р·Р°РґР°С‡ РІ СЂР°Р±РѕС‚Рµ РЅРµС‚ вЂ”
-РґР°Р»СЊРЅРµР№С€РёРµ РїСѓРЅРєС‚С‹ РІС‹РЅРµСЃРµРЅС‹ РІ backlog В«РРґРµРё РЅР° Р±СѓРґСѓС‰РµРµВ».
+**Реализован полный целевой функционал.** Активных задач в работе нет —
+дальнейшие пункты вынесены в backlog «Идеи на будущее».
 
-- вњ… РРЅС„СЂР°СЃС‚СЂСѓРєС‚СѓСЂР°: Docker Compose (API + PostgreSQL)
-- вњ… API: РІСЃРµ 5 РјРµС‚РѕРґРѕР»РѕРіРёР№, register/login/refresh/logout, upload-report, export (DOCX/PDF)
-- вњ… РђРІС‚РѕСЂРёР·Р°С†РёСЏ: access JWT + refresh-token rotation РІ httpOnly cookie, bcrypt
-- вњ… Р РѕР»Рё: `admin` / `user` (РёР·РѕР»СЏС†РёСЏ СЂРµР·СѓР»СЊС‚Р°С‚РѕРІ, admin-СЂРѕСѓС‚РµСЂ `/api/v1/admin/users`)
-- вњ… CSRF protection: signed double-submit cookie + `X-CSRF-Token`
-- вњ… РњРёРіСЂР°С†РёРё: 5 РІРµСЂСЃРёР№ (001 в†’ 005, РІРєР»СЋС‡Р°СЏ `005_add_user_role`)
-- вњ… Frontend: РІРѕСЃСЃС‚Р°РЅРѕРІР»РµРЅРёРµ СЃРµСЃСЃРёРё, Р°РІС‚Рѕ-refresh РїСЂРё 401, drag-and-drop Р·Р°РіСЂСѓР·РєР° .docx
-- вњ… Export: `GET /api/v1/results/{id}/export?format=docx|pdf` + РєРЅРѕРїРєРё в¬‡пёЏ DOCX / в¬‡пёЏ PDF РІ ResultView.jsx
-- вњ… Upload DOCX: `POST /api/v1/upload-report` вЂ” Р°РІС‚РѕР·Р°РїРѕР»РЅРµРЅРёРµ С„РѕСЂРјС‹ С‡РµСЂРµР· LLM (20 РїРѕР»РµР№ + victims_list)
-- вњ… `established_facts` РєРѕСЂСЂРµРєС‚РЅРѕ РёР·РІР»РµРєР°РµС‚СЃСЏ РёР· РґР»РёРЅРЅС‹С… РґРѕРєСѓРјРµРЅС‚РѕРІ вЂ” head + tail + section-aware РІ `docx_fields_service._trim_text`, `max_tokens=4096`
-- вњ… РўРµСЃС‚С‹: E2E РІСЃРµС… РјРµС‚РѕРґРѕР»РѕРіРёР№, PDF-СЌРєСЃРїРѕСЂС‚, РёР·РІР»РµС‡РµРЅРёРµ РїРѕР»РµР№ DOCX, СЂРѕР»Рё, CSRF
-
+- ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
+- ✅ API: все 5 методологий, register/login/refresh/logout, upload-report, export (DOCX/PDF)
+- ✅ Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
+- ✅ Роли: `admin` / `user` (изоляция результатов, admin-роутер `/api/v1/admin/users`)
+- ✅ CSRF protection: signed double-submit cookie + `X-CSRF-Token`
+- ✅ Миграции: 5 версий (001 → 005, включая `005_add_user_role`)
+- ✅ Frontend: восстановление сессии, авто-refresh при 401, drag-and-drop загрузка .docx
+- ✅ Export: `GET /api/v1/results/{id}/export?format=docx|pdf` + кнопки ⬇️ DOCX / ⬇️ PDF в ResultView.jsx
+- ✅ Upload DOCX: `POST /api/v1/upload-report` — автозаполнение формы через LLM (20 полей + victims_list)
+- ✅ `established_facts` корректно извлекается из длинных документов — head + tail + section-aware в `docx_fields_service._trim_text`, `max_tokens=4096`
+- ✅ Тесты: E2E всех методологий, PDF-экспорт, извлечение полей DOCX, роли, CSRF
