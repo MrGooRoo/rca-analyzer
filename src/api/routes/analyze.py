@@ -24,8 +24,10 @@ from src.db.base import get_db
 from src.db.repository import RCARepository
 from src.domain.models import (
     AnalysisRequest,
+    ComparisonResult,
     LLMResponseValidationError,
     MethodologyNotSupportedError,
+    MultiAnalysisRequest,
     RCAResult,
 )
 from src.services.analysis_service import AnalysisService
@@ -210,17 +212,34 @@ async def analyze_multi(
     return results
 
 
-@router.get("/results/compare", response_model=ComparisonResult)
+@router.get(
+    "/results/compare",
+    response_model=ComparisonResult,
+    summary="Сравнение результатов нескольких методологий по incident_id",
+)
 async def compare_results(
-    incident_id: str = Query(..., description="ID инцидента"),
     db: DbSession,
     current_user: CurrentUser,
+    incident_id: str = Query(..., description="ID инцидента для сравнения"),
 ) -> ComparisonResult:
     repo = RCARepository(db)
     user_filter = None if current_user.role == "admin" else current_user.user_id
-    results = await repo.list_results(user_id=user_filter, incident_id=incident_id, limit=10)
+    results = await repo.list_results(
+        user_id=user_filter,
+        incident_id=incident_id,
+        limit=10,
+        offset=0,
+    )
     if not results:
-        raise HTTPException(status_code=404, detail="Нет результатов")
+        raise HTTPException(status_code=404, detail=f"Нет результатов для incident_id={incident_id}")
+
     for r in results:
         _check_owner_or_admin(r, current_user)
-    return _service.compare(results)
+
+    try:
+        comparison = _service.compare(results)
+    except Exception as exc:
+        logger.error("[API] compare error: %s", exc)
+        raise HTTPException(status_code=500, detail="Ошибка при сравнении") from exc
+
+    return comparison
