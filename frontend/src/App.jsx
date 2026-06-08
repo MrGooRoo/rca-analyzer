@@ -3,6 +3,7 @@ import { api, clearAuth, setAuth, setAuthLostHandler } from './api.js'
 import AuthPage from './components/AuthPage.jsx'
 import IncidentForm from './components/IncidentForm.jsx'
 import ResultView from './components/ResultView.jsx'
+import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
 import AdminPage from './components/AdminPage.jsx'
 import './App.css'
@@ -12,6 +13,7 @@ export default function App() {
   const [user, setUser]                 = useState(null)
   const [page, setPage]                 = useState('analyze')
   const [result, setResult]             = useState(null)
+  const [comparison, setComparison]     = useState(null)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
 
@@ -40,6 +42,7 @@ export default function App() {
       clearAuth()
       setUser(null)
       setResult(null)
+      setComparison(null)
       setError(null)
       setPage('analyze')
     })
@@ -59,10 +62,12 @@ export default function App() {
     setPage('analyze')
   }
 
+  // === Single analysis ===
   async function handleSubmit(payload) {
     setLoading(true)
     setError(null)
     setResult(null)
+    setComparison(null)
     try {
       const data = await api.analyze(payload)
       setResult(data)
@@ -74,8 +79,46 @@ export default function App() {
     }
   }
 
+  // === Multi analysis (сравнение) ===
+  async function handleSubmitMulti(payload) {
+    setLoading(true)
+    setError(null)
+    setResult(null)
+    setComparison(null)
+    try {
+      const results = await api.analyzeMulti(payload)
+      if (!results || results.length === 0) {
+        setError('Не получено результатов анализа')
+        return
+      }
+      // Сразу запрашиваем сравнение, используя incident_id из первого результата
+      const incidentId = results[0].incident_id
+      let comparisonData = null
+      try {
+        comparisonData = await api.compareResults(incidentId)
+      } catch (compareErr) {
+        // Если сравнение не удалось — показываем хотя бы сырые результаты
+        console.warn('compareResults failed, showing raw results:', compareErr.message)
+        comparisonData = {
+          incident_id: incidentId,
+          results: results,
+          common_recommendations: [],
+          differing_causes: {},
+          summary: '',
+        }
+      }
+      setComparison(comparisonData)
+      setPage('analyze')
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setLoading(false)
+    }
+  }
+
   function openResult(r) {
     setResult(r)
+    setComparison(null)
     setPage('analyze')
   }
 
@@ -88,6 +131,7 @@ export default function App() {
       clearAuth()
       setUser(null)
       setResult(null)
+      setComparison(null)
       setError(null)
       setPage('analyze')
     }
@@ -139,9 +183,14 @@ export default function App() {
       <main className="app-main">
         {page === 'analyze' && (
           <>
-            <IncidentForm onSubmit={handleSubmit} loading={loading} />
+            <IncidentForm
+              onSubmit={handleSubmit}
+              onSubmitMulti={handleSubmitMulti}
+              loading={loading}
+            />
             {error && <div className="alert alert-error"><strong>Ошибка:</strong> {error}</div>}
-            {result && <ResultView result={result} />}
+            {comparison && <CompareView comparison={comparison} />}
+            {!comparison && result && <ResultView result={result} />}
           </>
         )}
         {page === 'history' && <HistoryPage onOpen={openResult} currentUser={user} />}

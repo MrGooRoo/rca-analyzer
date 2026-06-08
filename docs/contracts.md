@@ -80,3 +80,43 @@ class IncidentInput(BaseModel):
     equipment_description: str | None = None
     full_circumstances: str | None = None
     established_facts: str | None = None
+---
+
+## 10. Frontend UI — сравнение методик (добавлено 08.06.2026)
+
+### 10.1. Режимы формы IncidentForm
+
+Форма инцидента (`IncidentForm.jsx`) поддерживает два режима:
+
+- **`mode: 'single'`** — одиночный анализ. Одно поле `methodology` (dropdown).
+- **`mode: 'multi'`** — сравнение. Массив `methodologies` (checkboxes, минимум 2).
+
+### 10.2. API-клиент (api.js)
+
+```js
+api.analyze(payload)       // POST /api/v1/analyze      → RCAResult
+api.analyzeMulti(payload)  // POST /api/v1/analyze-multi → RCAResult[]
+api.compareResults(id)     // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
+```
+
+### 10.3. Компонент CompareView
+
+Новый компонент `CompareView.jsx` отображает:
+
+1. **Сводку сравнения** — `comparison.summary`
+2. **Общие рекомендации** — `comparison.common_recommendations`
+3. **Различающиеся выводы** — `comparison.differing_causes` (сетка карточек по методикам)
+4. **Side-by-side табы** — каждая методика как вкладка с детальным результатом:
+   - Мета (модель, токены, уверенность)
+   - Дерево причин (корневые / способствующие / непосредственные)
+   - Bowtie-диаграмма (для bowtie)
+   - Рекомендации
+
+### 10.4. Состояние App.jsx
+
+- `result` — результат одиночного анализа (`RCAResult | null`)
+- `comparison` — результат сравнения (`ComparisonResult | null`)
+- Оба сбрасываются при новом анализе
+- `!comparison && result` → `ResultView`
+- `comparison` → `CompareView`
+

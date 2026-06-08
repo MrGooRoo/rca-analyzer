@@ -322,3 +322,141 @@
 }
 
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* ========== Mode selector ========== */
+
+.mode-selector {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.mode-option {
+  flex: 1;
+  min-width: 160px;
+  cursor: pointer;
+}
+
+.mode-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.mode-option__content {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.mode-option:hover .mode-option__content {
+  border-color: var(--muted);
+}
+
+.mode-option--active .mode-option__content {
+  border-color: var(--primary);
+  background: rgba(79, 142, 247, 0.08);
+}
+
+.mode-option__icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.mode-option__label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ========== Checkbox group ========== */
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-card {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border: 2px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface-2);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s;
+  user-select: none;
+}
+
+.checkbox-card:hover {
+  border-color: var(--muted);
+}
+
+.checkbox-card--checked {
+  border-color: var(--primary);
+  background: rgba(79, 142, 247, 0.1);
+}
+
+.checkbox-card__input {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.checkbox-card__check {
+  width: 20px;
+  height: 20px;
+  border-radius: 5px;
+  border: 2px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--surface-2);
+  transition: background 0.2s, border-color 0.2s;
+  flex-shrink: 0;
+}
+
+.checkbox-card--checked .checkbox-card__check {
+  background: var(--primary);
+  border-color: var(--primary);
+}
+
+.checkbox-card__label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* ========== Multi hint ========== */
+
+.multi-hint {
+  font-size: 13px;
+  color: var(--warning);
+  background: rgba(247, 185, 85, 0.08);
+  border: 1px solid rgba(247, 185, 85, 0.2);
+  border-radius: 8px;
+  padding: 8px 14px;
+}
+
+/* ========== Analyze button -- multi variant ========== */
+
+.btn-analyze--multi {
+  background: linear-gradient(135deg, var(--primary), #7c5cfc);
+  box-shadow: 0 2px 10px rgba(79, 142, 247, 0.25);
+}
+
+.btn-analyze--multi:hover:not(:disabled) {
+  background: linear-gradient(135deg, var(--primary-h), #6848e6);
+}

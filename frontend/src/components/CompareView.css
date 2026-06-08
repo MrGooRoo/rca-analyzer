@@ -1,0 +1,234 @@
+/* ========== CompareView ========== */
+
+.compare-view {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.compare-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.compare-icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.compare-badge {
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(79, 142, 247, 0.12);
+  color: var(--primary);
+  border: 1px solid rgba(79, 142, 247, 0.25);
+  border-radius: 20px;
+  padding: 2px 12px;
+}
+
+/* ---- Сводка сравнения ---- */
+
+.compare-summary-box {
+  background: var(--surface-2);
+  border-left: 4px solid var(--primary);
+  border-radius: 0 10px 10px 0;
+  padding: 18px 22px;
+}
+
+.compare-summary-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--primary);
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  margin-bottom: 8px;
+}
+
+.compare-summary-text {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text);
+}
+
+/* ---- Секции ---- */
+
+.compare-section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.compare-section-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-subsection-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  margin-bottom: 8px;
+}
+
+/* ---- Табы методик ---- */
+
+.compare-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 8px;
+}
+
+.compare-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  border-radius: 8px 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+  border: 1px solid transparent;
+  border-bottom: none;
+}
+
+.compare-tab:hover {
+  color: var(--text);
+  background: var(--surface-2);
+}
+
+.compare-tab--active {
+  color: var(--primary);
+  background: rgba(79, 142, 247, 0.08);
+  border-color: var(--border);
+  font-weight: 600;
+}
+
+.compare-tab-icon {
+  font-size: 14px;
+  line-height: 1;
+}
+
+.compare-tab-label {
+  font-weight: inherit;
+}
+
+.compare-tab-conf {
+  font-size: 11px;
+  background: rgba(62, 207, 142, 0.12);
+  color: var(--success);
+  border-radius: 4px;
+  padding: 0 6px;
+  line-height: 18px;
+}
+
+/* ---- Панель результата ---- */
+
+.compare-result-panel {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 18px;
+}
+
+.compare-result-panel .result-stats {
+  display: flex;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.compare-result-panel .stat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+}
+
+.compare-result-panel .stat-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.compare-result-panel .stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* ---- Различающиеся выводы ---- */
+
+.differing-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+}
+
+.differing-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px;
+}
+
+.differing-card-header {
+  margin-bottom: 8px;
+}
+
+.differing-card .method-badge {
+  background: rgba(247, 185, 85, 0.12);
+  color: var(--warning);
+  border: 1px solid rgba(247, 185, 85, 0.25);
+  border-radius: 6px;
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.differing-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.differing-item {
+  font-size: 13px;
+  color: var(--text);
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 6px;
+  line-height: 1.5;
+}
+
+.differing-item::before {
+  content: '• ';
+  color: var(--warning);
+  font-weight: bold;
+}

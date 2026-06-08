@@ -334,6 +334,8 @@ export const api = {
     logout: () => req('POST', '/api/v1/auth/logout', undefined, { retryOn401: false }),
   },
   analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
+  analyzeMulti: (payload) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true }),
+  compareResults: (incidentId) => req('GET', `/api/v1/results/compare?incident_id=${encodeURIComponent(incidentId)}`, undefined, { authRequired: true }),
   uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
   uploadReportStream: (file, onProgress) => uploadFileStream('/api/v1/upload-report-stream', file, onProgress, { authRequired: true }),
   exportDocx,

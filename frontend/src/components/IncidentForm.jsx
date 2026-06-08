@@ -56,9 +56,11 @@ const DEFAULTS = {
   injured_count: 0, fatalities_count: 0, short_description: '',
   photo_urls: [], scene_description: '', equipment_description: '',
   full_circumstances: '', established_facts: '', victims_list: [],
+  mode: 'single',           // 'single' | 'multi'
+  methodologies: ['bowtie'], // только для mode='multi'
 }
 
-export default function IncidentForm({ onSubmit, loading }) {
+export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
   const [form, setForm] = useState(DEFAULTS)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -70,6 +72,18 @@ export default function IncidentForm({ onSubmit, loading }) {
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
+  }
+
+  // --- Mode helpers ---
+  function isMulti() { return form.mode === 'multi' }
+
+  function toggleMethodology(method) {
+    setForm(f => {
+      const list = f.methodologies.includes(method)
+        ? f.methodologies.filter(m => m !== method)
+        : [...f.methodologies, method]
+      return { ...f, methodologies: list }
+    })
   }
 
   // --- Victims list helpers ---
@@ -164,41 +178,55 @@ export default function IncidentForm({ onSubmit, loading }) {
 
   function handleSubmit(e) {
     e.preventDefault()
-    onSubmit({
-      methodology: form.methodology,
-      language: form.language,
-      detail_level: Number(form.detail_level),
-      incident: {
-        title: form.title,
-        description: form.description,
-        incident_date: form.incident_date ? form.incident_date + 'T00:00:00' : null,
-        location: form.location,
-        incident_type: form.incident_type,
-        severity: form.severity,
-        victims: form.victims ? Number(form.victims) : undefined,
-        equipment: form.equipment || undefined,
-        conditions: form.conditions || undefined,
-        actions_taken: form.actions_taken || undefined,
-        incident_time: form.incident_time || undefined,
-        company: form.company || undefined,
-        department: form.department || undefined,
-        location_detailed: form.location_detailed || undefined,
-        injured_count: form.injured_count || undefined,
-        fatalities_count: form.fatalities_count || undefined,
-        short_description: form.short_description || undefined,
-        photo_urls: form.photo_urls || [],
-        scene_description: form.scene_description || undefined,
-        equipment_description: form.equipment_description || undefined,
-        full_circumstances: form.full_circumstances || undefined,
-        established_facts: form.established_facts || undefined,
-        victims_list: form.victims_list.map(v => ({
-          ...v,
-          birth_date: v.birth_date || undefined,
-          age: v.age !== '' ? Number(v.age) : undefined,
-          children_under_21: v.children_under_21 !== '' ? Number(v.children_under_21) : undefined,
-        })),
-      },
-    })
+
+    const incidentPayload = {
+      title: form.title,
+      description: form.description,
+      incident_date: form.incident_date ? form.incident_date + 'T00:00:00' : null,
+      location: form.location,
+      incident_type: form.incident_type,
+      severity: form.severity,
+      victims: form.victims ? Number(form.victims) : undefined,
+      equipment: form.equipment || undefined,
+      conditions: form.conditions || undefined,
+      actions_taken: form.actions_taken || undefined,
+      incident_time: form.incident_time || undefined,
+      company: form.company || undefined,
+      department: form.department || undefined,
+      location_detailed: form.location_detailed || undefined,
+      injured_count: form.injured_count || undefined,
+      fatalities_count: form.fatalities_count || undefined,
+      short_description: form.short_description || undefined,
+      photo_urls: form.photo_urls || [],
+      scene_description: form.scene_description || undefined,
+      equipment_description: form.equipment_description || undefined,
+      full_circumstances: form.full_circumstances || undefined,
+      established_facts: form.established_facts || undefined,
+      victims_list: form.victims_list.map(v => ({
+        ...v,
+        birth_date: v.birth_date || undefined,
+        age: v.age !== '' ? Number(v.age) : undefined,
+        children_under_21: v.children_under_21 !== '' ? Number(v.children_under_21) : undefined,
+      })),
+    }
+
+    if (isMulti()) {
+      // Multi-analysis
+      onSubmitMulti({
+        methodologies: form.methodologies,
+        language: form.language,
+        detail_level: Number(form.detail_level),
+        incident: incidentPayload,
+      })
+    } else {
+      // Single analysis
+      onSubmit({
+        methodology: form.methodology,
+        language: form.language,
+        detail_level: Number(form.detail_level),
+        incident: incidentPayload,
+      })
+    }
   }
 
   return (
@@ -237,20 +265,30 @@ export default function IncidentForm({ onSubmit, loading }) {
       </div>
 
       <div className="form-row">
-        <div className="form-group"><label>Дата</label><input type="date" value={form.incident_date} onChange={e => set('incident_date', e.target.value)} /></div>
-        <div className="form-group"><label>Время</label><input type="time" value={form.incident_time} onChange={e => set('incident_time', e.target.value)} /></div>
-        <div className="form-group"><label>Компания</label><input type="text" value={form.company} onChange={e => set('company', e.target.value)} /></div>
+        <div className="form-group"><label>Дата инцидента</label>
+          <input type="date" value={form.incident_date} onChange={e => set('incident_date', e.target.value)} /></div>
+        <div className="form-group"><label>Время инцидента</label>
+          <input type="time" value={form.incident_time} onChange={e => set('incident_time', e.target.value)} /></div>
+        <div className="form-group"><label>Местоположение</label>
+          <input type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Цех №3, участок сборки" /></div>
       </div>
 
       <div className="form-row">
-        <div className="form-group"><label>Подразделение</label><input type="text" value={form.department} onChange={e => set('department', e.target.value)} /></div>
-        <div className="form-group"><label>Место происшествия</label><input type="text" value={form.location} onChange={e => set('location', e.target.value)} required /></div>
+        <div className="form-group"><label>Предприятие</label>
+          <input type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="ООО «ПромБезопасность»" /></div>
+        <div className="form-group"><label>Подразделение</label>
+          <input type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Производственный цех" /></div>
+        <div className="form-group"><label>Детальное место</label>
+          <input type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} /></div>
       </div>
 
       <div className="form-row">
-        <div className="form-group form-group--sm"><label>Пострадавших</label><input type="number" min={0} value={form.injured_count} onChange={e => set('injured_count', e.target.value)} /></div>
-        <div className="form-group form-group--sm"><label>Погибших</label><input type="number" min={0} value={form.fatalities_count} onChange={e => set('fatalities_count', e.target.value)} /></div>
-        <div className="form-group"><label>Краткое описание</label><input type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} /></div>
+        <div className="form-group form-group--sm"><label>Пострадавшие</label>
+          <input type="number" min={0} value={form.injured_count} onChange={e => set('injured_count', e.target.value)} /></div>
+        <div className="form-group form-group--sm"><label>Погибшие</label>
+          <input type="number" min={0} value={form.fatalities_count} onChange={e => set('fatalities_count', e.target.value)} /></div>
+        <div className="form-group form-group--full"><label>Краткое описание</label>
+          <input type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} /></div>
       </div>
 
       <div className="form-divider" />
@@ -402,20 +440,103 @@ export default function IncidentForm({ onSubmit, loading }) {
 
       {/* Параметры анализа */}
       <div className="form-section-label">Параметры анализа</div>
-      <div className="form-row">
-        <div className="form-group"><label>Методология</label>
-          <select value={form.methodology} onChange={e => set('methodology', e.target.value)}>{METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}</select>
-        </div>
-        <div className="form-group"><label>Язык</label>
-          <select value={form.language} onChange={e => set('language', e.target.value)}><option value="ru">Русский</option><option value="en">English</option></select>
-        </div>
-        <div className="form-group form-group--sm"><label>Детализация</label>
-          <select value={form.detail_level} onChange={e => set('detail_level', e.target.value)}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></select>
-        </div>
+
+      {/* === Режим анализа: одиночный или сравнение === */}
+      <div className="mode-selector">
+        <label className={`mode-option ${!isMulti() ? 'mode-option--active' : ''}`}>
+          <input
+            type="radio"
+            name="mode"
+            value="single"
+            checked={!isMulti()}
+            onChange={() => set('mode', 'single')}
+          />
+          <span className="mode-option__content">
+            <span className="mode-option__icon">🎯</span>
+            <span className="mode-option__label">Одна методика</span>
+          </span>
+        </label>
+        <label className={`mode-option ${isMulti() ? 'mode-option--active' : ''}`}>
+          <input
+            type="radio"
+            name="mode"
+            value="multi"
+            checked={isMulti()}
+            onChange={() => set('mode', 'multi')}
+          />
+          <span className="mode-option__content">
+            <span className="mode-option__icon">⚖️</span>
+            <span className="mode-option__label">Сравнить методики</span>
+          </span>
+        </label>
       </div>
 
-      <button type="submit" className="btn-analyze" disabled={loading}>
-        {loading ? (<><span className="spinner" /> Анализирую…</>) : ('▶ Запустить анализ')}
+      {/* === Одиночный режим: дропдаун === */}
+      {!isMulti() && (
+        <div className="form-row">
+          <div className="form-group">
+            <label>Методология</label>
+            <select value={form.methodology} onChange={e => set('methodology', e.target.value)}>
+              {METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group"><label>Язык</label>
+            <select value={form.language} onChange={e => set('language', e.target.value)}><option value="ru">Русский</option><option value="en">English</option></select>
+          </div>
+          <div className="form-group form-group--sm"><label>Детализация</label>
+            <select value={form.detail_level} onChange={e => set('detail_level', e.target.value)}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></select>
+          </div>
+        </div>
+      )}
+
+      {/* === Мульти-режим: чекбоксы === */}
+      {isMulti() && (
+        <>
+          <div className="checkbox-group">
+            {METHODOLOGIES.map(m => (
+              <label key={m.value} className={`checkbox-card ${form.methodologies.includes(m.value) ? 'checkbox-card--checked' : ''}`}>
+                <input
+                  type="checkbox"
+                  checked={form.methodologies.includes(m.value)}
+                  onChange={() => toggleMethodology(m.value)}
+                  className="checkbox-card__input"
+                />
+                <span className="checkbox-card__check">
+                  {form.methodologies.includes(m.value) ? '✓' : ''}
+                </span>
+                <span className="checkbox-card__label">{m.label}</span>
+              </label>
+            ))}
+          </div>
+
+          <div className="form-row">
+            <div className="form-group"><label>Язык</label>
+              <select value={form.language} onChange={e => set('language', e.target.value)}><option value="ru">Русский</option><option value="en">English</option></select>
+            </div>
+            <div className="form-group form-group--sm"><label>Детализация</label>
+              <select value={form.detail_level} onChange={e => set('detail_level', e.target.value)}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></select>
+            </div>
+          </div>
+
+          {form.methodologies.length < 2 && (
+            <div className="multi-hint">⚠️ Выберите минимум 2 методики для сравнения</div>
+          )}
+        </>
+      )}
+
+      {/* === Кнопка === */}
+      <button
+        type="submit"
+        className={`btn-analyze ${isMulti() ? 'btn-analyze--multi' : ''}`}
+        disabled={loading || (isMulti() && form.methodologies.length < 2)}
+      >
+        {loading ? (
+          <><span className="spinner" /> Анализирую…</>
+        ) : isMulti() ? (
+          `⚖️ Сравнить (${form.methodologies.length} методик)`
+        ) : (
+          '▶ Запустить анализ'
+        )}
       </button>
     </form>
   )
