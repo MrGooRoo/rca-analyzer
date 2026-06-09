@@ -8,7 +8,7 @@
       → MethodologyRunner (raw dict → RCAResult)
       → RCAResult
 Примечание по жизненному циклу httpx:
-    OpenRouterClient создаётся свежим на каждый запрос (через async with),
+    OpenRouterClient создаётся свежим на каждый запрос (async with),
     чтобы избежать повторного использования закрытого httpx.AsyncClient.
 Примечание по analyze_multi:
     Методологии запускаются параллельно через asyncio.gather,
@@ -60,6 +60,21 @@ _SIMILARITY_THRESHOLD = 0.55
 def _texts_are_similar(a: str, b: str, threshold: float = _SIMILARITY_THRESHOLD) -> bool:
     """Определяет, достаточно ли похожи две строки (нечёткое сравнение)."""
     return SequenceMatcher(None, a.lower().strip(), b.lower().strip()).ratio() >= threshold
+
+
+def _deduplicate_results(results: list[RCAResult]) -> list[RCAResult]:
+    """
+    Оставить только по одному результату на методологию — новейший по created_at.
+    Это защищает compare() от повторных запусков одного инцидента.
+    """
+    seen: dict[str, RCAResult] = {}
+    for r in sorted(results, key=lambda x: x.created_at or "", reverse=True):
+        key = r.methodology.value
+        if key not in seen:
+            seen[key] = r
+    # Сохраняем порядок оригинального списка по method
+    original_order = list(dict.fromkeys(r.methodology.value for r in results))
+    return [seen[k] for k in original_order if k in seen]
 
 
 class AnalysisService:
@@ -162,6 +177,7 @@ class AnalysisService:
         Сравнить результаты анализа несколькими методиками.
 
         Алгоритм:
+        0. Дедупликация: оставить по одному результату на методологию (новейший).
         1. Собрать все причины и рекомендации из каждого результата.
         2. Найти «общие» причины — те, что встречаются в ≥2 методиках
            с порогом текстового подобия ≥0.55.
@@ -171,18 +187,22 @@ class AnalysisService:
         """
         if not results:
             raise ValueError("Нет результатов для сравнения")
-        if len(results) < 2:
-            raise ValueError("Для сравнения нужно минимум 2 результата")
 
-        incident_id = results[0].incident_id
+        # Дедупликация: один результат на методологию
+        deduped = _deduplicate_results(results)
 
-        common_recs = AnalysisService._find_common_recommendations(results)
-        differing_causes = AnalysisService._find_differing_causes(results)
-        summary = AnalysisService._build_summary(results, common_recs, differing_causes)
+        if len(deduped) < 2:
+            raise ValueError("Для сравнения нужно минимум 2 различных методики")
+
+        incident_id = deduped[0].incident_id
+
+        common_recs = AnalysisService._find_common_recommendations(deduped)
+        differing_causes = AnalysisService._find_differing_causes(deduped)
+        summary = AnalysisService._build_summary(deduped, common_recs, differing_causes)
 
         return ComparisonResult(
             incident_id=incident_id,
-            results=results,
+            results=deduped,
             common_recommendations=common_recs,
             differing_causes=differing_causes,
             summary=summary,
@@ -273,9 +293,20 @@ class AnalysisService:
         differing: dict[str, list[str]],
     ) -> str:
         """Построить текстовую сводку сравнения."""
-        meth_names = [r.methodology.value for r in results]
+        METHODOLOGY_NAMES_RU = {
+            "five_why":     "5 Почему",
+            "ishikawa":     "Ishikawa",
+            "fta":          "FTA",
+            "rca_systemic": "RCA Системный",
+            "bowtie":       "Bowtie",
+        }
+
+        meth_names_ru = [
+            METHODOLOGY_NAMES_RU.get(r.methodology.value, r.methodology.value)
+            for r in results
+        ]
         lines: list[str] = [
-            f"Сравнение {len(results)} методик ({', '.join(meth_names)}) по инциденту.",
+            f"Сравнение {len(results)} методик ({', '.join(meth_names_ru)}) по инциденту.",
         ]
 
         if common_recs:
@@ -288,14 +319,19 @@ class AnalysisService:
 
         total_unique = sum(len(v) for v in differing.values())
         if total_unique:
-            lines.append(
-                f"Уникальные причины: {total_unique} "
-                f"({', '.join(f'{k}: {len(v)}' for k, v in differing.items())})."
+            diff_parts = ", ".join(
+                f"{METHODOLOGY_NAMES_RU.get(k, k)}: {len(v)}"
+                for k, v in differing.items()
             )
+            lines.append(f"Уникальные причины: {total_unique} ({diff_parts}).")
         else:
             lines.append("Все причины пересекаются между методиками.")
 
-        avg_conf = {r.methodology.value: round(r.confidence_avg, 2) for r in results}
-        lines.append(f"Средняя уверенность: {avg_conf}")
+        # Уровень уверенности читаемым текстом, не словарём Python
+        conf_parts = ", ".join(
+            f"{METHODOLOGY_NAMES_RU.get(r.methodology.value, r.methodology.value)}: {round(r.confidence_avg * 100)}%"
+            for r in results
+        )
+        lines.append(f"Средняя уверенность: {conf_parts}.")
 
         return " ".join(lines)
