@@ -14,6 +14,7 @@
 Переменные, доступные в шаблоне:
     incident   — IncidentInput (все поля)
     request    — AnalysisRequest (methodology, language, detail_level)
+    detail_map — dict {1: "кратко", 2: "стандартно", 3: "подробно"}
 Пример вызова:
     renderer = PromptRenderer()
     system, user = renderer.render("five_why.j2", request)
@@ -38,13 +39,19 @@ _AUTO_SYSTEM_TEMPLATE = (
     "Respond ONLY in {language_upper} language. Output strictly valid JSON."
 )
 
+_DETAIL_MAP = {
+    1: "кратко (1–2 абзаца)",
+    2: "стандартно (3–5 абзацев)",
+    3: "подробно (полный разбор)",
+}
+
 
 class TemplateRenderError(Exception):
-    """\u0414жинза сгенерировала ошибку при рендеринге."""
+    """Джинза сгенерировала ошибку при рендеринге."""
 
 
 class PromptRenderer:
-    """\u0420ендерит system + user промпт из Jinja2-\u0448аблона."""
+    """Рендерит system + user промпт из Jinja2-шаблона."""
 
     def __init__(self, prompts_dir: Path | None = None) -> None:
         self._dir = prompts_dir or _PROMPTS_DIR
@@ -62,28 +69,32 @@ class PromptRenderer:
         request: AnalysisRequest,
     ) -> tuple[str, str]:
         """
-        \u0420\u0435\u043d\u0434\u0435\u0440\u0438\u0442 \u0448\u0430\u0431\u043b\u043e\u043d \u0438 \u0432\u043e\u0437\u0432\u0440\u0430\u0449\u0430\u0435\u0442 (system_prompt, user_prompt).
+        Рендерит шаблон и возвращает (system_prompt, user_prompt).
 
-        \u041b\u043e\u0433\u0438\u043a\u0430:
-          1. \u0415\u0441\u043b\u0438 \u0448\u0430\u0431\u043b\u043e\u043d \u0441\u043e\u0434\u0435\u0440\u0436\u0438\u0442 {% block system %} \u0438 {% block user %} \u2014 \u0438\u0441\u043f\u043e\u043b\u044c\u0437\u0443\u0435\u043c \u0438\u0445 (\u0432\u0430\u0440\u0438\u0430\u043d\u0442 \u0411).
-          2. \u0418\u043d\u0430\u0447\u0435 \u2014 \u0432\u0435\u0441\u044c \u0448\u0430\u0431\u043b\u043e\u043d \u0438\u0434\u0451\u0442 \u043a\u0430\u043a user_prompt, \u0430 system_prompt \u0433\u0435\u043d\u0435\u0440\u0438\u0440\u0443\u0435\u0442\u0441\u044f \u0430\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 (\u0432\u0430\u0440\u0438\u0430\u043d\u0442 \u0410).
+        Логика:
+          1. Если шаблон содержит {% block system %} и {% block user %} — используем их (вариант Б).
+          2. Иначе — весь шаблон идёт как user_prompt, а system_prompt генерируется автоматически (вариант А).
 
         Raises:
-            FileNotFoundError: \u0448\u0430\u0431\u043b\u043e\u043d \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d.
-            TemplateRenderError: \u043e\u0448\u0438\u0431\u043a\u0430 \u0432 \u0448\u0430\u0431\u043b\u043e\u043d\u0435 (\u0441\u0438\u043d\u0442\u0430\u043a\u0441\u0438\u0441/\u043f\u0435\u0440\u0435\u043c\u0435\u043d\u043d\u0430\u044f).
+            FileNotFoundError: шаблон не найден.
+            TemplateRenderError: ошибка в шаблоне (синтаксис/переменная).
         """
         try:
             template = self._env.get_template(template_name)
         except TemplateNotFound as exc:
             raise FileNotFoundError(
-                f"\u0428\u0430\u0431\u043b\u043e\u043d '{template_name}' \u043d\u0435 \u043d\u0430\u0439\u0434\u0435\u043d \u0432 {self._dir}"
+                f"Шаблон '{template_name}' не найден в {self._dir}"
             ) from exc
         except TemplateSyntaxError as exc:
             raise TemplateRenderError(
-                f"\u0421\u0438\u043d\u0442\u0430\u043a\u0441\u0438\u0447\u0435\u0441\u043a\u0430\u044f \u043e\u0448\u0438\u0431\u043a\u0430 \u0432 '{template_name}': {exc}"
+                f"Синтаксическая ошибка в '{template_name}': {exc}"
             ) from exc
 
-        ctx = {"incident": request.incident, "request": request}
+        ctx = {
+            "incident": request.incident,
+            "request": request,
+            "detail_map": _DETAIL_MAP,
+        }
 
         try:
             blocks = template.blocks
@@ -91,9 +102,7 @@ class PromptRenderer:
             has_user_block   = "user"   in blocks
 
             if has_system_block and has_user_block:
-                # \u0412\u0430\u0440\u0438\u0430\u043d\u0442 \u0411: \u0448\u0430\u0431\u043b\u043e\u043d \u043e\u043f\u0440\u0435\u0434\u0435\u043b\u044f\u0435\u0442 \u043e\u0431\u0430 \u0431\u043b\u043e\u043a\u0430
-                rendered = template.render(**ctx)
-                # \u0418\u0437\u0432\u043b\u0435\u043a\u0430\u0435\u043c \u0431\u043b\u043e\u043a\u0438 \u0447\u0435\u0440\u0435\u0437 \u043e\u0442\u0434\u0435\u043b\u044c\u043d\u044b\u0439 \u0440\u0435\u043d\u0434\u0435\u0440 \u0431\u043b\u043e\u043a\u043e\u0432
+                # Вариант Б: шаблон определяет оба блока
                 system_prompt = "".join(
                     blocks["system"](template.new_context(ctx))
                 ).strip()
@@ -101,7 +110,7 @@ class PromptRenderer:
                     blocks["user"](template.new_context(ctx))
                 ).strip()
             else:
-                # \u0412\u0430\u0440\u0438\u0430\u043d\u0442 \u0410: \u0432\u0435\u0441\u044c \u0448\u0430\u0431\u043b\u043e\u043d \u2014 user_prompt
+                # Вариант А: весь шаблон — user_prompt
                 user_prompt   = template.render(**ctx).strip()
                 system_prompt = self._auto_system(request)
 
@@ -109,7 +118,7 @@ class PromptRenderer:
             if isinstance(exc, (FileNotFoundError, TemplateRenderError)):
                 raise
             raise TemplateRenderError(
-                f"\u041e\u0448\u0438\u0431\u043a\u0430 \u0440\u0435\u043d\u0434\u0435\u0440\u0438\u043d\u0433\u0430 '{template_name}': {exc}"
+                f"Ошибка рендеринга '{template_name}': {exc}"
             ) from exc
 
         logger.debug(
@@ -125,7 +134,7 @@ class PromptRenderer:
 
     @staticmethod
     def _auto_system(request: AnalysisRequest) -> str:
-        """\u0410\u0432\u0442\u043e\u043c\u0430\u0442\u0438\u0447\u0435\u0441\u043a\u0438 \u0441\u0433\u0435\u043d\u0435\u0440\u0438\u0440\u043e\u0432\u0430\u043d\u043d\u044b\u0439 system \u043f\u0440\u043e\u043c\u043f\u0442, \u0435\u0441\u043b\u0438 \u0432 \u0448\u0430\u0431\u043b\u043e\u043d\u0435 \u043d\u0435\u0442 {% block system %}."""
+        """Автоматически сгенерированный system промпт, если в шаблоне нет {% block system %}."""
         return _AUTO_SYSTEM_TEMPLATE.format(
             methodology=request.methodology.value,
             language=request.language,
@@ -134,5 +143,5 @@ class PromptRenderer:
         )
 
     def list_templates(self) -> list[str]:
-        """\u0412\u0435\u0440\u043d\u0443\u0442\u044c \u0441\u043f\u0438\u0441\u043e\u043a \u0434\u043e\u0441\u0442\u0443\u043f\u043d\u044b\u0445 \u0448\u0430\u0431\u043b\u043e\u043d\u043e\u0432."""
+        """Вернуть список доступных шаблонов."""
         return self._env.loader.list_templates()  # type: ignore[union-attr]
