@@ -11,9 +11,12 @@ import './App.css'
 export default function App() {
   const [sessionReady, setSessionReady] = useState(false)
   const [user, setUser]                 = useState(null)
+  // page: 'analyze' | 'history' | 'admin' | 'view'
   const [page, setPage]                 = useState('analyze')
   const [result, setResult]             = useState(null)
   const [comparison, setComparison]     = useState(null)
+  // viewMode: { type: 'single', result } | { type: 'compare', comparison } | null
+  const [viewMode, setViewMode]         = useState(null)
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
 
@@ -43,6 +46,7 @@ export default function App() {
       setUser(null)
       setResult(null)
       setComparison(null)
+      setViewMode(null)
       setError(null)
       setPage('analyze')
     })
@@ -79,7 +83,7 @@ export default function App() {
     }
   }
 
-  // === Multi analysis (сравнение) ===
+  // === Multi analysis ===
   async function handleSubmitMulti(payload) {
     setLoading(true)
     setError(null)
@@ -91,13 +95,11 @@ export default function App() {
         setError('Не получено результатов анализа')
         return
       }
-      // Сразу запрашиваем сравнение, используя incident_id из первого результата
       const incidentId = results[0].incident_id
       let comparisonData = null
       try {
         comparisonData = await api.compareResults(incidentId)
       } catch (compareErr) {
-        // Если сравнение не удалось — показываем хотя бы сырые результаты
         console.warn('compareResults failed, showing raw results:', compareErr.message)
         comparisonData = {
           incident_id: incidentId,
@@ -116,9 +118,25 @@ export default function App() {
     }
   }
 
+  // Открыть одиночный результат из истории — режим просмотра
   function openResult(r) {
-    setResult(r)
-    setComparison(null)
+    setViewMode({ type: 'single', result: r })
+    setPage('view')
+  }
+
+  // Открыть сравнение из истории — режим просмотра
+  function openComparison(comp) {
+    setViewMode({ type: 'compare', comparison: comp })
+    setPage('view')
+  }
+
+  function goToHistory() {
+    setViewMode(null)
+    setPage('history')
+  }
+
+  function goToAnalyze() {
+    setViewMode(null)
     setPage('analyze')
   }
 
@@ -126,12 +144,13 @@ export default function App() {
     try {
       await api.auth.logout()
     } catch {
-      // Игнорируем — в finally всё равно очищаем локальное состояние.
+      // ignore
     } finally {
       clearAuth()
       setUser(null)
       setResult(null)
       setComparison(null)
+      setViewMode(null)
       setError(null)
       setPage('analyze')
     }
@@ -163,16 +182,23 @@ export default function App() {
           <span>RCA Analyzer</span>
         </div>
         <nav className="app-nav">
-          <button className={`nav-btn ${page === 'analyze' ? 'nav-btn--active' : ''}`} onClick={() => setPage('analyze')}>➕ Анализ</button>
-          <button className={`nav-btn ${page === 'history' ? 'nav-btn--active' : ''}`} onClick={() => setPage('history')}>🗂 История</button>
+          <button
+            className={`nav-btn ${page === 'analyze' ? 'nav-btn--active' : ''}`}
+            onClick={goToAnalyze}
+          >➕ Анализ</button>
+          <button
+            className={`nav-btn ${page === 'history' || page === 'view' ? 'nav-btn--active' : ''}`}
+            onClick={goToHistory}
+          >🗂 История</button>
           {isAdmin && (
-            <button className={`nav-btn ${page === 'admin' ? 'nav-btn--active' : ''}`} onClick={() => setPage('admin')}>👥 Пользователи</button>
+            <button
+              className={`nav-btn ${page === 'admin' ? 'nav-btn--active' : ''}`}
+              onClick={() => setPage('admin')}
+            >👥 Пользователи</button>
           )}
         </nav>
         <div className="header-right">
-          <span className="header-user">
-            {user.display_name}
-          </span>
+          <span className="header-user">{user.display_name}</span>
           <span className={`header-role-badge ${isAdmin ? 'header-role-badge--admin' : 'header-role-badge--user'}`}>
             {isAdmin ? 'Admin' : 'User'}
           </span>
@@ -193,7 +219,29 @@ export default function App() {
             {!comparison && result && <ResultView result={result} />}
           </>
         )}
-        {page === 'history' && <HistoryPage onOpen={openResult} currentUser={user} />}
+
+        {page === 'history' && (
+          <HistoryPage
+            onOpen={openResult}
+            onOpenComparison={openComparison}
+            currentUser={user}
+          />
+        )}
+
+        {page === 'view' && viewMode && (
+          <div>
+            <button
+              className="btn-back"
+              onClick={goToHistory}
+              style={{ marginBottom: '1rem' }}
+            >
+              ← Назад в историю
+            </button>
+            {viewMode.type === 'single' && <ResultView result={viewMode.result} />}
+            {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}
+          </div>
+        )}
+
         {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
       </main>
     </div>

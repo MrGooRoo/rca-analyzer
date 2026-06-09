@@ -18,9 +18,55 @@ const SEVERITY_COLORS = {
   near_miss: { bg: 'rgba(79,142,247,0.12)',  color: '#4f8ef7', label: 'Предпосылка' },
 }
 
-const PAGE_SIZE = 10
+const PAGE_SIZE = 20
 
-export default function HistoryPage({ onOpen, currentUser }) {
+/**
+ * Группирует результаты по incident_id.
+ * Если у инцидента > 1 результата — это «Сравнение моделей».
+ * Возвращает массив элементов вида:
+ *   { type: 'single', result }  — одиночный анализ
+ *   { type: 'compare', incidentId, results, incident, created_at } — группа сравнения
+ */
+function groupByIncident(items) {
+  const map = new Map()
+  for (const r of items) {
+    const key = r.incident_id || r.result_id
+    if (!map.has(key)) map.set(key, [])
+    map.get(key).push(r)
+  }
+
+  const groups = []
+  for (const [incidentId, results] of map) {
+    if (results.length === 1) {
+      groups.push({ type: 'single', result: results[0] })
+    } else {
+      // Сортируем по дате создания внутри группы
+      results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+      groups.push({
+        type: 'compare',
+        incidentId,
+        results,
+        incident: results[0].incident,
+        created_at: results[0].created_at,
+        summary: results[0].summary,
+        user_id: results[0].user_id,
+        user_display_name: results[0].user_display_name,
+        user_email: results[0].user_email,
+      })
+    }
+  }
+
+  // Сортируем группы по дате последнего результата (новые вверху)
+  groups.sort((a, b) => {
+    const dateA = a.type === 'single' ? a.result.created_at : a.created_at
+    const dateB = b.type === 'single' ? b.result.created_at : b.created_at
+    return new Date(dateB) - new Date(dateA)
+  })
+
+  return groups
+}
+
+export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
   const isAdmin = currentUser?.role === 'admin'
   const [items, setItems]     = useState([])
   const [offset, setOffset]   = useState(0)
@@ -54,6 +100,25 @@ export default function HistoryPage({ onOpen, currentUser }) {
       )
     : items
 
+  const groups = groupByIncident(filtered)
+
+  async function handleOpenComparison(group) {
+    // Строим объект сравнения из группы: загружаем свежие данные с /compare
+    try {
+      const comp = await api.compareResults(group.incidentId)
+      onOpenComparison(comp)
+    } catch {
+      // Если сравнение недоступно — fallback: показываем сырые результаты
+      onOpenComparison({
+        incident_id: group.incidentId,
+        results: group.results,
+        common_recommendations: [],
+        differing_causes: {},
+        summary: group.summary || '',
+      })
+    }
+  }
+
   return (
     <div className="history">
       <div className="history-toolbar">
@@ -76,7 +141,7 @@ export default function HistoryPage({ onOpen, currentUser }) {
         <div className="history-error">Ошибка загрузки: {error}</div>
       )}
 
-      {!loading && !error && filtered.length === 0 && (
+      {!loading && !error && groups.length === 0 && (
         <div className="history-empty">
           <div className="history-empty-icon">📂</div>
           <p>{search ? 'Ничего не найдено по запросу' : 'История пуста. Запустите первый анализ.'}</p>
@@ -84,9 +149,27 @@ export default function HistoryPage({ onOpen, currentUser }) {
       )}
 
       <div className="history-list">
-        {filtered.map(r => (
-          <HistoryCard key={r.result_id} result={r} onOpen={onOpen} isAdmin={isAdmin} currentUserId={currentUser?.user_id} />
-        ))}
+        {groups.map(group =>
+          group.type === 'single'
+            ? (
+                <HistoryCard
+                  key={group.result.result_id}
+                  result={group.result}
+                  onOpen={onOpen}
+                  isAdmin={isAdmin}
+                  currentUserId={currentUser?.user_id}
+                />
+              )
+            : (
+                <CompareCard
+                  key={group.incidentId}
+                  group={group}
+                  onOpen={() => handleOpenComparison(group)}
+                  isAdmin={isAdmin}
+                  currentUserId={currentUser?.user_id}
+                />
+              )
+        )}
       </div>
 
       {items.length === PAGE_SIZE && (
@@ -134,6 +217,54 @@ function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
           <span className="hcard-stat">{result.recommendations?.length || 0} рек.</span>
           <span className="hcard-stat">{result.tokens_used} ток.</span>
           <span className="hcard-stat">{((result.confidence_avg || 0) * 100).toFixed(0)}% ув.</span>
+        </div>
+      </div>
+      <div className="hcard-arrow">›</div>
+    </div>
+  )
+}
+
+function CompareCard({ group, onOpen, isAdmin, currentUserId }) {
+  const sev = SEVERITY_COLORS[group.incident?.severity] || SEVERITY_COLORS.moderate
+  const date = new Date(group.created_at).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+
+  const isMine = group.user_id === currentUserId
+  const authorName = group.user_display_name || group.user_email || null
+  const methodLabels = group.results
+    .map(r => METHODOLOGY_LABELS[r.methodology] || r.methodology)
+    .join(' · ')
+
+  const totalRecs = group.results.reduce((acc, r) => acc + (r.recommendations?.length || 0), 0)
+  const totalTokens = group.results.reduce((acc, r) => acc + (r.tokens_used || 0), 0)
+
+  return (
+    <div className="hcard hcard--compare" onClick={onOpen}>
+      <div className="hcard-left">
+        <div className="hcard-top">
+          <span className="hcard-method hcard-method--compare">🔬 Сравнение моделей</span>
+          <span className="hcard-compare-methods">{methodLabels}</span>
+          {isAdmin && authorName && (
+            <span className={`hcard-author ${isMine ? 'hcard-author--self' : ''}`}>
+              👤 {authorName}{isMine ? ' (вы)' : ''}
+            </span>
+          )}
+          {group.incident?.severity && (
+            <span
+              className="hcard-severity"
+              style={{ background: sev.bg, color: sev.color }}
+            >{sev.label}</span>
+          )}
+          <span className="hcard-date">{date}</span>
+        </div>
+        <p className="hcard-summary">{group.summary}</p>
+        <div className="hcard-footer">
+          <span className="hcard-id">#{group.incidentId.slice(0, 8)}</span>
+          <span className="hcard-stat">{group.results.length} методики</span>
+          <span className="hcard-stat">{totalRecs} рек.</span>
+          <span className="hcard-stat">{totalTokens} ток.</span>
         </div>
       </div>
       <div className="hcard-arrow">›</div>
