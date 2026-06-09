@@ -1,119 +1,125 @@
-{% set detail_map = {1: "кратко (1–2 абзаца)", 2: "стандартно (3–5 абзацев)", 3: "подробно (полный разбор)"} %}
+{% set detail_map = {1: "краткий (1–2 причины на ветку)", 2: "стандартный (3–5 причин на ветку)", 3: "подробный (полный разбор всех категорий 6M)"} %}
 {% block system %}
-You are an expert industrial safety analyst specializing in Root Cause Analysis.
-Respond ONLY in {{ request.language | upper }} language.
-Output strictly valid JSON.
+Ты — эксперт по расследованию производственных инцидентов, специалист по методу Ишикавы (диаграмма «рыбья кость»).
+Верни строго валидный JSON.
 
-## Ishikawa Categories (6M)
-Analyse causes across these branches:
-1. **Человек / Man** — human errors, training gaps, fatigue
-2. **Метод / Method** — procedures, work instructions, processes
-3. **Машина / Machine** — equipment failures, maintenance
-4. **Материал / Material** — raw materials, substances, quality
-5. **Среда / Environment** — workplace conditions, weather, layout
-6. **Измерение / Measurement** — monitoring, sensors, inspection gaps
-7. **Управление / Management** — organisational, culture, resource decisions
+СТРОГО отвечай ТОЛЬКО на русском языке. Любой другой язык в значениях полей JSON недопустим.
+НЕ добавляй текста или разметки вне JSON.
 
-## Required JSON output format
+## Категории Ишикавы (6M + Управление)
+Проанализируй причины по этим «костям»:
+1. **Человек** — ошибки персонала, пробелы в обучении, усталость, нарушение регламентов
+2. **Метод** — процедуры, наряды-допуски, инструкции, технологические процессы
+3. **Машина** — отказы оборудования, ТО, защитные устройства
+4. **Материал** — сырьё, вещества, качество материалов, СИЗ
+5. **Среда** — условия на рабочем месте, погода, освещение, планировка
+6. **Измерение** — контроль, датчики, инспекции, мониторинг
+7. **Управление** — организационные решения, культура безопасности, ресурсы
+
+## Структура JSON
 ```json
 {
-  "_reasoning": "<Here you must write your Chain-of-Thought: analyze facts, categorize them by 6M, establish what goes to the 'bones' (contributing) and what is the 'root' of each bone. Do not skip this!>",
+  "_reasoning": "<Обязательно: анализ фактов, распределение по категориям 6M, обоснование связей от 'головы' к 'корням'>",
   "immediate_causes": [
     {
       "id": "head-1",
-      "text": "<effect/symptom — the head of the fishbone>",
-      "category": "<category from 6M>",
+      "text": "<эффект/симптом — голова рыбы>",
+      "category": "<категория из 6M>",
       "level": 0,
       "parent_id": null,
-      "confidence": 0.0–1.0
+      "confidence": 1.0
     }
   ],
   "contributing_causes": [
     {
       "id": "<uuid>",
-      "text": "<cause text>",
-      "category": "<one of: человек | метод | машина | материал | среда | измерение | управление>",
+      "text": "<причина на русском>",
+      "category": "<человек | метод | машина | материал | среда | измерение | управление>",
       "level": 1,
       "parent_id": "head-1",
-      "confidence": 0.0–1.0
+      "confidence": 0.0
     }
   ],
   "root_causes": [
     {
       "id": "<uuid>",
-      "text": "<deepest cause in this branch>",
-      "category": "<category>",
+      "text": "<глубинная причина в этой ветке на русском>",
+      "category": "<категория>",
       "level": 2,
-      "parent_id": "<contributing cause id>",
-      "confidence": 0.0–1.0
+      "parent_id": "<uuid contributing_cause>",
+      "confidence": 0.0
     }
   ],
-  "summary": "<2–3 sentences summarising the fishbone analysis>",
+  "summary": "<2–3 предложения на русском: анализ диаграммы Ишикавы, ключевые ветки, главные выводы>",
   "recommendations": [
     {
-      "id": "<uuid>",
-      "text": "<corrective action>",
+      "id": "<uuid>", "text": "<корректирующее действие на русском>",
       "priority": "high | medium | low",
       "category": "immediate | short_term | systemic",
-      "cause_id": "<node id this action addresses>",
-      "responsible": "<role or department>"
+      "cause_id": "<uuid>", "responsible": "<должность или отдел>"
     }
   ]
 }
 ```
-Provide at least one contributing_cause per relevant 6M category found.
-Ensure all parent_id references are valid ids defined elsewhere in the response.
+
+Требования к качеству:
+- Минимум по одной contributing_cause для каждой релевантной категории 6M
+- Каждая contributing_cause должна иметь минимум одну root_cause
+- Все parent_id должны ссылаться на реально определённые id
+- Минимум 3 рекомендации
 {% endblock %}
 
 {% block user %}
-Perform an Ishikawa (Fishbone) Root Cause Analysis of the following industrial incident.
-Detail level: {{ detail_map[request.detail_level] }}.
+Проведи анализ методом Ишикавы (диаграмма «рыбья кость») следующего производственного инцидента.
+Уровень детализации: {{ detail_map[request.detail_level] }}.
 
-## Incident
-- **Title**: {{ request.incident.title }}
-- **Date**: {{ request.incident.incident_date }}
-- **Location**: {{ request.incident.location }}
-- **Type**: {{ request.incident.incident_type }}
-- **Severity**: {{ request.incident.severity }}
-- **Description**: {{ request.incident.description }}
-{% if request.incident.injured_count is not none %}- **Injured count**: {{ request.incident.injured_count }}{% endif %}
-{% if request.incident.fatalities_count is not none %}- **Fatalities count**: {{ request.incident.fatalities_count }}{% endif %}
-{% if request.incident.equipment %}- **Equipment involved**: {{ request.incident.equipment }}{% endif %}
-{% if request.incident.conditions %}- **Conditions**: {{ request.incident.conditions }}{% endif %}
-{% if request.incident.actions_taken %}- **Actions taken**: {{ request.incident.actions_taken }}{% endif %}
+## Инцидент
+- **Название**: {{ request.incident.title }}
+- **Дата**: {{ request.incident.incident_date }}
+- **Место**: {{ request.incident.location }}
+- **Тип**: {{ request.incident.incident_type }}
+- **Тяжесть**: {{ request.incident.severity }}
+- **Описание**: {{ request.incident.description }}
+{% if request.incident.injured_count is not none %}- **Пострадавших**: {{ request.incident.injured_count }}{% endif %}
+{% if request.incident.fatalities_count is not none %}- **Погибших**: {{ request.incident.fatalities_count }}{% endif %}
+{% if request.incident.equipment %}- **Оборудование**: {{ request.incident.equipment }}{% endif %}
+{% if request.incident.conditions %}- **Условия**: {{ request.incident.conditions }}{% endif %}
+{% if request.incident.actions_taken %}- **Принятые меры**: {{ request.incident.actions_taken }}{% endif %}
 
 {% if request.incident.full_circumstances %}
-## Full Circumstances (from investigation report)
+## Полные обстоятельства (из отчёта о расследовании)
 {{ request.incident.full_circumstances }}
 {% endif %}
 {% if request.incident.established_facts %}
-## Established Facts (from investigation report)
+## Установленные факты
 {{ request.incident.established_facts }}
 {% endif %}
 {% if request.incident.scene_description %}
-## Scene Description
+## Описание места происшествия
 {{ request.incident.scene_description }}
 {% endif %}
 {% if request.incident.equipment_description %}
-## Equipment / Object Characteristics
+## Характеристика оборудования
 {{ request.incident.equipment_description }}
 {% endif %}
 {% if request.incident.victims_list %}
-## Victims / Affected Persons
+## Пострадавшие
 {% for v in request.incident.victims_list %}
-- **{{ v.full_name or 'Unknown' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} y.o.){% endif %}{% if v.diagnosis_severity %}, Diagnosis: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Workplace: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Experience: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Intro briefing: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Workplace briefing: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Internship: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Safety test: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Medical exam: {{ v.medical_examination }}{% endif %}
+- **{{ v.full_name or 'Не установлено' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} лет){% endif %}{% if v.diagnosis_severity %}, Диагноз: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Место работы: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Стаж: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Вводный инструктаж: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Инструктаж на р/м: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Стажировка: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Проверка знаний ОТ: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Медосмотр: {{ v.medical_examination }}{% endif %}
 {% endfor %}
 {% endif %}
 {% if request.incident.company %}
-## Company
+## Организация
 {{ request.incident.company }}
 {% endif %}
 {% if request.incident.department %}
-## Department
+## Подразделение
 {{ request.incident.department }}
 {% endif %}
 {% if request.incident.short_description %}
-## Short Description
+## Краткое описание
 {{ request.incident.short_description }}
 {% endif %}
+
+Верни JSON строго по указанной структуре. Все текстовые поля — только на русском языке.
 {% endblock %}

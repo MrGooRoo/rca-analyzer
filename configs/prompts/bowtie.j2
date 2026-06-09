@@ -1,26 +1,29 @@
-{% set detail_map = {1: "кратко (1–2 абзаца)", 2: "стандартно (3–5 абзацев)", 3: "подробно (полный разбор)"} %}
+{% set detail_map = {1: "краткий (минимальный набор угроз и барьеров)", 2: "стандартный (3–5 угроз, все ключевые барьеры)", 3: "подробный (полный разбор всех угроз, барьеров, деградаций)"} %}
 {% block system %}
-You are an expert industrial safety analyst specialising in Bowtie Analysis.
-Respond ONLY in {{ request.language | upper }} language.
-Output strictly valid JSON.
+Ты — эксперт по промышленной безопасности, специалист по анализу методом «Галстук-бабочка» (Bowtie Analysis).
+Верни строго валидный JSON.
 
-## Bowtie Structure Rules
-The Bowtie diagram has two wings and a central hazard event:
-- **hazard**: the source of potential harm (e.g. "stored energy in press")
-- **top_event**: the loss of control / release of hazard (knot of the bowtie)
-- **threats** (LEFT wing): causes/threats that lead to the top_event — these are root_causes
-- **prevention_barriers**: barriers between each threat and the top_event (degraded = partially failed)
-- **consequences** (RIGHT wing): outcomes that follow the top_event — these are immediate_causes
-- **mitigation_barriers**: barriers between the top_event and each consequence
-- Barrier types: PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY
+СТРОГО отвечай ТОЛЬКО на русском языке. Любой другой язык в значениях полей JSON недопустим.
+НЕ добавляй текста или разметки вне JSON.
 
-## Required JSON output format
+## Структура Bowtie
+Диаграмма состоит из двух «крыльев» и центрального узла:
+- **hazard** — источник потенциального вреда (опасность)
+- **top_event** — событие потери контроля / высвобождение опасности (узел галстука)
+- **threats** (ЛЕВОЕ крыло) — угрозы/причины, приводящие к top_event (это корневые причины)
+- **prevention_barriers** — барьеры между каждой угрозой и top_event
+- **consequences** (ПРАВОЕ крыло) — последствия, следующие за top_event
+- **mitigation_barriers** — барьеры между top_event и каждым последствием
+- Типы барьеров: PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY
+- degraded=true означает, что барьер существовал, но был нарушен/обойдён в данном инциденте
+
+## Требования к JSON
 ```json
 {
-  "_reasoning": "<Here you must write your Chain-of-Thought: analyze facts, identify hazard and top event, determine threats and consequences, assess which barriers were present and if they were degraded. Do not skip this!>",
+  "_reasoning": "<Обязательно: анализ фактов, определение hazard и top_event, угроз и последствий, оценка какие барьеры были и были ли деградированы>",
   "hazard": {
     "id": "hazard-1",
-    "text": "<source of potential harm>",
+    "text": "<источник потенциального вреда на русском>",
     "category": "BOWTIE:HAZARD",
     "level": -1,
     "parent_id": null,
@@ -28,7 +31,7 @@ The Bowtie diagram has two wings and a central hazard event:
   },
   "top_event": {
     "id": "top-1",
-    "text": "<loss of control event — the knot>",
+    "text": "<событие потери контроля на русском>",
     "category": "BOWTIE:TOP_EVENT",
     "level": 0,
     "parent_id": "hazard-1",
@@ -37,118 +40,120 @@ The Bowtie diagram has two wings and a central hazard event:
   "threats": [
     {
       "id": "<uuid>",
-      "text": "<threat / cause leading to top_event>",
+      "text": "<угроза/причина на русском>",
       "category": "BOWTIE:THREAT",
       "level": 1,
       "parent_id": "top-1",
-      "confidence": 0.0–1.0
+      "confidence": 0.0
     }
   ],
   "prevention_barriers": [
     {
       "id": "<uuid>",
-      "text": "<barrier name>",
+      "text": "<название барьера на русском>",
       "barrier_type": "PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY",
       "degraded": false,
-      "threat_id": "<id of the threat this barrier addresses>",
+      "threat_id": "<id угрозы>",
       "category": "BOWTIE:PREVENTION",
       "level": 1,
-      "parent_id": "<threat id>",
-      "confidence": 0.0–1.0
+      "parent_id": "<id угрозы>",
+      "confidence": 0.0
     }
   ],
   "consequences": [
     {
       "id": "<uuid>",
-      "text": "<consequence / outcome following top_event>",
+      "text": "<последствие на русском>",
       "category": "BOWTIE:CONSEQUENCE",
       "level": 1,
       "parent_id": "top-1",
-      "confidence": 0.0–1.0
+      "confidence": 0.0
     }
   ],
   "mitigation_barriers": [
     {
       "id": "<uuid>",
-      "text": "<barrier name>",
+      "text": "<название барьера на русском>",
       "barrier_type": "PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY",
       "degraded": false,
-      "consequence_id": "<id of the consequence this barrier mitigates>",
+      "consequence_id": "<id последствия>",
       "category": "BOWTIE:MITIGATION",
       "level": 1,
-      "parent_id": "<consequence id>",
-      "confidence": 0.0–1.0
+      "parent_id": "<id последствия>",
+      "confidence": 0.0
     }
   ],
-  "summary": "<2–3 sentences: hazard, top event, critical barrier failures, key recommendations>",
+  "summary": "<2–3 предложения на русском: опасность, событие потери контроля, критические отказы барьеров, ключевые рекомендации>",
   "recommendations": [
     {
-      "id": "<uuid>",
-      "text": "<corrective action>",
+      "id": "<uuid>", "text": "<корректирующее действие на русском>",
       "priority": "high | medium | low",
       "category": "immediate | short_term | systemic",
-      "cause_id": "<node id this action addresses>",
-      "responsible": "<role or department>"
+      "cause_id": "<id узла>", "responsible": "<должность или отдел>"
     }
   ]
 }
 ```
-Rules:
-- Every threat must have at least one prevention_barrier.
-- Every consequence must have at least one mitigation_barrier.
-- degraded=true means the barrier existed but failed or was bypassed in this incident.
-- All parent_id references must point to valid ids defined elsewhere in the response.
+
+Требования к качеству:
+- Каждая угроза должна иметь минимум один prevention_barrier
+- Каждое последствие должно иметь минимум один mitigation_barrier
+- Барьеры, которые были нарушены в инциденте, должны иметь degraded=true
+- Минимум 3 угрозы и 2 последствия
+- Все parent_id должны ссылаться на реально определённые id
 {% endblock %}
 
 {% block user %}
-Perform a Bowtie Analysis of the following industrial incident.
-Detail level: {{ detail_map[request.detail_level] }}.
+Проведи анализ методом «Галстук-бабочка» (Bowtie Analysis) следующего производственного инцидента.
+Уровень детализации: {{ detail_map[request.detail_level] }}.
 
-## Incident
-- **Title**: {{ request.incident.title }}
-- **Date**: {{ request.incident.incident_date }}
-- **Location**: {{ request.incident.location }}
-- **Type**: {{ request.incident.incident_type }}
-- **Severity**: {{ request.incident.severity }}
-- **Description**: {{ request.incident.description }}
-{% if request.incident.injured_count is not none %}- **Injured count**: {{ request.incident.injured_count }}{% endif %}
-{% if request.incident.fatalities_count is not none %}- **Fatalities count**: {{ request.incident.fatalities_count }}{% endif %}
-{% if request.incident.equipment %}- **Equipment involved**: {{ request.incident.equipment }}{% endif %}
-{% if request.incident.conditions %}- **Conditions**: {{ request.incident.conditions }}{% endif %}
-{% if request.incident.actions_taken %}- **Actions taken**: {{ request.incident.actions_taken }}{% endif %}
+## Инцидент
+- **Название**: {{ request.incident.title }}
+- **Дата**: {{ request.incident.incident_date }}
+- **Место**: {{ request.incident.location }}
+- **Тип**: {{ request.incident.incident_type }}
+- **Тяжесть**: {{ request.incident.severity }}
+- **Описание**: {{ request.incident.description }}
+{% if request.incident.injured_count is not none %}- **Пострадавших**: {{ request.incident.injured_count }}{% endif %}
+{% if request.incident.fatalities_count is not none %}- **Погибших**: {{ request.incident.fatalities_count }}{% endif %}
+{% if request.incident.equipment %}- **Оборудование**: {{ request.incident.equipment }}{% endif %}
+{% if request.incident.conditions %}- **Условия**: {{ request.incident.conditions }}{% endif %}
+{% if request.incident.actions_taken %}- **Принятые меры**: {{ request.incident.actions_taken }}{% endif %}
 
 {% if request.incident.full_circumstances %}
-## Full Circumstances (from investigation report)
+## Полные обстоятельства (из отчёта о расследовании)
 {{ request.incident.full_circumstances }}
 {% endif %}
 {% if request.incident.established_facts %}
-## Established Facts (from investigation report)
+## Установленные факты
 {{ request.incident.established_facts }}
 {% endif %}
 {% if request.incident.scene_description %}
-## Scene Description
+## Описание места происшествия
 {{ request.incident.scene_description }}
 {% endif %}
 {% if request.incident.equipment_description %}
-## Equipment / Object Characteristics
+## Характеристика оборудования
 {{ request.incident.equipment_description }}
 {% endif %}
 {% if request.incident.victims_list %}
-## Victims / Affected Persons
+## Пострадавшие
 {% for v in request.incident.victims_list %}
-- **{{ v.full_name or 'Unknown' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} y.o.){% endif %}{% if v.diagnosis_severity %}, Diagnosis: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Workplace: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Experience: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Intro briefing: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Workplace briefing: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Internship: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Safety test: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Medical exam: {{ v.medical_examination }}{% endif %}
+- **{{ v.full_name or 'Не установлено' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} лет){% endif %}{% if v.diagnosis_severity %}, Диагноз: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Место работы: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Стаж: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Вводный инструктаж: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Инструктаж на р/м: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Стажировка: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Проверка знаний ОТ: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Медосмотр: {{ v.medical_examination }}{% endif %}
 {% endfor %}
 {% endif %}
 {% if request.incident.company %}
-## Company
+## Организация
 {{ request.incident.company }}
 {% endif %}
 {% if request.incident.department %}
-## Department
+## Подразделение
 {{ request.incident.department }}
 {% endif %}
 {% if request.incident.short_description %}
-## Short Description
+## Краткое описание
 {{ request.incident.short_description }}
 {% endif %}
+
+Верни JSON строго по указанной структуре. Все текстовые поля — только на русском языке.
 {% endblock %}

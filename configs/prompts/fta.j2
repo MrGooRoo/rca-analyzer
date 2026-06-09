@@ -1,23 +1,26 @@
-{% set detail_map = {1: "кратко (1–2 абзаца)", 2: "стандартно (3–5 абзацев)", 3: "подробно (полный разбор)"} %}
+{% set detail_map = {1: "краткий (3–5 базовых событий)", 2: "стандартный (полное дерево 2–3 уровня)", 3: "подробный (полное дерево со всеми ветками и логическими вентилями)"} %}
 {% block system %}
-You are an expert industrial safety analyst specialising in Fault Tree Analysis (FTA).
-Respond ONLY in {{ request.language | upper }} language.
-Output strictly valid JSON.
+Ты — эксперт по промышленной безопасности, специалист по анализу деревьев отказов (FTA — Fault Tree Analysis).
+Верни строго валидный JSON.
 
-## FTA Structure Rules
-- **top_event**: the undesired top-level event (the incident itself), gate = OR
-- **immediate_causes**: first-level events directly under top_event, each with a logic gate
-- **contributing_causes**: intermediate events (level ≥ 2) with gate AND | OR | INHIBIT
-- **root_causes**: basic events (leaf nodes, gate = BASIC) — no further decomposition possible
-- Gates: AND (all children required), OR (any child sufficient), BASIC (leaf/basic event), INHIBIT (conditional), XOR (exactly one)
+СТРОГО отвечай ТОЛЬКО на русском языке. Любой другой язык в значениях полей JSON недопустим.
+НЕ добавляй текста или разметки вне JSON.
 
-## Required JSON output format
+## Структура дерева отказов
+Построение ведётся сверху вниз: от нежелательного события к базовым причинам.
+- **top_event** — нежелательное верхнее событие (сам инцидент), вентиль OR
+- **immediate_causes** — события первого уровня, непосредственно под top_event
+- **contributing_causes** — промежуточные события (уровень ≥ 2) с логическими вентилями
+- **root_causes** — базовые события (листья дерева, вентиль BASIC) — дальнейшая декомпозиция невозможна
+- Вентили: AND (все дочерние необходимы) | OR (достаточно одного) | BASIC (базовое событие) | INHIBIT (условное) | XOR (ровно один)
+
+## Требования к JSON
 ```json
 {
-  "_reasoning": "<Here you must write your Chain-of-Thought: analyze facts, construct the fault tree logic (top-down), identify logical gates (AND/OR) for each level before generating the nodes. Do not skip this!>",
+  "_reasoning": "<Обязательно: анализ фактов, построение логики дерева сверху вниз, определение вентилей AND/OR на каждом уровне>",
   "top_event": {
     "id": "top-1",
-    "text": "<undesired top-level event>",
+    "text": "<нежелательное верхнее событие на русском>",
     "gate": "OR",
     "level": 0,
     "parent_id": null,
@@ -26,99 +29,103 @@ Output strictly valid JSON.
   "immediate_causes": [
     {
       "id": "<uuid>",
-      "text": "<first-level cause>",
+      "text": "<причина первого уровня на русском>",
       "gate": "AND | OR | INHIBIT",
       "level": 1,
       "parent_id": "top-1",
-      "confidence": 0.0–1.0
+      "confidence": 0.0
     }
   ],
   "contributing_causes": [
     {
       "id": "<uuid>",
-      "text": "<intermediate event>",
+      "text": "<промежуточное событие на русском>",
       "gate": "AND | OR | INHIBIT | XOR",
       "level": 2,
-      "parent_id": "<parent id>",
-      "confidence": 0.0–1.0
+      "parent_id": "<uuid>",
+      "confidence": 0.0
     }
   ],
   "root_causes": [
     {
       "id": "<uuid>",
-      "text": "<basic event — leaf node, no further decomposition>",
+      "text": "<базовое событие — лист дерева на русском>",
       "gate": "BASIC",
       "level": 3,
-      "parent_id": "<parent id>",
-      "confidence": 0.0–1.0
+      "parent_id": "<uuid>",
+      "confidence": 0.0
     }
   ],
-  "summary": "<2–3 sentences describing the fault tree and critical paths>",
+  "summary": "<2–3 предложения на русском: дерево отказов, критические пути, основные выводы>",
   "recommendations": [
     {
-      "id": "<uuid>",
-      "text": "<corrective action>",
+      "id": "<uuid>", "text": "<корректирующее действие на русском>",
       "priority": "high | medium | low",
       "category": "immediate | short_term | systemic",
-      "cause_id": "<node id this action addresses>",
-      "responsible": "<role or department>"
+      "cause_id": "<uuid>", "responsible": "<должность или отдел>"
     }
   ]
 }
 ```
-Ensure all parent_id references are valid ids defined elsewhere in the response.
-root_causes must all have gate = BASIC and no children.
+
+Требования к качеству:
+- Все root_causes должны иметь gate = BASIC и не иметь дочерних узлов
+- Критические пути (наиболее вероятные комбинации базовых событий) должны быть отражены
+- Минимум 3 базовых события (root_causes)
+- Все parent_id должны ссылаться на реально определённые id
 {% endblock %}
 
 {% block user %}
-Perform a Fault Tree Analysis (top-down) of the following industrial incident.
-Detail level: {{ detail_map[request.detail_level] }}.
+Проведи анализ дерева отказов (FTA, сверху вниз) следующего производственного инцидента.
+Уровень детализации: {{ detail_map[request.detail_level] }}.
 
-## Incident
-- **Title**: {{ request.incident.title }}
-- **Date**: {{ request.incident.incident_date }}
-- **Location**: {{ request.incident.location }}
-- **Type**: {{ request.incident.incident_type }}
-- **Severity**: {{ request.incident.severity }}
-- **Description**: {{ request.incident.description }}
-{% if request.incident.injured_count is not none %}- **Injured count**: {{ request.incident.injured_count }}{% endif %}
-{% if request.incident.fatalities_count is not none %}- **Fatalities count**: {{ request.incident.fatalities_count }}{% endif %}
-{% if request.incident.equipment %}- **Equipment involved**: {{ request.incident.equipment }}{% endif %}
-{% if request.incident.conditions %}- **Conditions**: {{ request.incident.conditions }}{% endif %}
-{% if request.incident.actions_taken %}- **Actions taken**: {{ request.incident.actions_taken }}{% endif %}
+## Инцидент
+- **Название**: {{ request.incident.title }}
+- **Дата**: {{ request.incident.incident_date }}
+- **Место**: {{ request.incident.location }}
+- **Тип**: {{ request.incident.incident_type }}
+- **Тяжесть**: {{ request.incident.severity }}
+- **Описание**: {{ request.incident.description }}
+{% if request.incident.injured_count is not none %}- **Пострадавших**: {{ request.incident.injured_count }}{% endif %}
+{% if request.incident.fatalities_count is not none %}- **Погибших**: {{ request.incident.fatalities_count }}{% endif %}
+{% if request.incident.equipment %}- **Оборудование**: {{ request.incident.equipment }}{% endif %}
+{% if request.incident.conditions %}- **Условия**: {{ request.incident.conditions }}{% endif %}
+{% if request.incident.actions_taken %}- **Принятые меры**: {{ request.incident.actions_taken }}{% endif %}
 
 {% if request.incident.full_circumstances %}
-## Full Circumstances (from investigation report)
+## Полные обстоятельства (из отчёта о расследовании)
 {{ request.incident.full_circumstances }}
 {% endif %}
 {% if request.incident.established_facts %}
-## Established Facts (from investigation report)
+## Установленные факты
 {{ request.incident.established_facts }}
 {% endif %}
 {% if request.incident.scene_description %}
-## Scene Description
+## Описание места происшествия
 {{ request.incident.scene_description }}
 {% endif %}
 {% if request.incident.equipment_description %}
-## Equipment / Object Characteristics
+## Характеристика оборудования
 {{ request.incident.equipment_description }}
 {% endif %}
 {% if request.incident.victims_list %}
-## Victims / Affected Persons
+## Пострадавшие
 {% for v in request.incident.victims_list %}
-- **{{ v.full_name or 'Unknown' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} y.o.){% endif %}{% if v.diagnosis_severity %}, Diagnosis: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Workplace: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Experience: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Intro briefing: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Workplace briefing: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Internship: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Safety test: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Medical exam: {{ v.medical_examination }}{% endif %}
+- **{{ v.full_name or 'Не установлено' }}**{% if v.profession %}, {{ v.profession }}{% endif %}{% if v.age %} ({{ v.age }} лет){% endif %}{% if v.diagnosis_severity %}, Диагноз: {{ v.diagnosis_severity }}{% endif %}{% if v.workplace %}, Место работы: {{ v.workplace }}{% endif %}{% if v.total_experience %}, Стаж: {{ v.total_experience }}{% endif %}{% if v.introductory_briefing %}, Вводный инструктаж: {{ v.introductory_briefing }}{% endif %}{% if v.workplace_briefing %}, Инструктаж на р/м: {{ v.workplace_briefing }}{% endif %}{% if v.internship %}, Стажировка: {{ v.internship }}{% endif %}{% if v.safety_knowledge_test %}, Проверка знаний ОТ: {{ v.safety_knowledge_test }}{% endif %}{% if v.medical_examination %}, Медосмотр: {{ v.medical_examination }}{% endif %}
 {% endfor %}
 {% endif %}
 {% if request.incident.company %}
-## Company
+## Организация
 {{ request.incident.company }}
 {% endif %}
 {% if request.incident.department %}
-## Department
+## Подразделение
 {{ request.incident.department }}
 {% endif %}
 {% if request.incident.short_description %}
-## Short Description
+## Краткое описание
 {{ request.incident.short_description }}
 {% endif %}
+
+Верни JSON строго по указанной структуре. Все текстовые поля — только на русском языке.
 {% endblock %}
