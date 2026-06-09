@@ -81,29 +81,49 @@ async def analyze_incident(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/results/{result_id}
+# POST /api/v1/analyze-multi
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/results/{result_id}",
-    response_model=RCAResult,
-    summary="Получить результат анализа из БД",
+@router.post(
+    "/analyze-multi",
+    response_model=list[RCAResult],
+    status_code=status.HTTP_201_CREATED,
+    summary="Запустить анализ несколькими методиками",
 )
-async def get_result(
-    result_id: str,
+async def analyze_multi(
+    request: MultiAnalysisRequest,
     db: DbSession,
     current_user: CurrentUser,
-) -> RCAResult:
+) -> list[RCAResult]:
+    try:
+        results = await _service.analyze_multi(request)
+    except MethodologyNotSupportedError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except LLMResponseValidationError as exc:
+        logger.error("[API] LLM error in analyze-multi: %s", exc)
+        raise HTTPException(status_code=502, detail="LLM не вернул валидный ответ.") from exc
+    except Exception as exc:
+        logger.error("[API] Unexpected error in analyze-multi: %s", exc)
+        raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера") from exc
+
     repo = RCARepository(db)
-    result = await repo.get_result(result_id)
-    if result is None:
-        raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
-    _check_owner_or_admin(result, current_user)
-    return result
+    for result in results:
+        await repo.save_result(result, user_id=current_user.user_id)
+        result.user_id = current_user.user_id
+    return results
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/results
+# GET /api/v1/methodologies
+# ---------------------------------------------------------------------------
+
+@router.get("/methodologies", summary="Список реализованных методик RCA")
+async def list_methodologies() -> dict:
+    return {"supported": [m.value for m in _service.supported_methodologies()]}
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/results        (без path-параметра — ДО {result_id}!)
 # ---------------------------------------------------------------------------
 
 @router.get(
@@ -127,6 +147,65 @@ async def list_results(
         limit=limit,
         offset=offset,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/results/compare   (фиксированный путь — ДО {result_id}!)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/results/compare",
+    response_model=ComparisonResult,
+    summary="Сравнение результатов нескольких методологий по incident_id",
+)
+async def compare_results(
+    db: DbSession,
+    current_user: CurrentUser,
+    incident_id: str = Query(..., description="ID инцидента для сравнения"),
+) -> ComparisonResult:
+    repo = RCARepository(db)
+    user_filter = None if current_user.role == "admin" else current_user.user_id
+    results = await repo.list_results(
+        user_id=user_filter,
+        incident_id=incident_id,
+        limit=10,
+        offset=0,
+    )
+    if not results:
+        raise HTTPException(status_code=404, detail=f"Нет результатов для incident_id={incident_id}")
+
+    for r in results:
+        _check_owner_or_admin(r, current_user)
+
+    try:
+        comparison = _service.compare(results)
+    except Exception as exc:
+        logger.error("[API] compare error: %s", exc)
+        raise HTTPException(status_code=500, detail="Ошибка при сравнении") from exc
+
+    return comparison
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/results/{result_id}   (path-параметр — ПОСЛЕ фиксированных!)
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/results/{result_id}",
+    response_model=RCAResult,
+    summary="Получить результат анализа из БД",
+)
+async def get_result(
+    result_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> RCAResult:
+    repo = RCARepository(db)
+    result = await repo.get_result(result_id)
+    if result is None:
+        raise HTTPException(status_code=404, detail=f"Результат '{result_id}' не найден.")
+    _check_owner_or_admin(result, current_user)
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -184,62 +263,3 @@ async def update_recommendation(
     if not updated:
         raise HTTPException(status_code=404, detail="Рекомендация не найдена.")
     return {"result_id": result_id, "rec_id": rec_id, "status": body.status}
-
-
-# ---------------------------------------------------------------------------
-# GET /api/v1/methodologies
-# ---------------------------------------------------------------------------
-
-@router.get("/methodologies", summary="Список реализованных методик RCA")
-async def list_methodologies() -> dict:
-    return {"supported": [m.value for m in _service.supported_methodologies()]}
-
-@router.post(
-    "/analyze-multi",
-    response_model=list[RCAResult],
-    status_code=status.HTTP_201_CREATED,
-)
-async def analyze_multi(
-    request: MultiAnalysisRequest,
-    db: DbSession,
-    current_user: CurrentUser,
-) -> list[RCAResult]:
-    results = await _service.analyze_multi(request)
-    repo = RCARepository(db)
-    for result in results:
-        await repo.save_result(result, user_id=current_user.user_id)
-        result.user_id = current_user.user_id
-    return results
-
-
-@router.get(
-    "/results/compare",
-    response_model=ComparisonResult,
-    summary="Сравнение результатов нескольких методологий по incident_id",
-)
-async def compare_results(
-    db: DbSession,
-    current_user: CurrentUser,
-    incident_id: str = Query(..., description="ID инцидента для сравнения"),
-) -> ComparisonResult:
-    repo = RCARepository(db)
-    user_filter = None if current_user.role == "admin" else current_user.user_id
-    results = await repo.list_results(
-        user_id=user_filter,
-        incident_id=incident_id,
-        limit=10,
-        offset=0,
-    )
-    if not results:
-        raise HTTPException(status_code=404, detail=f"Нет результатов для incident_id={incident_id}")
-
-    for r in results:
-        _check_owner_or_admin(r, current_user)
-
-    try:
-        comparison = _service.compare(results)
-    except Exception as exc:
-        logger.error("[API] compare error: %s", exc)
-        raise HTTPException(status_code=500, detail="Ошибка при сравнении") from exc
-
-    return comparison

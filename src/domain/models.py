@@ -139,10 +139,18 @@ class LLMResponseValidationError(Exception):
 # ----------------------------------------------------------------------
 
 class MultiAnalysisRequest(BaseModel):
-    methodologies: list[MethodologyType] = Field(..., min_items=1, max_items=5)
+    methodologies: list[MethodologyType] = Field(..., min_length=2, max_length=5)
     language: str = "ru"
     detail_level: int = Field(default=2, ge=1, le=3)
     incident: IncidentInput
+
+    @field_validator('methodologies')
+    @classmethod
+    def validate_unique_methodologies(cls, v):
+        """Убедиться, что методики не повторяются."""
+        if len(v) != len(set(v)):
+            raise ValueError('Методики не должны повторяться')
+        return v
 
 
 class ComparisonResult(BaseModel):
