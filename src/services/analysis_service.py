@@ -10,10 +10,14 @@
 Примечание по жизненному циклу httpx:
     OpenRouterClient создаётся свежим на каждый запрос (через async with),
     чтобы избежать повторного использования закрытого httpx.AsyncClient.
+Примечание по analyze_multi:
+    Методологии запускаются параллельно через asyncio.gather,
+    что сокращает общее время до длительности самой медленной методологии.
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 from difflib import SequenceMatcher
 
@@ -72,7 +76,6 @@ class AnalysisService:
         llm_client:      OpenRouterClient | None = None,
         prompt_renderer: PromptRenderer | None   = None,
     ) -> None:
-        # None → создавать новый клиент на каждый запрос
         self._llm_factory = (lambda: llm_client) if llm_client else OpenRouterClient
         self._prompts     = prompt_renderer or PromptRenderer()
 
@@ -90,7 +93,6 @@ class AnalysisService:
             request.incident.severity,
         )
 
-        # Новый httpx-клиент на каждый запрос — безопасно закрывается после
         async with self._llm_factory() as client:
             raw = await client.complete(
                 system_prompt=system_prompt,
@@ -124,18 +126,31 @@ class AnalysisService:
 
     async def analyze_multi(self, request: MultiAnalysisRequest) -> list[RCAResult]:
         incident_id = str(uuid.uuid4())
-        results: list[RCAResult] = []
-        for methodology in request.methodologies:
-            single_request = AnalysisRequest(
+
+        single_requests = [
+            AnalysisRequest(
                 methodology=methodology,
                 language=request.language,
                 detail_level=request.detail_level,
                 incident=request.incident,
             )
-            result = await self.analyze(single_request)
+            for methodology in request.methodologies
+        ]
+
+        logger.info(
+            "[AnalysisService] analyze_multi: запуск %d методологий параллельно: %s",
+            len(single_requests),
+            [r.methodology.value for r in single_requests],
+        )
+
+        results: list[RCAResult] = await asyncio.gather(
+            *[self.analyze(r) for r in single_requests]
+        )
+
+        for result in results:
             result.incident_id = incident_id
-            results.append(result)
-        return results
+
+        return list(results)
 
     # ------------------------------------------------------------------
     # Сравнение результатов (улучшенная эвристика)
@@ -161,13 +176,8 @@ class AnalysisService:
 
         incident_id = results[0].incident_id
 
-        # --- Общие рекомендации ---
         common_recs = AnalysisService._find_common_recommendations(results)
-
-        # --- Различающиеся причины ---
         differing_causes = AnalysisService._find_differing_causes(results)
-
-        # --- Сводка ---
         summary = AnalysisService._build_summary(results, common_recs, differing_causes)
 
         return ComparisonResult(
@@ -201,13 +211,12 @@ class AnalysisService:
 
         meth_keys = list(all_recs_by_meth.keys())
         common: list[Recommendation] = []
-        matched: set[tuple[int, int]] = set()  # (meth_idx, rec_idx) уже в паре
+        matched: set[tuple[int, int]] = set()
 
         for i in range(len(meth_keys)):
             for ri, rec_a in enumerate(all_recs_by_meth[meth_keys[i]]):
                 if (i, ri) in matched:
                     continue
-                # Проверяем, есть ли похожая рекомендация в других методиках
                 found_in = {i}
                 for j in range(i + 1, len(meth_keys)):
                     for rj, rec_b in enumerate(all_recs_by_meth[meth_keys[j]]):
@@ -269,7 +278,6 @@ class AnalysisService:
             f"Сравнение {len(results)} методик ({', '.join(meth_names)}) по инциденту.",
         ]
 
-        # Общие рекомендации
         if common_recs:
             lines.append(
                 f"Общие рекомендации ({len(common_recs)}): "
@@ -278,7 +286,6 @@ class AnalysisService:
         else:
             lines.append("Общих рекомендаций не найдено — методики дают независимые выводы.")
 
-        # Различающиеся причины
         total_unique = sum(len(v) for v in differing.values())
         if total_unique:
             lines.append(
@@ -288,7 +295,6 @@ class AnalysisService:
         else:
             lines.append("Все причины пересекаются между методиками.")
 
-        # Уверенность
         avg_conf = {r.methodology.value: round(r.confidence_avg, 2) for r in results}
         lines.append(f"Средняя уверенность: {avg_conf}")
 
