@@ -9,9 +9,16 @@
 - Все HTTP-ошибки оборачиваются в LLMResponseValidationError
 - response_format json_object не передаётся моделям из _NO_JSON_FORMAT_MODELS
 
+Стацк моделей (primary + fallbacks):
+    1. nvidia/nemotron-3-super-120b-a12b:free  — primary, 128K контекст
+    2. openai/gpt-oss-120b:free               — fallback 1, 131K, MoE 117B
+    3. meta-llama/llama-3.3-70b-instruct:free — fallback 2, 131K, стабильный
+    4. deepseek/deepseek-chat-v3-0324:free    — fallback 3, 1M контекст
+
 Переменные окружения (settings.py / .env):
     OPENROUTER_API_KEY      — обязательно
-    OPENROUTER_MODEL        — по умолчанию openai/gpt-4o-mini
+    OPENROUTER_MODEL        — по умолчанию nvidia/nemotron-3-super-120b-a12b:free
+    OPENROUTER_FALLBACK_MODELS — CSV список fallback-моделей (переопределяет дефолт)
     OPENROUTER_TIMEOUT      — секунды, по умолчанию 120
     OPENROUTER_MAX_RETRIES  — по умолчанию 3
 """
@@ -45,7 +52,8 @@ _DEFAULT_REQUIRED_KEYS: frozenset[str] = frozenset({"summary", "recommendations"
 # Регулярка для снятия markdown-забора ```json ... ```
 _MD_FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL)
 
-# Модели, которые не поддерживают response_format={"type": "json_object"}
+# Модели, которые не поддерживают response_format={"type": "json_object"}.
+# gpt-oss-120b:free, nemotron, deepseek-v3 — поддерживают, поэтому их здесь нет.
 _NO_JSON_FORMAT_MODELS: frozenset[str] = frozenset({
     "google/gemma-4-26b-a4b-it:free",
     "google/gemma-3-27b-it:free",
@@ -59,6 +67,14 @@ _NO_JSON_FORMAT_MODELS: frozenset[str] = frozenset({
     "qwen/qwen3-14b:free",
     "qwen/qwen3-30b-a3b:free",
 })
+
+# Fallback-модели по умолчанию (если OPENROUTER_FALLBACK_MODELS не задан).
+# Контекст всех моделей ≥ 128K — достаточно для DOCX 165K символов.
+_DEFAULT_FALLBACK_MODELS: list[str] = [
+    "openai/gpt-oss-120b:free",               # 131K, MoE 117B, structured output
+    "meta-llama/llama-3.3-70b-instruct:free", # 131K, стабильный
+    "deepseek/deepseek-chat-v3-0324:free",    # 1M контекст, хороший JSON
+]
 
 
 class OpenRouterClient:
@@ -78,21 +94,19 @@ class OpenRouterClient:
         timeout:     int | None = None,
         max_retries: int | None = None,
     ) -> None:
-        self.api_key     = api_key     or os.environ.get("OPENROUTER_API_KEY", "")
-        self.primary_model = model     or os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
-        
+        self.api_key       = api_key or os.environ.get("OPENROUTER_API_KEY", "")
+        self.primary_model = model   or os.getenv("OPENROUTER_MODEL", "nvidia/nemotron-3-super-120b-a12b:free")
+
         if fallback_models is None:
             fb_env = os.getenv("OPENROUTER_FALLBACK_MODELS", "")
-            if fb_env:
-                self.fallback_models = [m.strip() for m in fb_env.split(",") if m.strip()]
-            else:
-                self.fallback_models = [
-                    "meta-llama/llama-3.3-70b-instruct:free",
-                    "qwen/qwen3-30b-a3b:free",
-                ]
+            self.fallback_models = (
+                [m.strip() for m in fb_env.split(",") if m.strip()]
+                if fb_env
+                else _DEFAULT_FALLBACK_MODELS
+            )
         else:
             self.fallback_models = fallback_models
-            
+
         self.timeout     = timeout     or int(os.getenv("OPENROUTER_TIMEOUT", "120"))
         self.max_retries = max_retries or int(os.getenv("OPENROUTER_MAX_RETRIES", "3"))
 
@@ -160,7 +174,7 @@ class OpenRouterClient:
             raise LLMResponseValidationError(
                 f"Не удалось получить валидный ответ ни от одной модели (включая fallbacks): {exc}"
             ) from exc
-            
+
         return raw
 
     async def _complete_with_fallbacks(
@@ -172,11 +186,11 @@ class OpenRouterClient:
         required_keys: frozenset[str],
     ) -> dict:
         models_to_try = [self.primary_model] + self.fallback_models
-        
+
         last_error = None
         for model in models_to_try:
             self.current_model = model
-            logger.info(f"[OpenRouter] Попытка вызова модели: {model}")
+            logger.info("[OpenRouter] Попытка вызова модели: %s", model)
             try:
                 return await self._complete_with_retry(
                     system_prompt=system_prompt,
@@ -186,17 +200,12 @@ class OpenRouterClient:
                     required_keys=required_keys,
                 )
             except RetryError as exc:
-                if exc.last_attempt and exc.last_attempt.exception():
-                    last_error = exc.last_attempt.exception()
-                else:
-                    last_error = exc
-                logger.warning(f"[OpenRouter] Модель {model} не справилась (RetryError): {last_error}")
-                continue
+                last_error = exc.last_attempt.exception() if exc.last_attempt else exc
+                logger.warning("[OpenRouter] Модель %s не справилась (RetryError): %s", model, last_error)
             except LLMResponseValidationError as exc:
-                logger.warning(f"[OpenRouter] Модель {model} не справилась: {exc}")
+                logger.warning("[OpenRouter] Модель %s не справилась: %s", model, exc)
                 last_error = exc
-                continue
-                
+
         if last_error:
             raise last_error
         raise LLMResponseValidationError("Список моделей пуст")
