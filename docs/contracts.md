@@ -4,7 +4,7 @@
 > Любой новый чат с AI-ассистентом должен получить этот файл как первый контекст.
 > Запрещено менять типы и названия полей без обновления этого документа.
 >
-> **Дата актуализации:** 2026-06-07 (после расширения IncidentInput полями из DOCX, добавления ролей, PDF-экспорта, SSE-прогресса загрузки, chain-of-thought в промптах, fallback моделей).
+> **Дата актуализации:** 2026-06-08 (приоритет C: валидация MultiAnalysisRequest, улучшенный compare(), обработка ошибок, тесты, фикс маршрутизации).
 
 ---
 
@@ -119,4 +119,53 @@ api.compareResults(id)     // GET  /api/v1/results/compare?incident_id=... → C
 - Оба сбрасываются при новом анализе
 - `!comparison && result` → `ResultView`
 - `comparison` → `CompareView`
+
+---
+
+## 11. MultiAnalysisRequest — валидация (обновлено 08.06.2026, приоритет C)
+
+```python
+class MultiAnalysisRequest(BaseModel):
+    methodologies: list[MethodologyType] = Field(..., min_length=2, max_length=5)
+    language: str = "ru"
+    detail_level: int = Field(default=2, ge=1, le=3)
+    incident: IncidentInput
+
+    @field_validator('methodologies')
+    @classmethod
+    def validate_unique_methodologies(cls, v):
+        if len(v) != len(set(v)):
+            raise ValueError('Методики не должны повторяться')
+        return v
+```
+
+**Правила:**
+- `methodologies`: минимум 2, максимум 5 уникальных методик
+- Дубликаты отклоняются с ошибкой валидации (422)
+- Диапазон совпадает с методиками из `MethodologyType`
+
+---
+
+## 12. Алгоритм compare() (обновлено 08.06.2026, приоритет C)
+
+`AnalysisService.compare(results)` — нечёткое сравнение результатов нескольких методик:
+
+1. **Общие рекомендации** (`common_recommendations`):
+   - Сравнение текстов рекомендаций через `SequenceMatcher` с порогом ≥0.55
+   - Рекомендация считается «общей», если встречается в ≥2 методиках
+   - Выводится один раз (из первого совпадения)
+
+2. **Различающиеся причины** (`differing_causes`):
+   - `dict[str, list[str]]` — ключ = `methodology.value`
+   - Причины, уникальные для каждой методики (нет похожих в других)
+   - Проверяются все уровни: root + contributing + immediate
+
+3. **Сводка** (`summary`):
+   - Автоматически генерируемый текст с числом методик, общих рекомендаций, уникальных причин и средней уверенностью по каждой методике
+
+---
+
+## 13. Маршрутизация — порядок роутов (фикс 08.06.2026)
+
+В `analyze.py` фиксированные пути (`/results`, `/results/compare`) определены **ДО** параметризованного `/results/{result_id}`, чтобы FastAPI не перехватывал `compare` как `result_id`.
 
