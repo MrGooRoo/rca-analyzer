@@ -2,16 +2,18 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — приоритет D завершён (baseline RAG)
+## Статус: 🟢 Рабочая версия — приоритет E завершён (качество embeddings)
 
-**Дата обновления:** 2026-06-10
+**Дата обновления:** 2026-06-11
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
 - Docker Compose: `rca-analyzer-api-1` (FastAPI) + PostgreSQL с pgvector
   - DB image: `pgvector/pgvector:pg16`
 - LLM: `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст)
-- Embeddings: `local/hash-ngrams-v1`, размерность 384 (детерминированный локальный baseline без внешних API)
+- Embeddings: провайдер выбирается через `EMBEDDINGS_PROVIDER`
+  - `local` (default): `local/hash-ngrams-v2`, 384 dim — стемминг + словарь HSE-синонимов
+  - `openrouter`: `openai/text-embedding-3-small` (или любая из OPENROUTER_EMBEDDING_MODEL), приводится к 384 dim
 
 ## Готово
 - [x] Все 5 методологий
@@ -46,20 +48,37 @@
     - в `IncidentForm` — ручной поиск похожих до запуска анализа
     - в `ResultView` — автоматический блок похожих после анализа
   - ✅ Тесты: `tests/unit/test_embedding_service.py`, `tests/api/test_similar_incidents.py`
+- [x] **Приоритет E — Качество embeddings** (11.06.2026)
+  - ✅ Локальная модель v2: `local/hash-ngrams-v2`
+    - лёгкий русский стемминг (снятие окончаний, признак `stem:`)
+    - словарь HSE-концептов `_CONCEPT_PREFIXES` (~17 концептов: fall, ladder, fire,
+      electricity, gas, chemical, ppe, training, …) — признак `concept:` с весом 1.6
+    - синонимы без общих слов теперь сближаются: «упал со стремянки» ↔ «падение с лестницы»
+      similarity 0.04 (v1) → **0.46 (v2)**; «удар током» ↔ «поражение электротоком» 0.11 → **0.59**
+  - ✅ Внешний провайдер: `OpenRouterEmbeddingService` (`src/integrations/llm/openrouter_embeddings.py`)
+    - POST /api/v1/embeddings (OpenAI-совместимый), default `openai/text-embedding-3-small`
+    - dimensions=384 (Matryoshka) c фолбэком на усечение/паддинг + L2-нормализация
+    - retry/backoff на 408/429/5xx, обработка моделей без поддержки `dimensions`
+  - ✅ Фабрика `get_embedding_service()` по env `EMBEDDINGS_PROVIDER` (local | openrouter)
+  - ✅ `RCARepository._embed()`: поддержка sync/async-провайдеров + автофолбэк на local при `EmbeddingServiceError`
+  - ✅ Поиск похожих фильтрует по `model_name` — векторы разных моделей не смешиваются
+  - ✅ `backfill_missing_embeddings` переиндексирует записи другой модели (ленивая миграция при смене провайдера)
+  - ✅ `.env.example`: блок Embeddings (EMBEDDINGS_PROVIDER, OPENROUTER_EMBEDDING_*)
+  - ✅ Тесты: `tests/unit/test_embedding_quality.py` (11), `tests/unit/test_openrouter_embeddings.py` (11, respx)
 
 ## Проверки
-- `python -m pytest tests/ -q` → **193 passed, 8 warnings**
+- `python -m pytest tests/ -q` → **215 passed, 8 warnings**
   - Остались только предсуществующие `httpx` deprecation warnings по per-request cookies в CSRF-тестах.
+- `ruff check` по изменённым файлам → чисто.
 - `npm run build` во frontend → **успешно** после регенерации `package-lock.json` с optional Rollup/esbuild packages.
 
 ## В работе / следующий приоритет
-- [ ] Улучшить качество embeddings:
-  - заменить/дополнить `local/hash-ngrams-v1` внешней embedding-моделью (OpenRouter или отдельный embedding API),
-  - либо добавить более умную локальную нормализацию/синонимы для русскоязычных HSE-инцидентов.
 - [ ] Убрать оставшиеся `httpx` deprecation warnings в CSRF-тестах.
 - [ ] Улучшить UX блока похожих инцидентов: открытие найденного результата из карточки, фильтры по методике/дате.
+- [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе и сравнить качество с local v2.
 
 ## Известные проблемы / нюансы
-- Поиск похожих реализован как deterministic baseline: хорошо ловит лексически похожие случаи, но хуже понимает синонимы без общих слов.
+- При `EMBEDDINGS_PROVIDER=openrouter` embeddings становятся платными запросами (text-embedding-3-small ≈ $0.02/1M токенов); при недоступности API всё автоматически работает через local v2.
+- После смены провайдера старые векторы переиндексируются лениво (батчами по 100 при каждом поиске похожих); до полной переиндексации часть старых результатов не попадает в выдачу.
 - Для production БД требуется `pgvector`: Docker Compose уже переведён на `pgvector/pgvector:pg16`, миграция создаёт `CREATE EXTENSION IF NOT EXISTS vector`.
 - На существующей БД после обновления нужно выполнить `alembic upgrade head`.

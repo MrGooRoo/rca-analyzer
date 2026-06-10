@@ -4,7 +4,7 @@
 > Любой новый чат с AI-ассистентом должен получить этот файл как первый контекст.
 > Запрещено менять типы и названия полей без обновления этого документа.
 >
-> **Дата актуализации:** 2026-06-10 (приоритет D: векторный поиск похожих инцидентов / RAG baseline через pgvector).
+> **Дата актуализации:** 2026-06-11 (приоритет E: качество embeddings — local v2 + OpenRouter-провайдер, см. раздел 14.1).
 
 ---
 
@@ -174,17 +174,51 @@ class MultiAnalysisRequest(BaseModel):
 
 ## 14. Векторный поиск похожих инцидентов / RAG baseline (добавлено 10.06.2026)
 
-### 14.1. Embedding-модель
+### 14.1. Embedding-модель (обновлено 11.06.2026)
 
-Текущий baseline не использует внешний API и работает детерминированно:
+Два провайдера, выбор через env `EMBEDDINGS_PROVIDER` (`local` | `openrouter`):
 
 ```python
-EMBEDDING_MODEL_NAME = "local/hash-ngrams-v1"
-EMBEDDING_DIMENSION = 384
+EMBEDDING_DIMENSION = 384            # фиксированная размерность хранения (pgvector)
+EMBEDDING_MODEL_NAME = "local/hash-ngrams-v2"   # локальный baseline
 ```
 
-`LocalHashEmbeddingService` строит нормализованный dense-вектор по словам и символьным n-граммам.
-Это быстрый локальный baseline: хорошо ловит лексически похожие случаи и может быть позже заменён на внешнюю embedding-модель без изменения HTTP-контракта.
+**1. `local` (по умолчанию)** — `LocalHashEmbeddingService`, модель `local/hash-ngrams-v2`:
+
+- детерминированный feature hashing без внешних API;
+- v2-признаки на токен: `tok:` (слово, 1.0), `stem:` (русский стем, 0.9),
+  `concept:` (HSE-концепт из словаря синонимов, 1.6), `tri:`/`quad:` (n-граммы, 0.35/0.20);
+- словарь `_CONCEPT_PREFIXES` (~17 концептов: fall, ladder, fire, electricity, gas, ppe…)
+  сближает синонимы без общих слов («стремянка» ↔ «лестница», «пожар» ↔ «возгорание»).
+
+**2. `openrouter`** — `OpenRouterEmbeddingService`
+(`src/integrations/llm/openrouter_embeddings.py`):
+
+- POST `https://openrouter.ai/api/v1/embeddings` (OpenAI-совместимый);
+- модель из `OPENROUTER_EMBEDDING_MODEL` (default `openai/text-embedding-3-small`);
+- запрашивает `dimensions=384` (Matryoshka); если модель не принимает параметр —
+  повтор без него + усечение/дополнение вектора до 384 с L2-нормализацией;
+- retry с backoff на 408/429/5xx и сетевые ошибки;
+- `embed()` — **корутина**; протокол `EmbeddingService.embed` допускает sync и async.
+
+**Контракт хранения и фолбэк:**
+
+- в `result_embeddings.model_name` пишется модель, которая *реально* построила вектор;
+- поиск похожих сравнивает только векторы той же модели, что и query
+  (`WHERE model_name = query_model`) — пространства разных моделей не смешиваются;
+- при ошибке внешнего провайдера (`EmbeddingServiceError`) `RCARepository._embed()`
+  автоматически откатывается на `LocalHashEmbeddingService`;
+- `backfill_missing_embeddings()` доиндексирует записи без embedding **или**
+  с embedding другой модели (миграция при смене провайдера происходит лениво).
+
+Env-переменные:
+
+```text
+EMBEDDINGS_PROVIDER=local|openrouter        # default: local
+OPENROUTER_EMBEDDING_MODEL=...              # default: openai/text-embedding-3-small
+OPENROUTER_EMBEDDING_TIMEOUT=30
+OPENROUTER_EMBEDDING_MAX_RETRIES=3
+```
 
 ### 14.2. Таблица `result_embeddings`
 

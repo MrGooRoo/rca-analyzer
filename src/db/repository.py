@@ -5,6 +5,7 @@ RCA Repository — единственная точка доступа к БД.
 from __future__ import annotations
 
 import inspect
+import logging
 import uuid
 
 from sqlalchemy import select
@@ -21,10 +22,14 @@ from src.db.orm_models import (
 from src.domain.models import CauseNode, RCAResult, Recommendation, SimilarIncident
 from src.services.embedding_service import (
     EmbeddingService,
+    EmbeddingServiceError,
     LocalHashEmbeddingService,
     build_result_embedding_text,
     cosine_similarity,
+    get_embedding_service,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class RCARepository:
@@ -34,7 +39,37 @@ class RCARepository:
         embedding_service: EmbeddingService | None = None,
     ) -> None:
         self._session = session
-        self._embeddings = embedding_service or LocalHashEmbeddingService()
+        self._embeddings = embedding_service or get_embedding_service()
+        # Локальный фолбэк, если внешний embedding-провайдер недоступен.
+        self._fallback_embeddings = LocalHashEmbeddingService()
+
+    async def _embed(self, text: str) -> tuple[list[float], str, int]:
+        """
+        Построить embedding текущим провайдером (sync или async).
+
+        Возвращает (vector, model_name, dimension) — model_name той модели,
+        которая реально построила вектор. При ошибке внешнего провайдера
+        выполняется фолбэк на LocalHashEmbeddingService, чтобы запись/поиск
+        не падали из-за сетевых проблем.
+        """
+        try:
+            result = self._embeddings.embed(text)
+            if inspect.isawaitable(result):
+                result = await result
+            return list(result), self._embeddings.model_name, self._embeddings.dimension
+        except EmbeddingServiceError as exc:
+            if self._embeddings is self._fallback_embeddings:
+                raise
+            logger.warning(
+                "[Embeddings] провайдер %s недоступен (%s) — фолбэк на %s",
+                self._embeddings.model_name, exc, self._fallback_embeddings.model_name,
+            )
+            vector = self._fallback_embeddings.embed(text)
+            return (
+                vector,
+                self._fallback_embeddings.model_name,
+                self._fallback_embeddings.dimension,
+            )
 
     async def _session_call(self, method_name: str, *args) -> None:
         """
@@ -114,14 +149,15 @@ class RCARepository:
             )
 
         source_text = build_result_embedding_text(result)
+        vector, model_name, dimension = await self._embed(source_text)
         await self._session_call(
             "add",
             ResultEmbeddingORM(
                 id=str(uuid.uuid4()),
                 result_id=result.result_id,
-                model_name=self._embeddings.model_name,
-                dimension=self._embeddings.dimension,
-                embedding=self._embeddings.embed(source_text),
+                model_name=model_name,
+                dimension=dimension,
+                embedding=vector,
                 source_text=source_text,
             ),
         )
@@ -176,11 +212,26 @@ class RCARepository:
         user_id: str | None = None,
         limit: int = 100,
     ) -> int:
-        """Доиндексировать старые RCA-результаты, у которых ещё нет embedding."""
+        """
+        Доиндексировать RCA-результаты без embedding текущей модели.
+
+        Покрывает два случая:
+        1. embedding отсутствует вовсе (старые записи);
+        2. embedding построен другой моделью (сменили EMBEDDINGS_PROVIDER) —
+           старая запись заменяется новой.
+
+        Если внешний провайдер недоступен и сработал фолбэк на локальную модель,
+        записи «другой модели» не перезаписываются (чтобы не было churn
+        local → external → local при перебоях сети).
+        """
+        target_model = self._embeddings.model_name
         stmt = (
-            select(RCAResultORM)
+            select(RCAResultORM, ResultEmbeddingORM)
             .outerjoin(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
-            .where(ResultEmbeddingORM.result_id.is_(None))
+            .where(
+                (ResultEmbeddingORM.result_id.is_(None))
+                | (ResultEmbeddingORM.model_name != target_model)
+            )
             .options(
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
@@ -191,24 +242,37 @@ class RCARepository:
         if user_id:
             stmt = stmt.where(RCAResultORM.user_id == user_id)
 
-        rows = (await self._session.execute(stmt)).scalars().all()
-        for row in rows:
+        rows = (await self._session.execute(stmt)).all()
+        updated = 0
+        for row, existing_embedding in rows:
             source_text = _embedding_text_from_orm(row)
-            await self._session_call(
-                "add",
-                ResultEmbeddingORM(
-                    id=str(uuid.uuid4()),
-                    result_id=row.result_id,
-                    model_name=self._embeddings.model_name,
-                    dimension=self._embeddings.dimension,
-                    embedding=self._embeddings.embed(source_text),
-                    source_text=source_text,
-                ),
-            )
+            vector, model_name, dimension = await self._embed(source_text)
 
-        if rows:
+            if existing_embedding is not None:
+                # Сработал фолбэк и вектор той же модели уже есть — не трогаем.
+                if existing_embedding.model_name == model_name:
+                    continue
+                existing_embedding.model_name = model_name
+                existing_embedding.dimension = dimension
+                existing_embedding.embedding = vector
+                existing_embedding.source_text = source_text
+            else:
+                await self._session_call(
+                    "add",
+                    ResultEmbeddingORM(
+                        id=str(uuid.uuid4()),
+                        result_id=row.result_id,
+                        model_name=model_name,
+                        dimension=dimension,
+                        embedding=vector,
+                        source_text=source_text,
+                    ),
+                )
+            updated += 1
+
+        if updated:
             await self._session.commit()
-        return len(rows)
+        return updated
 
     async def find_similar_incidents(
         self,
@@ -220,12 +284,13 @@ class RCARepository:
         exclude_incident_id: str | None = None,
     ) -> list[SimilarIncident]:
         """Найти top-N похожих инцидентов по cosine similarity."""
-        query_embedding = self._embeddings.embed(text)
+        query_embedding, query_model, _ = await self._embed(text)
         dialect = self._dialect_name()
 
         if dialect == "postgresql":
             return await self._find_similar_incidents_pgvector(
                 query_embedding=query_embedding,
+                query_model=query_model,
                 user_id=user_id,
                 limit=limit,
                 threshold=threshold,
@@ -235,6 +300,7 @@ class RCARepository:
 
         return await self._find_similar_incidents_python(
             query_embedding=query_embedding,
+            query_model=query_model,
             user_id=user_id,
             limit=limit,
             threshold=threshold,
@@ -245,6 +311,7 @@ class RCARepository:
     async def _find_similar_incidents_pgvector(
         self,
         query_embedding: list[float],
+        query_model: str,
         user_id: str | None,
         limit: int,
         threshold: float,
@@ -255,6 +322,7 @@ class RCARepository:
         stmt = (
             select(RCAResultORM, distance.label("distance"))
             .join(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
+            .where(ResultEmbeddingORM.model_name == query_model)
             .options(
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
@@ -291,6 +359,7 @@ class RCARepository:
     async def _find_similar_incidents_python(
         self,
         query_embedding: list[float],
+        query_model: str,
         user_id: str | None,
         limit: int,
         threshold: float,
@@ -300,6 +369,7 @@ class RCARepository:
         stmt = (
             select(RCAResultORM, ResultEmbeddingORM)
             .join(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
+            .where(ResultEmbeddingORM.model_name == query_model)
             .options(
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
