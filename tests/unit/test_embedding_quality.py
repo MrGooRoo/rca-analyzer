@@ -115,3 +115,35 @@ def test_factory_caches_instances(monkeypatch) -> None:
     reset_embedding_service_cache()
     assert get_embedding_service() is get_embedding_service()
     reset_embedding_service_cache()
+
+
+# ---------------------------------------------------------------------------
+# Адаптивный порог похожести
+# ---------------------------------------------------------------------------
+
+def test_default_threshold_local(monkeypatch) -> None:
+    from src.services.embedding_service import default_similarity_threshold
+
+    monkeypatch.delenv("SIMILARITY_THRESHOLD", raising=False)
+    monkeypatch.setenv("EMBEDDINGS_PROVIDER", "local")
+    assert default_similarity_threshold() == pytest.approx(0.15)
+
+
+def test_default_threshold_neural_providers(monkeypatch) -> None:
+    from src.services.embedding_service import default_similarity_threshold
+
+    monkeypatch.delenv("SIMILARITY_THRESHOLD", raising=False)
+    for provider in ("huggingface", "hf", "openrouter"):
+        monkeypatch.setenv("EMBEDDINGS_PROVIDER", provider)
+        assert default_similarity_threshold() == pytest.approx(0.55)
+
+
+def test_threshold_env_override(monkeypatch) -> None:
+    from src.services.embedding_service import default_similarity_threshold
+
+    monkeypatch.setenv("EMBEDDINGS_PROVIDER", "local")
+    monkeypatch.setenv("SIMILARITY_THRESHOLD", "0.42")
+    assert default_similarity_threshold() == pytest.approx(0.42)
+
+    monkeypatch.setenv("SIMILARITY_THRESHOLD", "not-a-number")
+    assert default_similarity_threshold() == pytest.approx(0.15)

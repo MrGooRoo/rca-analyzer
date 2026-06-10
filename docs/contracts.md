@@ -176,7 +176,7 @@ class MultiAnalysisRequest(BaseModel):
 
 ### 14.1. Embedding-модель (обновлено 11.06.2026)
 
-Два провайдера, выбор через env `EMBEDDINGS_PROVIDER` (`local` | `openrouter`):
+Три провайдера, выбор через env `EMBEDDINGS_PROVIDER` (`local` | `huggingface` | `openrouter`):
 
 ```python
 EMBEDDING_DIMENSION = 384            # фиксированная размерность хранения (pgvector)
@@ -191,7 +191,25 @@ EMBEDDING_MODEL_NAME = "local/hash-ngrams-v2"   # локальный baseline
 - словарь `_CONCEPT_PREFIXES` (~17 концептов: fall, ladder, fire, electricity, gas, ppe…)
   сближает синонимы без общих слов («стремянка» ↔ «лестница», «пожар» ↔ «возгорание»).
 
-**2. `openrouter`** — `OpenRouterEmbeddingService`
+**2. `huggingface`** — `HFLocalEmbeddingService`
+(`src/integrations/embeddings/hf_local.py`), **рекомендуемый** для production:
+
+- локальная предобученная модель, default `cointegrated/rubert-tiny2`
+  (29M параметров, ~120MB, быстрый CPU-инференс, лучший баланс для русского);
+- `model_name` в БД: `hf/<model_id>` (например `hf/cointegrated/rubert-tiny2`);
+- mean pooling по attention mask → L2-нормализация → паддинг/усечение до 384;
+- модели семейства E5 автоматически получают префикс `query: `;
+- ленивая потокобезопасная загрузка; инференс в `asyncio.to_thread`;
+- требует extras `pip install -e ".[embeddings]"` (torch CPU + transformers);
+  без них / без сети при первом скачивании → `EmbeddingServiceError` → фолбэк на local;
+- ⚠️ для нейросетевых эмбеддингов рекомендуемый `threshold` поиска похожих —
+  **0.55–0.6** (несвязанные тексты дают ~0.4–0.5, а не ~0 как у hashing).
+
+Замеры на HSE-кейсах (cosine similarity, hash-v2 → rubert-tiny2):
+синонимы 0.39–0.59 → **0.67–0.73**; перефраз без общих слов 0.14 → **0.71**;
+несвязанные 0.00 → 0.37–0.48 (порог различим).
+
+**3. `openrouter`** — `OpenRouterEmbeddingService`
 (`src/integrations/llm/openrouter_embeddings.py`):
 
 - POST `https://openrouter.ai/api/v1/embeddings` (OpenAI-совместимый);
@@ -214,7 +232,9 @@ EMBEDDING_MODEL_NAME = "local/hash-ngrams-v2"   # локальный baseline
 Env-переменные:
 
 ```text
-EMBEDDINGS_PROVIDER=local|openrouter        # default: local
+EMBEDDINGS_PROVIDER=local|huggingface|openrouter   # default: local
+HF_EMBEDDING_MODEL=...                      # default: cointegrated/rubert-tiny2
+HF_EMBEDDING_MAX_TOKENS=512
 OPENROUTER_EMBEDDING_MODEL=...              # default: openai/text-embedding-3-small
 OPENROUTER_EMBEDDING_TIMEOUT=30
 OPENROUTER_EMBEDDING_MAX_RETRIES=3

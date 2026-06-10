@@ -36,9 +36,9 @@ export default function SimilarIncidentsPanel({
     setError(null)
     setSearched(true)
     try {
+      // threshold не передаём — бэкенд подбирает порог под провайдер эмбеддингов
       const data = await api.similarIncidents(query, {
         limit: 5,
-        threshold: 0.15,
         excludeResultId,
         excludeIncidentId,
       })

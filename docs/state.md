@@ -13,6 +13,8 @@
 - LLM: `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст)
 - Embeddings: провайдер выбирается через `EMBEDDINGS_PROVIDER`
   - `local` (default): `local/hash-ngrams-v2`, 384 dim — стемминг + словарь HSE-синонимов
+  - `huggingface` (рекомендуется): локальная предобученная модель `cointegrated/rubert-tiny2`
+    (29M, ~120MB, CPU), extras `pip install -e ".[embeddings]"`, model_name `hf/...`
   - `openrouter`: `openai/text-embedding-3-small` (или любая из OPENROUTER_EMBEDDING_MODEL), приводится к 384 dim
 
 ## Готово
@@ -65,9 +67,24 @@
   - ✅ `backfill_missing_embeddings` переиндексирует записи другой модели (ленивая миграция при смене провайдера)
   - ✅ `.env.example`: блок Embeddings (EMBEDDINGS_PROVIDER, OPENROUTER_EMBEDDING_*)
   - ✅ Тесты: `tests/unit/test_embedding_quality.py` (11), `tests/unit/test_openrouter_embeddings.py` (11, respx)
+- [x] **Приоритет E2 — Локальная предобученная HF-модель эмбеддингов** (11.06.2026)
+  - ✅ `HFLocalEmbeddingService` (`src/integrations/embeddings/hf_local.py`)
+    - default `cointegrated/rubert-tiny2` (29M, ~120MB, CPU; лучший баланс для русского по encodechka)
+    - mean pooling + L2-нормализация + паддинг 312→384; E5-модели получают префикс `query:`
+    - ленивая потокобезопасная загрузка, инференс в `asyncio.to_thread`, кэширование ошибки загрузки
+  - ✅ `EMBEDDINGS_PROVIDER=huggingface|hf` в фабрике `get_embedding_service()`
+  - ✅ Optional extras `[embeddings]` в pyproject.toml (torch CPU + transformers) — основной образ не тяжелеет
+  - ✅ Автофолбэк на `local/hash-ngrams-v2`, если torch/transformers не установлены или модель недоступна
+  - ✅ Качество на HSE-кейсах (similarity, hash-v2 → rubert-tiny2):
+    - синонимы: 0.39–0.59 → **0.67–0.73**
+    - перефраз без общих слов («травма при разгрузке фуры» ↔ «повредил руку при выгрузке грузовика»): 0.14 → **0.71**
+    - несвязанные: 0.00 → 0.37–0.48 → рекомендуемый threshold для HF: **0.55–0.6**
+  - ✅ Тесты: `tests/unit/test_hf_local_embeddings.py` (12 юнит + 1 интеграционный `@pytest.mark.slow`)
+  - ✅ pytest: маркер `slow`, по умолчанию `-m 'not slow'` (медленные тесты не гоняются в CI)
 
 ## Проверки
-- `python -m pytest tests/ -q` → **215 passed, 8 warnings**
+- `python -m pytest tests/ -q` → **227 passed, 1 deselected (slow), 8 warnings**
+- `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
   - Остались только предсуществующие `httpx` deprecation warnings по per-request cookies в CSRF-тестах.
 - `ruff check` по изменённым файлам → чисто.
 - `npm run build` во frontend → **успешно** после регенерации `package-lock.json` с optional Rollup/esbuild packages.
@@ -78,6 +95,8 @@
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе и сравнить качество с local v2.
 
 ## Известные проблемы / нюансы
+- `EMBEDDINGS_PROVIDER=huggingface`: первый запрос скачивает модель с HF Hub (~120MB) — в Docker стоит смонтировать volume под `HF_HOME`, чтобы кэш переживал пересборку. Для нейросетевых эмбеддингов дефолтный `threshold=0.15` слишком низкий — используйте 0.55–0.6.
+- Смешивать провайдеры безопасно: поиск фильтрует по `model_name`, backfill лениво переиндексирует чужие векторы.
 - При `EMBEDDINGS_PROVIDER=openrouter` embeddings становятся платными запросами (text-embedding-3-small ≈ $0.02/1M токенов); при недоступности API всё автоматически работает через local v2.
 - После смены провайдера старые векторы переиндексируются лениво (батчами по 100 при каждом поиске похожих); до полной переиндексации часть старых результатов не попадает в выдачу.
 - Для production БД требуется `pgvector`: Docker Compose уже переведён на `pgvector/pgvector:pg16`, миграция создаёт `CREATE EXTENSION IF NOT EXISTS vector`.

@@ -35,6 +35,7 @@ from src.domain.models import (
     SimilarIncident,
 )
 from src.services.analysis_service import AnalysisService
+from src.services.embedding_service import default_similarity_threshold
 
 logger = logging.getLogger(__name__)
 
@@ -294,12 +295,18 @@ async def find_similar_incidents(
     current_user: CurrentUser,
     text: str = Query(..., min_length=3, max_length=5000, description="Текст нового инцидента"),
     limit: int = Query(5, ge=1, le=20),
-    threshold: float = Query(0.15, ge=0.0, le=1.0),
+    threshold: float | None = Query(
+        None, ge=0.0, le=1.0,
+        description="Порог похожести; если не задан — подбирается под провайдер эмбеддингов",
+    ),
     exclude_result_id: str | None = Query(None),
     exclude_incident_id: str | None = Query(None),
 ) -> list[SimilarIncident]:
     repo = RCARepository(db)
     user_filter = None if current_user.role == "admin" else current_user.user_id
+    # У hashing-эмбеддингов несвязанные тексты ~0, у нейросетевых ~0.4-0.5 —
+    # дефолтный порог зависит от EMBEDDINGS_PROVIDER (см. embedding_service).
+    effective_threshold = threshold if threshold is not None else default_similarity_threshold()
 
     try:
         await repo.backfill_missing_embeddings(user_id=user_filter, limit=100)
@@ -307,7 +314,7 @@ async def find_similar_incidents(
             text=text,
             user_id=user_filter,
             limit=limit,
-            threshold=threshold,
+            threshold=effective_threshold,
             exclude_result_id=exclude_result_id,
             exclude_incident_id=exclude_incident_id,
         )

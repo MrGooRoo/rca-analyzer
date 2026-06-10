@@ -1,18 +1,26 @@
 """
 Сервисы эмбеддингов для поиска похожих инцидентов.
 
-Два провайдера (выбор через env `EMBEDDINGS_PROVIDER`):
+Три провайдера (выбор через env `EMBEDDINGS_PROVIDER`):
 
 1. `local` (по умолчанию) — `LocalHashEmbeddingService`, модель `local/hash-ngrams-v2`:
-   - детерминированный feature hashing без внешних API;
+   - детерминированный feature hashing без внешних API и зависимостей;
    - v2: лёгкий русский стемминг + словарь HSE-синонимов, поэтому
      «упал со стремянки» и «падение с лестницы» получают высокую похожесть.
 
-2. `openrouter` — `OpenRouterEmbeddingService` (см. src/integrations/llm/openrouter_embeddings.py):
+2. `huggingface` — `HFLocalEmbeddingService` (см. src/integrations/embeddings/hf_local.py):
+   - локальная предобученная модель (default cointegrated/rubert-tiny2, 29M, CPU);
+   - настоящая семантика без внешних API в рантайме; модель скачивается
+     один раз с HF Hub и кэшируется на диске;
+   - требует extras: pip install -e ".[embeddings]".
+
+3. `openrouter` — `OpenRouterEmbeddingService` (см. src/integrations/llm/openrouter_embeddings.py):
    - настоящая семантическая модель через POST /embeddings OpenRouter;
-   - при ошибке сети/API репозиторий автоматически откатывается на локальный
-     сервис (вектор сохраняется с локальным model_name, чтобы не смешивать
-     пространства разных моделей).
+   - платные запросы, требуется OPENROUTER_API_KEY.
+
+При ошибке внешнего/тяжёлого провайдера (`EmbeddingServiceError`) репозиторий
+автоматически откатывается на локальный hashing-сервис (вектор сохраняется
+с локальным model_name, чтобы не смешивать пространства разных моделей).
 
 Контракт хранения: вектор всегда размерности EMBEDDING_DIMENSION (384),
 нормализованный; в `result_embeddings.model_name` пишется модель, которая
@@ -211,13 +219,27 @@ def get_embedding_service() -> EmbeddingService:
     """
     Вернуть embedding-сервис согласно окружению.
 
-    EMBEDDINGS_PROVIDER=local      → LocalHashEmbeddingService (по умолчанию)
-    EMBEDDINGS_PROVIDER=openrouter → OpenRouterEmbeddingService
-                                     (модель из OPENROUTER_EMBEDDING_MODEL)
+    EMBEDDINGS_PROVIDER=local       → LocalHashEmbeddingService (по умолчанию)
+    EMBEDDINGS_PROVIDER=huggingface → HFLocalEmbeddingService
+                                      (локальная предобученная модель,
+                                      HF_EMBEDDING_MODEL, default rubert-tiny2)
+    EMBEDDINGS_PROVIDER=openrouter  → OpenRouterEmbeddingService
+                                      (модель из OPENROUTER_EMBEDDING_MODEL)
 
     Экземпляры кэшируются по ключу provider+model.
     """
     provider = os.getenv("EMBEDDINGS_PROVIDER", "local").strip().lower()
+
+    if provider in ("huggingface", "hf"):
+        from src.integrations.embeddings.hf_local import (
+            DEFAULT_HF_MODEL,
+            HFLocalEmbeddingService,
+        )
+        model = os.getenv("HF_EMBEDDING_MODEL", DEFAULT_HF_MODEL).strip()
+        cache_key = f"huggingface:{model}"
+        if cache_key not in _service_cache:
+            _service_cache[cache_key] = HFLocalEmbeddingService(model=model)
+        return _service_cache[cache_key]
 
     if provider == "openrouter":
         from src.integrations.llm.openrouter_embeddings import (
@@ -239,6 +261,29 @@ def get_embedding_service() -> EmbeddingService:
 def reset_embedding_service_cache() -> None:
     """Сбросить кэш фабрики (используется в тестах при смене env)."""
     _service_cache.clear()
+
+
+def default_similarity_threshold() -> float:
+    """
+    Дефолтный порог похожести для текущего провайдера.
+
+    У hashing-эмбеддингов несвязанные тексты дают similarity ~0, поэтому
+    порог низкий. У нейросетевых моделей (HF/OpenRouter) даже несвязанные
+    тексты дают ~0.4–0.5, поэтому порог выше.
+
+    Переопределяется через env SIMILARITY_THRESHOLD.
+    """
+    env_value = os.getenv("SIMILARITY_THRESHOLD", "").strip()
+    if env_value:
+        try:
+            return max(0.0, min(1.0, float(env_value)))
+        except ValueError:
+            pass
+
+    provider = os.getenv("EMBEDDINGS_PROVIDER", "local").strip().lower()
+    if provider in ("huggingface", "hf", "openrouter"):
+        return 0.55
+    return 0.15
 
 
 # ---------------------------------------------------------------------------

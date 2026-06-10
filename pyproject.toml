@@ -31,6 +31,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Локальные HF-эмбеддинги (EMBEDDINGS_PROVIDER=huggingface).
+# torch ставится CPU-версией: pip install torch --index-url https://download.pytorch.org/whl/cpu
+embeddings = [
+    "torch>=2.2",
+    "transformers>=4.40",
+]
 dev = [
     "pytest>=8.2",
     "pytest-asyncio>=0.23",
@@ -43,6 +49,10 @@ dev = [
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
+markers = [
+    "slow: медленные тесты (реальные HF-модели); запускать: pytest -m slow",
+]
+addopts = "-m 'not slow'"
 testpaths  = ["tests"]
 
 [tool.ruff]
