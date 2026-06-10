@@ -11,9 +11,11 @@
 - **hazard** — источник потенциального вреда (опасность)
 - **top_event** — событие потери контроля / высвобождение опасности (узел галстука)
 - **threats** (ЛЕВОЕ крыло) — угрозы/причины, приводящие к top_event (это корневые причины)
-- **prevention_barriers** — барьеры между каждой угрозой и top_event
+- **prevention_barriers** — барьеры предотвращения между угрозами и top_event.
+  Для каждой угрозы указывай ВСЕ применимые барьеры (может быть несколько на одну угрозу).
 - **consequences** (ПРАВОЕ крыло) — последствия, следующие за top_event
-- **mitigation_barriers** — барьеры между top_event и каждым последствием
+- **mitigation_barriers** — барьеры смягчения между top_event и последствиями.
+  Для каждого последствия указывай ВСЕ применимые барьеры (может быть несколько на одно последствие).
 - Типы барьеров: PHYSICAL | PROCEDURAL | BEHAVIOURAL | MONITORING | RECOVERY
 - degraded=true означает, что барьер существовал, но был нарушен/обойдён в данном инциденте
 
@@ -44,7 +46,7 @@
       "category": "BOWTIE:THREAT",
       "level": 1,
       "parent_id": "top-1",
-      "confidence": 0.0
+      "confidence": 0.85
     }
   ],
   "prevention_barriers": [
@@ -57,7 +59,18 @@
       "category": "BOWTIE:PREVENTION",
       "level": 1,
       "parent_id": "<id угрозы>",
-      "confidence": 0.0
+      "confidence": 0.9
+    },
+    {
+      "id": "<uuid>",
+      "text": "<второй барьер для той же угрозы (если применимо)>",
+      "barrier_type": "PROCEDURAL",
+      "degraded": true,
+      "threat_id": "<тот же id угрозы>",
+      "category": "BOWTIE:PREVENTION",
+      "level": 1,
+      "parent_id": "<тот же id угрозы>",
+      "confidence": 0.75
     }
   ],
   "consequences": [
@@ -67,7 +80,7 @@
       "category": "BOWTIE:CONSEQUENCE",
       "level": 1,
       "parent_id": "top-1",
-      "confidence": 0.0
+      "confidence": 0.9
     }
   ],
   "mitigation_barriers": [
@@ -80,7 +93,7 @@
       "category": "BOWTIE:MITIGATION",
       "level": 1,
       "parent_id": "<id последствия>",
-      "confidence": 0.0
+      "confidence": 0.8
     }
   ],
   "summary": "<2–3 предложения на русском: опасность, событие потери контроля, критические отказы барьеров, ключевые рекомендации>",
@@ -96,9 +109,10 @@
 ```
 
 Требования к качеству:
-- Каждая угроза должна иметь минимум один prevention_barrier
-- Каждое последствие должно иметь минимум один mitigation_barrier
+- Каждая угроза должна иметь МИНИМУМ ОДИН prevention_barrier; если применимо — указывай несколько барьеров на одну угрозу
+- Каждое последствие должно иметь МИНИМУМ ОДИН mitigation_barrier; если применимо — указывай несколько барьеров на одно последствие
 - Барьеры, которые были нарушены в инциденте, должны иметь degraded=true
+- confidence отражает реальную уверенность (0.0–1.0), НЕ копируй значения из примера
 - Минимум 3 угрозы и 2 последствия
 - Все parent_id должны ссылаться на реально определённые id
 {% endblock %}
