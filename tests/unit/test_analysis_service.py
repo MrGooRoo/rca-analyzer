@@ -102,12 +102,15 @@ class TestAnalysisService:
 
     @pytest.mark.asyncio
     async def test_unsupported_methodology_raises(self, request_obj, valid_llm_payload):
-        request_obj.methodology = MethodologyType.BOWTIE  # не реализован
+        """Все 5 методик реализованы — несуществующая должна вызывать ошибку."""
+        request_obj.methodology = "nonexistent_methodology"  # type: ignore[assignment]
         service = AnalysisService(
             llm_client=_mock_llm(valid_llm_payload),
             prompt_renderer=_mock_renderer(),
         )
-        with pytest.raises(MethodologyNotSupportedError):
+        # Несуществующая методика — ValueError при создании enum,
+        # либо MethodologyNotSupportedError если как-то передана.
+        with pytest.raises((MethodologyNotSupportedError, ValueError)):
             await service.analyze(request_obj)
 
     def test_supported_methodologies(self):

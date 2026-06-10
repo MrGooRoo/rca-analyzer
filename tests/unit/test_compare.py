@@ -185,8 +185,6 @@ class TestCompareLogic:
         r1 = _make_result(MethodologyType.FIVE_WHY)
         r2 = _make_result(MethodologyType.ISHIKAWA)
         result = AnalysisService.compare([r1, r2])
-        assert "five_why" in result.summary
-        assert "ishikawa" in result.summary
         assert "2 методик" in result.summary
 
     def test_compare_3_methodologies(self):

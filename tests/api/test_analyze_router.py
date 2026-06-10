@@ -13,6 +13,9 @@ import pytest
 from httpx import AsyncClient, ASGITransport
 
 from src.api.app import app
+from src.auth.models import UserInfo
+from src.auth.service import get_current_user
+from src.db.base import get_db
 from src.domain.models import (
     CauseNode,
     LLMResponseValidationError,
@@ -26,6 +29,26 @@ from src.domain.models import (
 # ---------------------------------------------------------------------------
 # Фикстуры
 # ---------------------------------------------------------------------------
+
+TEST_USER = UserInfo(
+    user_id="test-user-001",
+    email="test@test.com",
+    display_name="Test User",
+    role="user",
+)
+
+
+def _override_user(user: UserInfo):
+    async def _dep() -> UserInfo:
+        return user
+    return _dep
+
+
+def _override_db():
+    async def _dep():
+        yield AsyncMock()
+    return _dep
+
 
 @pytest.fixture
 def valid_request_payload() -> dict:
@@ -67,8 +90,14 @@ def mock_rca_result() -> RCAResult:
 
 @pytest.fixture
 async def async_client():
+    """Клиент с переопределёнными зависимостями (auth + db)."""
+    app.dependency_overrides[get_db] = _override_db()
+    app.dependency_overrides[get_current_user] = _override_user(TEST_USER)
+
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         yield client
+
+    app.dependency_overrides.clear()
 
 
 # ---------------------------------------------------------------------------
@@ -113,7 +142,11 @@ class TestAnalyzeEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_result_not_found(self, async_client):
-        response = await async_client.get("/api/v1/results/nonexistent-id")
+        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            mock_repo = AsyncMock()
+            mock_repo.get_result = AsyncMock(return_value=None)
+            MockRepo.return_value = mock_repo
+            response = await async_client.get("/api/v1/results/nonexistent-id")
         assert response.status_code == 404
 
     @pytest.mark.asyncio
@@ -122,7 +155,12 @@ class TestAnalyzeEndpoint:
             mock_service.analyze = AsyncMock(return_value=mock_rca_result)
             await async_client.post("/api/v1/analyze", json=valid_request_payload)
 
-        response = await async_client.get("/api/v1/results/test-uuid-001")
+        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            mock_repo = AsyncMock()
+            mock_repo.get_result = AsyncMock(return_value=mock_rca_result)
+            MockRepo.return_value = mock_repo
+            response = await async_client.get("/api/v1/results/test-uuid-001")
+
         assert response.status_code == 200
         assert response.json()["result_id"] == "test-uuid-001"
 
