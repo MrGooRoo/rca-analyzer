@@ -4,6 +4,9 @@ FastAPI-роутер: загрузка DOCX-отчёта и извлечение
 Эндпоинт принимает multipart/form-data с DOCX-файлом,
 извлекает текст и отправляет в LLM для структурирования.
 
+Кэш: повторная загрузка того же файла (по SHA-256) пропускает LLM и
+возвращает результат из БД за миллисекунды.
+
 Защита: auth-cookie (или Bearer) + CSRF.
 """
 
@@ -20,15 +23,19 @@ import asyncio
 
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
+from src.db.base import get_async_session
 from src.services.docx_extractor import extract_text_from_docx
 from src.services.docx_fields_service import extract_fields_from_text
+from src.services.docx_cache_service import get_or_extract
 from src.domain.models import LLMResponseValidationError
+from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["upload"])
 
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
+DBSession = Annotated[AsyncSession, Depends(get_async_session)]
 
 # Лимит размера файла: 10 МБ
 MAX_FILE_SIZE = 10 * 1024 * 1024
@@ -94,65 +101,73 @@ class ExtractedFields(BaseModel):
     victims_list: List[VictimFields] = Field(default_factory=list)
 
 
-@router.post(
-    "/upload-report",
-    response_model=ExtractedFields,
-    status_code=status.HTTP_200_OK,
-    summary="Загрузить DOCX-отчёт и извлечь поля инцидента через LLM",
-)
-async def upload_report(
-    current_user: CurrentUser,
-    file: UploadFile = File(..., description="DOCX-файл отчёта об инциденте"),
-) -> ExtractedFields:
-    # --- Валидация файла ---
-    filename = file.filename or ""
+def _validate_docx_file(filename: str, file_bytes: bytes) -> None:
+    """Общая валидация загружаемого файла. Бросает HTTPException при ошибке."""
     if not filename.lower().endswith(".docx"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Допустимы только файлы формата .docx",
         )
-
-    # Читаем содержимое
-    file_bytes = await file.read()
-
     if len(file_bytes) == 0:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Файл пустой",
         )
-
     if len(file_bytes) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Файл слишком большой (макс. {MAX_FILE_SIZE // (1024*1024)} МБ)",
+            detail=f"Файл слишком большой (макс. {MAX_FILE_SIZE // (1024 * 1024)} МБ)",
         )
+
+
+def _normalize_victims(fields: dict) -> list:
+    """Привести victims_list к списку VictimFields-объектов."""
+    raw_victims = fields.get("victims_list", [])
+    result = []
+    for v in raw_victims:
+        if isinstance(v, dict):
+            try:
+                result.append(VictimFields(**v))
+            except Exception:
+                result.append(VictimFields())
+    return result
+
+
+def _normalize_victims_as_dicts(fields: dict) -> list:
+    """Привести victims_list к списку plain dict (для SSE-ответа)."""
+    raw_victims = fields.get("victims_list", [])
+    result = []
+    for v in raw_victims:
+        if isinstance(v, dict):
+            try:
+                result.append(VictimFields(**v).model_dump())
+            except Exception:
+                pass
+    return result
+
+
+@router.post(
+    "/upload-report",
+    response_model=ExtractedFields,
+    status_code=status.HTTP_200_OK,
+    summary="Загрузить DOCX-отчёт и извлечь поля инцидента через LLM (с кэшем)",
+)
+async def upload_report(
+    current_user: CurrentUser,
+    db: DBSession,
+    file: UploadFile = File(..., description="DOCX-файл отчёта об инциденте"),
+) -> ExtractedFields:
+    filename = file.filename or ""
+    file_bytes = await file.read()
+    _validate_docx_file(filename, file_bytes)
 
     logger.info(
         "[Upload] Пользователь %s загружает файл '%s' (%d байт)",
-        current_user.user_id,
-        filename,
-        len(file_bytes),
+        current_user.user_id, filename, len(file_bytes),
     )
 
-    # --- Извлечение текста из DOCX ---
     try:
-        report_text = extract_text_from_docx(file_bytes)
-    except Exception as exc:
-        logger.error("[Upload] Ошибка парсинга DOCX: %s", exc)
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Не удалось прочитать DOCX-файл. Убедитесь, что файл не повреждён.",
-        ) from exc
-
-    if not report_text.strip():
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Документ не содержит текста",
-        )
-
-    # --- Извлечение полей через LLM ---
-    try:
-        fields = await extract_fields_from_text(report_text)
+        fields = await get_or_extract(file_bytes, db)
     except LLMResponseValidationError as exc:
         logger.error("[Upload] LLM не вернул валидный ответ: %s", exc)
         raise HTTPException(
@@ -165,52 +180,53 @@ async def upload_report(
             detail=str(exc),
         ) from exc
 
-    # Нормализуем victims_list в объекты VictimFields
-    raw_victims = fields.get("victims_list", [])
-    victims_parsed = []
-    for v in raw_victims:
-        if isinstance(v, dict):
-            try:
-                victims_parsed.append(VictimFields(**v))
-            except Exception:
-                victims_parsed.append(VictimFields())
-    fields["victims_list"] = victims_parsed
-
+    fields["victims_list"] = _normalize_victims(fields)
     return ExtractedFields(**fields)
+
 
 @router.post(
     "/upload-report-stream",
     status_code=status.HTTP_200_OK,
-    summary="Загрузить DOCX-отчёт и извлечь поля инцидента через LLM (SSE-поток)",
+    summary="Загрузить DOCX-отчёт и извлечь поля инцидента через LLM (SSE-поток, с кэшем)",
 )
 async def upload_report_stream(
     current_user: CurrentUser,
+    db: DBSession,
     file: UploadFile = File(..., description="DOCX-файл отчёта об инциденте"),
 ):
-    # --- Валидация файла ---
     filename = file.filename or ""
-    if not filename.lower().endswith(".docx"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Допустимы только файлы формата .docx",
-        )
-
     file_bytes = await file.read()
 
-    if len(file_bytes) == 0:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Файл пустой")
+    try:
+        _validate_docx_file(filename, file_bytes)
+    except HTTPException as exc:
+        # При валидационной ошибке отдаём SSE с error, а не HTTP 4xx,
+        # чтобы фронтенд мог его обработать через EventSource.
+        async def _err():
+            yield f"data: {json.dumps({'status': 'error', 'message': exc.detail})}\n\n"
+        return StreamingResponse(_err(), media_type="text/event-stream")
 
-    if len(file_bytes) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Файл слишком большой (макс. {MAX_FILE_SIZE // (1024*1024)} МБ)",
-        )
+    import hashlib
+    file_hash = hashlib.sha256(file_bytes).hexdigest()
 
     async def event_generator():
-        # Стадия 1: Чтение документа
+        from src.db.cache_repository import ExtractionCacheRepository
+        repo = ExtractionCacheRepository(db)
+
+        # --- Проверка кэша ---
+        cached = await repo.get(file_hash)
+        if cached is not None:
+            logger.info("[UploadStream] Кэш-попадание: hash=%s", file_hash[:16])
+            cached["victims_list"] = _normalize_victims_as_dicts(cached)
+            yield f"data: {json.dumps({'status': 'cache_hit', 'message': 'Результат из кэша (повторный файл)'})}\n\n"
+            await asyncio.sleep(0.05)
+            yield f"data: {json.dumps({'status': 'done', 'result': cached})}\n\n"
+            return
+
+        # --- Кэш-промах: полный pipeline ---
         yield f"data: {json.dumps({'status': 'reading', 'message': 'Извлечение текста из документа...'})}\n\n"
-        await asyncio.sleep(0.1) # Даем событию отправиться
-        
+        await asyncio.sleep(0.05)
+
         try:
             report_text = extract_text_from_docx(file_bytes)
         except Exception as exc:
@@ -222,9 +238,8 @@ async def upload_report_stream(
             yield f"data: {json.dumps({'status': 'error', 'message': 'Документ не содержит текста'})}\n\n"
             return
 
-        # Стадия 2: LLM
-        yield f"data: {json.dumps({'status': 'analyzing', 'message': 'Анализ текста в LLM (это может занять до 1-2 минут)...'})}\n\n"
-        
+        yield f"data: {json.dumps({'status': 'analyzing', 'message': 'Анализ текста в LLM (это может занять до 6-7 минут)...'})}\n\n"
+
         try:
             fields = await extract_fields_from_text(report_text)
         except LLMResponseValidationError as exc:
@@ -239,18 +254,10 @@ async def upload_report_stream(
             yield f"data: {json.dumps({'status': 'error', 'message': 'Произошла непредвиденная ошибка при анализе отчёта.'})}\n\n"
             return
 
-        # Нормализуем victims_list
-        raw_victims = fields.get("victims_list", [])
-        victims_parsed = []
-        for v in raw_victims:
-            if isinstance(v, dict):
-                try:
-                    victims_parsed.append(VictimFields(**v).model_dump())
-                except Exception:
-                    pass
-        fields["victims_list"] = victims_parsed
+        # Сохраняем в кэш (без нормализованных жертв — храним raw dict)
+        await repo.save(file_hash, fields)
 
-        # Стадия 3: Готово
+        fields["victims_list"] = _normalize_victims_as_dicts(fields)
         yield f"data: {json.dumps({'status': 'done', 'result': fields})}\n\n"
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")

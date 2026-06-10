@@ -2,12 +2,13 @@
 ORM-модели (таблицы БД).
 
 Схема:
-    users            — учётные записи пользователей
-    refresh_tokens   — refresh-сессии для httpOnly cookie
-    incidents        — входные данные инцидента
-    rca_results      — результат анализа (summary, модель, токены)
-    causal_nodes     — все узлы дерева причин (IC / CC / RC)
-    recommendations  — корректирующие мероприятия
+    users                   — учётные записи пользователей
+    refresh_tokens          — refresh-сессии для httpOnly cookie
+    incidents               — входные данные инцидента
+    rca_results             — результат анализа (summary, модель, токены)
+    causal_nodes            — все узлы дерева причин (IC / CC / RC)
+    recommendations         — корректирующие мероприятия
+    docx_extraction_cache   — кэш результатов LLM-извлечения по хешу файла
 """
 
 from __future__ import annotations
@@ -157,3 +158,26 @@ class RecommendationORM(Base):
     status: Mapped[str] = mapped_column(String(20), default="open")
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")
+
+
+class DocxExtractionCacheORM(Base):
+    """
+    Кэш результатов LLM-извлечения полей из DOCX-отчётов.
+
+    Ключ: SHA-256 от байт файла (file_hash).
+    Значение: JSON-строка с извлечёнными полями (extracted_fields_json).
+
+    Позволяет при повторной загрузке того же файла пропустить
+    все 4 параллельных LLM-запроса (~6 мин) и вернуть результат
+    из БД за миллисекунды.
+    """
+    __tablename__ = "docx_extraction_cache"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    file_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    extracted_fields_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    hit_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
+    last_hit_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
