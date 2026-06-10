@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
 import './HistoryPage.css'
 
@@ -21,58 +21,33 @@ const SEVERITY_COLORS = {
 const PAGE_SIZE = 20
 
 /**
- * Группирует результаты по incident_id.
- * Если у инцидента > 1 результата — это «Сравнение моделей».
- * Возвращает массив элементов вида:
- *   { type: 'single', result }  — одиночный анализ
- *   { type: 'compare', incidentId, results, incident, created_at } — группа сравнения
+ * Помечает каждую запись: isCompare=true если её incident_id
+ * встречается у других записей в том же наборе.
  */
-function groupByIncident(items) {
-  const map = new Map()
+function markCompareItems(items) {
+  const incidentCounts = {}
   for (const r of items) {
-    const key = r.incident_id || r.result_id
-    if (!map.has(key)) map.set(key, [])
-    map.get(key).push(r)
+    const key = r.incident_id
+    if (key) incidentCounts[key] = (incidentCounts[key] || 0) + 1
   }
-
-  const groups = []
-  for (const [incidentId, results] of map) {
-    if (results.length === 1) {
-      groups.push({ type: 'single', result: results[0] })
-    } else {
-      // Сортируем по дате создания внутри группы
-      results.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-      groups.push({
-        type: 'compare',
-        incidentId,
-        results,
-        incident: results[0].incident,
-        created_at: results[0].created_at,
-        summary: results[0].summary,
-        user_id: results[0].user_id,
-        user_display_name: results[0].user_display_name,
-        user_email: results[0].user_email,
-      })
-    }
-  }
-
-  // Сортируем группы по дате последнего результата (новые вверху)
-  groups.sort((a, b) => {
-    const dateA = a.type === 'single' ? a.result.created_at : a.created_at
-    const dateB = b.type === 'single' ? b.result.created_at : b.created_at
-    return new Date(dateB) - new Date(dateA)
-  })
-
-  return groups
+  return items.map(r => ({
+    ...r,
+    isCompare: r.incident_id ? (incidentCounts[r.incident_id] > 1) : false,
+  }))
 }
 
 export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
   const isAdmin = currentUser?.role === 'admin'
-  const [items, setItems]     = useState([])
-  const [offset, setOffset]   = useState(0)
-  const [loading, setLoading] = useState(false)
-  const [error, setError]     = useState(null)
-  const [search, setSearch]   = useState('')
+  const [items, setItems]       = useState([])
+  const [offset, setOffset]     = useState(0)
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState(null)
+
+  // Фильтры
+  const [search, setSearch]         = useState('')
+  const [filterMethod, setFilterMethod] = useState('') // methodology key | ''
+  const [filterSeverity, setFilterSeverity] = useState('') // severity key | ''
+  const [filterType, setFilterType] = useState('') // '' | 'single' | 'compare'
 
   const load = useCallback(async (off) => {
     setLoading(true)
@@ -92,86 +67,142 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
   function prev() { const o = Math.max(0, offset - PAGE_SIZE); setOffset(o); load(o) }
   function next() { const o = offset + PAGE_SIZE; setOffset(o); load(o) }
 
-  const filtered = search.trim()
-    ? items.filter(r =>
-        r.summary?.toLowerCase().includes(search.toLowerCase()) ||
-        r.methodology?.includes(search.toLowerCase()) ||
-        r.result_id?.includes(search)
+  function resetFilters() {
+    setSearch('')
+    setFilterMethod('')
+    setFilterSeverity('')
+    setFilterType('')
+  }
+
+  const marked = useMemo(() => markCompareItems(items), [items])
+
+  const filtered = useMemo(() => {
+    let result = marked
+
+    if (search.trim()) {
+      const q = search.toLowerCase()
+      result = result.filter(r =>
+        r.summary?.toLowerCase().includes(q) ||
+        r.result_id?.includes(q) ||
+        r.incident?.title?.toLowerCase().includes(q)
       )
-    : items
+    }
 
-  const groups = groupByIncident(filtered)
+    if (filterMethod) {
+      result = result.filter(r => r.methodology === filterMethod)
+    }
 
-  async function handleOpenComparison(group) {
-    // Строим объект сравнения из группы: загружаем свежие данные с /compare
+    if (filterSeverity) {
+      result = result.filter(r => r.incident?.severity === filterSeverity)
+    }
+
+    if (filterType === 'single') {
+      result = result.filter(r => !r.isCompare)
+    } else if (filterType === 'compare') {
+      result = result.filter(r => r.isCompare)
+    }
+
+    return result
+  }, [marked, search, filterMethod, filterSeverity, filterType])
+
+  const hasFilters = search || filterMethod || filterSeverity || filterType
+
+  async function handleOpenCompareItem(result) {
+    // Если это часть сравнения — загружаем полное сравнение по incident_id
     try {
-      const comp = await api.compareResults(group.incidentId)
+      const comp = await api.compareResults(result.incident_id)
       onOpenComparison(comp)
     } catch {
-      // Если сравнение недоступно — fallback: показываем сырые результаты
-      onOpenComparison({
-        incident_id: group.incidentId,
-        results: group.results,
-        common_recommendations: [],
-        differing_causes: {},
-        summary: group.summary || '',
-      })
+      onOpen(result) // fallback: открыть как одиночный
     }
   }
 
   return (
     <div className="history">
+      {/* ===== Толбар ===== */}
       <div className="history-toolbar">
         <h2 className="history-title">История анализов</h2>
-        <div className="history-search-wrap">
-          <input
-            className="history-search"
-            type="text"
-            placeholder="Поиск по содержанию…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-        </div>
         <button className="btn-refresh" onClick={() => load(offset)} disabled={loading}>
-          {loading ? '…' : '↻ Обновить'}
+          {loading ? '…' : '↻'}
         </button>
       </div>
 
+      {/* ===== Фильтры ===== */}
+      <div className="history-filters">
+        <input
+          className="history-search"
+          type="text"
+          placeholder="🔍 Поиск по содержанию…"
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+        />
+
+        <select
+          className="history-filter-select"
+          value={filterMethod}
+          onChange={e => setFilterMethod(e.target.value)}
+        >
+          <option value="">Все методики</option>
+          {Object.entries(METHODOLOGY_LABELS).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+
+        <select
+          className="history-filter-select"
+          value={filterSeverity}
+          onChange={e => setFilterSeverity(e.target.value)}
+        >
+          <option value="">Все уровни</option>
+          {Object.entries(SEVERITY_COLORS).map(([k, v]) => (
+            <option key={k} value={k}>{v.label}</option>
+          ))}
+        </select>
+
+        <select
+          className="history-filter-select"
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+        >
+          <option value="">Все типы</option>
+          <option value="single">Одиночные</option>
+          <option value="compare">Сравнения</option>
+        </select>
+
+        {hasFilters && (
+          <button className="btn-reset-filters" onClick={resetFilters}>
+            ✕ Сбросить
+          </button>
+        )}
+      </div>
+
+      {/* ===== Ошибка ===== */}
       {error && (
         <div className="history-error">Ошибка загрузки: {error}</div>
       )}
 
-      {!loading && !error && groups.length === 0 && (
+      {/* ===== Пусто ===== */}
+      {!loading && !error && filtered.length === 0 && (
         <div className="history-empty">
           <div className="history-empty-icon">📂</div>
-          <p>{search ? 'Ничего не найдено по запросу' : 'История пуста. Запустите первый анализ.'}</p>
+          <p>{hasFilters ? 'Ничего не найдено. Попробуйте сбросить фильтры.' : 'История пуста. Запустите первый анализ.'}</p>
         </div>
       )}
 
+      {/* ===== Плоский список ===== */}
       <div className="history-list">
-        {groups.map(group =>
-          group.type === 'single'
-            ? (
-                <HistoryCard
-                  key={group.result.result_id}
-                  result={group.result}
-                  onOpen={onOpen}
-                  isAdmin={isAdmin}
-                  currentUserId={currentUser?.user_id}
-                />
-              )
-            : (
-                <CompareCard
-                  key={group.incidentId}
-                  group={group}
-                  onOpen={() => handleOpenComparison(group)}
-                  isAdmin={isAdmin}
-                  currentUserId={currentUser?.user_id}
-                />
-              )
-        )}
+        {filtered.map(result => (
+          <HistoryCard
+            key={result.result_id}
+            result={result}
+            onOpen={result.isCompare ? handleOpenCompareItem : onOpen}
+            isAdmin={isAdmin}
+            currentUserId={currentUser?.user_id}
+          />
+        ))}
       </div>
 
+      {/* ===== Пагинация ===== */}
       {items.length === PAGE_SIZE && (
         <div className="history-pagination">
           <button className="btn-page" onClick={prev} disabled={offset === 0}>← Назад</button>
@@ -184,87 +215,56 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
 }
 
 function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
-  const sev = SEVERITY_COLORS[result.incident?.severity] || SEVERITY_COLORS.moderate
+  const sev  = SEVERITY_COLORS[result.incident?.severity] || null
   const date = new Date(result.created_at).toLocaleString('ru-RU', {
     day: '2-digit', month: '2-digit', year: 'numeric',
     hour: '2-digit', minute: '2-digit',
   })
-
-  const isMine = result.user_id === currentUserId
+  const isMine     = result.user_id === currentUserId
   const authorName = result.user_display_name || result.user_email || null
 
   return (
-    <div className="hcard" onClick={() => onOpen(result)}>
+    <div
+      className={`hcard ${result.isCompare ? 'hcard--compare' : ''}`}
+      onClick={() => onOpen(result)}
+    >
       <div className="hcard-left">
         <div className="hcard-top">
-          <span className="hcard-method">{METHODOLOGY_LABELS[result.methodology] || result.methodology}</span>
+
+          {/* Методика */}
+          <span className={`hcard-method ${result.isCompare ? 'hcard-method--compare' : ''}`}>
+            {METHODOLOGY_LABELS[result.methodology] || result.methodology}
+          </span>
+
+          {/* Бейдж сравнения */}
+          {result.isCompare && (
+            <span className="hcard-compare-badge">⚖️ Сравнение</span>
+          )}
+
+          {/* Автор (admin) */}
           {isAdmin && authorName && (
             <span className={`hcard-author ${isMine ? 'hcard-author--self' : ''}`}>
               👤 {authorName}{isMine ? ' (вы)' : ''}
             </span>
           )}
-          {result.incident?.severity && (
-            <span
-              className="hcard-severity"
-              style={{ background: sev.bg, color: sev.color }}
-            >{sev.label}</span>
+
+          {/* Тяжесть */}
+          {sev && (
+            <span className="hcard-severity" style={{ background: sev.bg, color: sev.color }}>
+              {sev.label}
+            </span>
           )}
+
           <span className="hcard-date">{date}</span>
         </div>
+
         <p className="hcard-summary">{result.summary}</p>
+
         <div className="hcard-footer">
           <span className="hcard-id">#{result.result_id.slice(0, 8)}</span>
           <span className="hcard-stat">{result.recommendations?.length || 0} рек.</span>
           <span className="hcard-stat">{result.tokens_used} ток.</span>
           <span className="hcard-stat">{((result.confidence_avg || 0) * 100).toFixed(0)}% ув.</span>
-        </div>
-      </div>
-      <div className="hcard-arrow">›</div>
-    </div>
-  )
-}
-
-function CompareCard({ group, onOpen, isAdmin, currentUserId }) {
-  const sev = SEVERITY_COLORS[group.incident?.severity] || SEVERITY_COLORS.moderate
-  const date = new Date(group.created_at).toLocaleString('ru-RU', {
-    day: '2-digit', month: '2-digit', year: 'numeric',
-    hour: '2-digit', minute: '2-digit',
-  })
-
-  const isMine = group.user_id === currentUserId
-  const authorName = group.user_display_name || group.user_email || null
-  const methodLabels = group.results
-    .map(r => METHODOLOGY_LABELS[r.methodology] || r.methodology)
-    .join(' · ')
-
-  const totalRecs = group.results.reduce((acc, r) => acc + (r.recommendations?.length || 0), 0)
-  const totalTokens = group.results.reduce((acc, r) => acc + (r.tokens_used || 0), 0)
-
-  return (
-    <div className="hcard hcard--compare" onClick={onOpen}>
-      <div className="hcard-left">
-        <div className="hcard-top">
-          <span className="hcard-method hcard-method--compare">🔬 Сравнение моделей</span>
-          <span className="hcard-compare-methods">{methodLabels}</span>
-          {isAdmin && authorName && (
-            <span className={`hcard-author ${isMine ? 'hcard-author--self' : ''}`}>
-              👤 {authorName}{isMine ? ' (вы)' : ''}
-            </span>
-          )}
-          {group.incident?.severity && (
-            <span
-              className="hcard-severity"
-              style={{ background: sev.bg, color: sev.color }}
-            >{sev.label}</span>
-          )}
-          <span className="hcard-date">{date}</span>
-        </div>
-        <p className="hcard-summary">{group.summary}</p>
-        <div className="hcard-footer">
-          <span className="hcard-id">#{group.incidentId.slice(0, 8)}</span>
-          <span className="hcard-stat">{group.results.length} методики</span>
-          <span className="hcard-stat">{totalRecs} рек.</span>
-          <span className="hcard-stat">{totalTokens} ток.</span>
         </div>
       </div>
       <div className="hcard-arrow">›</div>
