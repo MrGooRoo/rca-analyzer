@@ -1,0 +1,117 @@
+/* AnalysisProgress — прогресс анализа (SSE) */
+
+.ap-root {
+  background: #f8f9fa;
+  border: 1px solid #dee2e6;
+  border-radius: 8px;
+  padding: 16px 20px;
+  margin: 16px 0;
+  font-size: 14px;
+  max-width: 480px;
+}
+
+.ap-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.ap-title {
+  font-weight: 600;
+  font-size: 15px;
+  color: #212529;
+}
+
+.ap-counter {
+  font-size: 13px;
+  color: #6c757d;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Прогресс-бар */
+.ap-bar-track {
+  height: 6px;
+  background: #e9ecef;
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+.ap-bar-fill {
+  height: 100%;
+  background: #0d6efd;
+  border-radius: 3px;
+  transition: width 0.4s ease;
+}
+
+/* Список методологий */
+.ap-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ap-item {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 4px 0;
+  border-bottom: 1px solid #f1f3f5;
+  transition: opacity 0.2s;
+}
+
+.ap-item:last-child {
+  border-bottom: none;
+}
+
+.ap-item--pending {
+  opacity: 0.5;
+}
+
+.ap-item--running {
+  opacity: 1;
+}
+
+.ap-item--done {
+  opacity: 1;
+}
+
+.ap-item--error {
+  opacity: 1;
+}
+
+.ap-item-icon {
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 20px;
+  text-align: center;
+}
+
+.ap-item-name {
+  font-weight: 500;
+  color: #343a40;
+  flex-shrink: 0;
+}
+
+.ap-item-error {
+  font-size: 12px;
+  color: #dc3545;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Фатальная ошибка */
+.ap-fatal {
+  margin-top: 12px;
+  padding: 8px 12px;
+  background: #fff5f5;
+  border: 1px solid #ffc9c9;
+  border-radius: 6px;
+  color: #c92a2a;
+  font-size: 13px;
+}

@@ -36,7 +36,6 @@ const CSRF_COOKIE_NAME = 'csrf_token'
 const CSRF_HEADER_NAME = 'X-CSRF-Token'
 const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
-/** Прочитать значение CSRF-токена из не-httpOnly cookie. */
 function readCsrfToken() {
   const match = document.cookie.match(
     new RegExp('(?:^|; )' + CSRF_COOKIE_NAME + '=([^;]*)'),
@@ -44,13 +43,6 @@ function readCsrfToken() {
   return match ? decodeURIComponent(match[1]) : null
 }
 
-/**
- * Обеспечить наличие CSRF-cookie перед небезопасным запросом.
- *
- * Двухфазная CSRF-защита для login/register: сначала GET /api/v1/auth/csrf
- * (safe-метод, не требует CSRF-токена), который ставит подписанную
- * csrf-cookie, затем POST с заголовком X-CSRF-Token, прочитанным из cookie.
- */
 async function ensureCsrf() {
   if (!readCsrfToken()) {
     await fetch('/api/v1/auth/csrf', {
@@ -79,8 +71,6 @@ async function readError(response) {
   if (isJsonResponse(response)) {
     const err = await response.json().catch(() => null)
     if (err?.detail) {
-      // FastAPI 422 возвращает detail как массив объектов валидации;
-      // HTTPException — как строку. Обрабатываем оба случая.
       if (typeof err.detail === 'string') return err.detail
       if (Array.isArray(err.detail)) {
         return err.detail
@@ -89,7 +79,6 @@ async function readError(response) {
       }
       try { return JSON.stringify(err.detail) } catch { return String(err.detail) }
     }
-    // Если detail нет — отдаём весь JSON как строку
     try { return JSON.stringify(err) } catch { return String(err) }
   }
   const text = await response.text().catch(() => '')
@@ -205,7 +194,6 @@ async function exportResult(resultId, methodology, format = 'docx', retryOn401 =
   URL.revokeObjectURL(url)
 }
 
-// Обратная совместимость: тонкая обёртка над exportResult.
 async function exportDocx(resultId, methodology) {
   return exportResult(resultId, methodology, 'docx')
 }
@@ -220,7 +208,6 @@ async function uploadFile(path, file, options = {}) {
   formData.append('file', file)
 
   const headers = {}
-  // Add CSRF header for cookie-based auth
   const csrfToken = readCsrfToken()
   if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
 
@@ -292,13 +279,13 @@ async function uploadFileStream(path, file, onProgress, options = {}) {
     const { value, done } = await reader.read()
     if (done) break
     buffer += decoder.decode(value, { stream: true })
-    
+
     let boundary = buffer.indexOf('\n\n')
     while (boundary !== -1) {
       const chunk = buffer.slice(0, boundary).trim()
       buffer = buffer.slice(boundary + 2)
       boundary = buffer.indexOf('\n\n')
-      
+
       if (chunk.startsWith('data: ')) {
         try {
           const data = JSON.parse(chunk.slice(6))
@@ -309,11 +296,77 @@ async function uploadFileStream(path, file, onProgress, options = {}) {
           if (data.status === 'done') {
             return data.result
           }
-        } catch(e) {
+        } catch (e) {
           if (e.message !== 'Unexpected end of JSON input') {
             if (chunk.includes('"status": "error"')) throw e
           }
         }
+      }
+    }
+  }
+}
+
+/**
+ * analyzeMultiStream — SSE-поток прогресса анализа.
+ *
+ * onEvent(event) вызывается на каждое SSE-событие:
+ *   { status: 'started',   total, methodologies }
+ *   { status: 'progress',  methodology, name, done, total }
+ *   { status: 'error_one', methodology, name, message, done, total }
+ *   { status: 'done',      results }  ← возвращается из промиса
+ *   { status: 'error',     message }  ← бросается как Error
+ */
+async function analyzeMultiStream(payload, onEvent, retryOn401 = true) {
+  const csrfToken = readCsrfToken()
+  const headers = { 'Content-Type': 'application/json' }
+  if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
+
+  const response = await fetch('/api/v1/analyze-multi-stream', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+    credentials: 'include',
+  })
+
+  if (response.status === 401 && retryOn401) {
+    const refreshed = await tryRefresh()
+    if (refreshed) return analyzeMultiStream(payload, onEvent, false)
+    notifyAuthLost()
+    throw new Error('Сессия истекла. Войдите заново.')
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) notifyAuthLost()
+    throw new Error(await readError(response))
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const chunk = buffer.slice(0, boundary).trim()
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf('\n\n')
+
+      if (chunk.startsWith('data: ')) {
+        let event
+        try {
+          event = JSON.parse(chunk.slice(6))
+        } catch {
+          continue
+        }
+
+        onEvent(event)
+
+        if (event.status === 'done') return event.results
+        if (event.status === 'error') throw new Error(event.message || 'Ошибка анализа')
       }
     }
   }
@@ -335,6 +388,7 @@ export const api = {
   },
   analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
   analyzeMulti: (payload) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true }),
+  analyzeMultiStream: (payload, onEvent) => analyzeMultiStream(payload, onEvent),
   compareResults: (incidentId) => req('GET', `/api/v1/results/compare?incident_id=${encodeURIComponent(incidentId)}`, undefined, { authRequired: true }),
   uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
   uploadReportStream: (file, onProgress) => uploadFileStream('/api/v1/upload-report-stream', file, onProgress, { authRequired: true }),

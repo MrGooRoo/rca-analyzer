@@ -11,10 +11,13 @@ FastAPI-роутер: анализ инцидентов.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import logging
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -39,6 +42,14 @@ _service = AnalysisService()
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
+
+METHODOLOGY_NAMES_RU = {
+    "five_why":     "5 Почему",
+    "ishikawa":     "Ishikawa",
+    "fta":          "FTA",
+    "rca_systemic": "RCA Системный",
+    "bowtie":       "BowTie",
+}
 
 
 def _check_owner_or_admin(result: RCAResult, current_user: UserInfo) -> None:
@@ -114,6 +125,126 @@ async def analyze_multi(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/v1/analyze-multi-stream  — SSE прогресс по методологиям
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/analyze-multi-stream",
+    status_code=status.HTTP_200_OK,
+    summary="Запустить анализ несколькими методиками (SSE-поток прогресса)",
+)
+async def analyze_multi_stream(
+    request: MultiAnalysisRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """
+    SSE-эндпоинт: запускает все методологии параллельно и отправляет события
+    по мере завершения каждой.
+
+    События:
+      {"status": "started",   "total": N, "methodologies": [...]}
+      {"status": "progress",  "methodology": "bowtie",  "name": "BowTie",  "done": K, "total": N}
+      {"status": "error_one", "methodology": "fta",     "name": "FTA",     "message": "..."}
+      {"status": "done",      "results": [...]}
+      {"status": "error",     "message": "..."}   — фатальная ошибка
+    """
+    async def event_generator():
+        methodologies = request.methodologies
+        total = len(methodologies)
+        names = [METHODOLOGY_NAMES_RU.get(m.value, m.value) for m in methodologies]
+
+        yield "data: " + json.dumps({
+            "status": "started",
+            "total": total,
+            "methodologies": names,
+        }) + "\n\n"
+        await asyncio.sleep(0.05)
+
+        import uuid as _uuid
+        incident_id = str(_uuid.uuid4())
+
+        # Очередь для результатов по мере готовности
+        queue: asyncio.Queue = asyncio.Queue()
+
+        async def run_one(methodology):
+            name = METHODOLOGY_NAMES_RU.get(methodology.value, methodology.value)
+            single = AnalysisRequest(
+                methodology=methodology,
+                language=request.language,
+                detail_level=request.detail_level,
+                incident=request.incident,
+            )
+            try:
+                result = await _service.analyze(single)
+                result.incident_id = incident_id
+                await queue.put(("ok", methodology, result))
+            except Exception as exc:
+                logger.error("[AnalyzeMultiStream] %s ошибка: %s", name, exc)
+                await queue.put(("err", methodology, str(exc)))
+
+        tasks = [asyncio.create_task(run_one(m)) for m in methodologies]
+
+        results = []
+        errors = []
+        done_count = 0
+        repo = RCARepository(db)
+
+        while done_count < total:
+            kind, methodology, payload = await queue.get()
+            done_count += 1
+            name = METHODOLOGY_NAMES_RU.get(methodology.value, methodology.value)
+
+            if kind == "ok":
+                result = payload
+                try:
+                    await repo.save_result(result, user_id=current_user.user_id)
+                    result.user_id = current_user.user_id
+                except Exception as exc:
+                    logger.error("[AnalyzeMultiStream] Ошибка сохранения %s: %s", name, exc)
+
+                results.append(result)
+                yield "data: " + json.dumps({
+                    "status": "progress",
+                    "methodology": methodology.value,
+                    "name": name,
+                    "done": done_count,
+                    "total": total,
+                }) + "\n\n"
+            else:
+                errors.append(name)
+                yield "data: " + json.dumps({
+                    "status": "error_one",
+                    "methodology": methodology.value,
+                    "name": name,
+                    "message": payload,
+                    "done": done_count,
+                    "total": total,
+                }) + "\n\n"
+
+            await asyncio.sleep(0.02)
+
+        # Ждём завершения всех задач (на случай исключений вне queue)
+        await asyncio.gather(*tasks, return_exceptions=True)
+
+        if not results:
+            yield "data: " + json.dumps({
+                "status": "error",
+                "message": "Все методологии завершились с ошибкой. Проверьте подключение к LLM.",
+            }) + "\n\n"
+            return
+
+        # Сериализуем через pydantic (datetime → str и т.д.)
+        results_json = [r.model_dump(mode="json") for r in results]
+        yield "data: " + json.dumps({
+            "status": "done",
+            "results": results_json,
+        }) + "\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
 # GET /api/v1/methodologies
 # ---------------------------------------------------------------------------
 
@@ -123,7 +254,7 @@ async def list_methodologies() -> dict:
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/results        (без path-параметра — ДО {result_id}!)
+# GET /api/v1/results
 # ---------------------------------------------------------------------------
 
 @router.get(
@@ -139,7 +270,6 @@ async def list_results(
     offset: int = Query(0, ge=0),
 ) -> list[RCAResult]:
     repo = RCARepository(db)
-    # Admin видит все результаты, обычный пользователь — только свои
     user_id_filter = None if current_user.role == "admin" else current_user.user_id
     return await repo.list_results(
         user_id=user_id_filter,
@@ -150,7 +280,7 @@ async def list_results(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/results/compare   (фиксированный путь — ДО {result_id}!)
+# GET /api/v1/results/compare
 # ---------------------------------------------------------------------------
 
 @router.get(
@@ -187,7 +317,7 @@ async def compare_results(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/results/{result_id}   (path-параметр — ПОСЛЕ фиксированных!)
+# GET /api/v1/results/{result_id}
 # ---------------------------------------------------------------------------
 
 @router.get(
