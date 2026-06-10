@@ -4,8 +4,8 @@ RCA Repository — единственная точка доступа к БД.
 
 from __future__ import annotations
 
+import inspect
 import uuid
-from typing import Optional
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -16,19 +16,40 @@ from src.db.orm_models import (
     IncidentORM,
     RCAResultORM,
     RecommendationORM,
+    ResultEmbeddingORM,
 )
-from src.domain.models import CauseNode, RCAResult, Recommendation
+from src.domain.models import CauseNode, RCAResult, Recommendation, SimilarIncident
+from src.services.embedding_service import (
+    EmbeddingService,
+    LocalHashEmbeddingService,
+    build_result_embedding_text,
+    cosine_similarity,
+)
 
 
 class RCARepository:
-    def __init__(self, session: AsyncSession) -> None:
+    def __init__(
+        self,
+        session: AsyncSession,
+        embedding_service: EmbeddingService | None = None,
+    ) -> None:
         self._session = session
+        self._embeddings = embedding_service or LocalHashEmbeddingService()
+
+    async def _session_call(self, method_name: str, *args) -> None:
+        """
+        В SQLAlchemy AsyncSession методы add/add_all синхронные, но в тестах
+        с AsyncMock они становятся awaitable. Этот helper поддерживает оба режима.
+        """
+        result = getattr(self._session, method_name)(*args)
+        if inspect.isawaitable(result):
+            await result
 
     # ------------------------------------------------------------------
     # Запись
     # ------------------------------------------------------------------
 
-    async def save_result(self, result: RCAResult, user_id: Optional[str] = None) -> None:
+    async def save_result(self, result: RCAResult, user_id: str | None = None) -> None:
         existing_incident = await self._session.get(IncidentORM, result.incident_id)
         if existing_incident is None:
             incident_orm = IncidentORM(
@@ -41,7 +62,7 @@ class RCARepository:
                 severity="unknown",
                 user_id=user_id,
             )
-            self._session.add(incident_orm)
+            await self._session_call("add", incident_orm)
 
         rca_orm = RCAResultORM(
             result_id=result.result_id,
@@ -54,7 +75,7 @@ class RCARepository:
             confidence_avg=result.confidence_avg,
             created_at=result.created_at,
         )
-        self._session.add(rca_orm)
+        await self._session_call("add", rca_orm)
 
         def _nodes(nodes: list[CauseNode], role: str) -> list[CausalNodeORM]:
             return [
@@ -72,12 +93,13 @@ class RCARepository:
                 for node in nodes
             ]
 
-        self._session.add_all(_nodes(result.immediate_causes, "immediate"))
-        self._session.add_all(_nodes(result.contributing_causes, "contributing"))
-        self._session.add_all(_nodes(result.root_causes, "root"))
+        await self._session_call("add_all", _nodes(result.immediate_causes, "immediate"))
+        await self._session_call("add_all", _nodes(result.contributing_causes, "contributing"))
+        await self._session_call("add_all", _nodes(result.root_causes, "root"))
 
         for rec in result.recommendations:
-            self._session.add(
+            await self._session_call(
+                "add",
                 RecommendationORM(
                     id=str(uuid.uuid4()),
                     result_id=result.result_id,
@@ -88,8 +110,21 @@ class RCARepository:
                     cause_id=rec.cause_id,
                     responsible=rec.responsible,
                     status="open",
-                )
+                ),
             )
+
+        source_text = build_result_embedding_text(result)
+        await self._session_call(
+            "add",
+            ResultEmbeddingORM(
+                id=str(uuid.uuid4()),
+                result_id=result.result_id,
+                model_name=self._embeddings.model_name,
+                dimension=self._embeddings.dimension,
+                embedding=self._embeddings.embed(source_text),
+                source_text=source_text,
+            ),
+        )
 
         await self._session.commit()
 
@@ -97,7 +132,7 @@ class RCARepository:
     # Чтение
     # ------------------------------------------------------------------
 
-    async def get_result(self, result_id: str) -> Optional[RCAResult]:
+    async def get_result(self, result_id: str) -> RCAResult | None:
         stmt = (
             select(RCAResultORM)
             .where(RCAResultORM.result_id == result_id)
@@ -112,8 +147,8 @@ class RCARepository:
 
     async def list_results(
         self,
-        user_id: Optional[str] = None,
-        incident_id: Optional[str] = None,
+        user_id: str | None = None,
+        incident_id: str | None = None,
         limit: int = 20,
         offset: int = 0,
     ) -> list[RCAResult]:
@@ -135,6 +170,176 @@ class RCARepository:
 
         rows = (await self._session.execute(stmt)).scalars().all()
         return [_orm_to_domain(r) for r in rows]
+
+    async def backfill_missing_embeddings(
+        self,
+        user_id: str | None = None,
+        limit: int = 100,
+    ) -> int:
+        """Доиндексировать старые RCA-результаты, у которых ещё нет embedding."""
+        stmt = (
+            select(RCAResultORM)
+            .outerjoin(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
+            .where(ResultEmbeddingORM.result_id.is_(None))
+            .options(
+                selectinload(RCAResultORM.causal_nodes),
+                selectinload(RCAResultORM.recommendations),
+            )
+            .order_by(RCAResultORM.created_at.desc())
+            .limit(limit)
+        )
+        if user_id:
+            stmt = stmt.where(RCAResultORM.user_id == user_id)
+
+        rows = (await self._session.execute(stmt)).scalars().all()
+        for row in rows:
+            source_text = _embedding_text_from_orm(row)
+            await self._session_call(
+                "add",
+                ResultEmbeddingORM(
+                    id=str(uuid.uuid4()),
+                    result_id=row.result_id,
+                    model_name=self._embeddings.model_name,
+                    dimension=self._embeddings.dimension,
+                    embedding=self._embeddings.embed(source_text),
+                    source_text=source_text,
+                ),
+            )
+
+        if rows:
+            await self._session.commit()
+        return len(rows)
+
+    async def find_similar_incidents(
+        self,
+        text: str,
+        user_id: str | None = None,
+        limit: int = 5,
+        threshold: float = 0.15,
+        exclude_result_id: str | None = None,
+        exclude_incident_id: str | None = None,
+    ) -> list[SimilarIncident]:
+        """Найти top-N похожих инцидентов по cosine similarity."""
+        query_embedding = self._embeddings.embed(text)
+        dialect = self._dialect_name()
+
+        if dialect == "postgresql":
+            return await self._find_similar_incidents_pgvector(
+                query_embedding=query_embedding,
+                user_id=user_id,
+                limit=limit,
+                threshold=threshold,
+                exclude_result_id=exclude_result_id,
+                exclude_incident_id=exclude_incident_id,
+            )
+
+        return await self._find_similar_incidents_python(
+            query_embedding=query_embedding,
+            user_id=user_id,
+            limit=limit,
+            threshold=threshold,
+            exclude_result_id=exclude_result_id,
+            exclude_incident_id=exclude_incident_id,
+        )
+
+    async def _find_similar_incidents_pgvector(
+        self,
+        query_embedding: list[float],
+        user_id: str | None,
+        limit: int,
+        threshold: float,
+        exclude_result_id: str | None,
+        exclude_incident_id: str | None,
+    ) -> list[SimilarIncident]:
+        distance = ResultEmbeddingORM.embedding.cosine_distance(query_embedding)
+        stmt = (
+            select(RCAResultORM, distance.label("distance"))
+            .join(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
+            .options(
+                selectinload(RCAResultORM.causal_nodes),
+                selectinload(RCAResultORM.recommendations),
+                selectinload(RCAResultORM.user),
+            )
+            .order_by(distance.asc(), RCAResultORM.created_at.desc())
+            .limit(max(limit * 3, limit))
+        )
+        if user_id:
+            stmt = stmt.where(RCAResultORM.user_id == user_id)
+        if exclude_result_id:
+            stmt = stmt.where(RCAResultORM.result_id != exclude_result_id)
+        if exclude_incident_id:
+            stmt = stmt.where(RCAResultORM.incident_id != exclude_incident_id)
+
+        rows = (await self._session.execute(stmt)).all()
+        similar: list[SimilarIncident] = []
+        seen_incidents: set[str] = set()
+
+        for row, distance_value in rows:
+            if row.incident_id in seen_incidents:
+                continue
+            distance_num = 1.0 if distance_value is None else float(distance_value)
+            similarity = 1.0 - distance_num
+            if similarity < threshold:
+                continue
+            similar.append(_orm_to_similar(row, similarity=similarity))
+            seen_incidents.add(row.incident_id)
+            if len(similar) >= limit:
+                break
+
+        return similar
+
+    async def _find_similar_incidents_python(
+        self,
+        query_embedding: list[float],
+        user_id: str | None,
+        limit: int,
+        threshold: float,
+        exclude_result_id: str | None,
+        exclude_incident_id: str | None,
+    ) -> list[SimilarIncident]:
+        stmt = (
+            select(RCAResultORM, ResultEmbeddingORM)
+            .join(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
+            .options(
+                selectinload(RCAResultORM.causal_nodes),
+                selectinload(RCAResultORM.recommendations),
+                selectinload(RCAResultORM.user),
+            )
+            .order_by(RCAResultORM.created_at.desc())
+            .limit(500)
+        )
+        if user_id:
+            stmt = stmt.where(RCAResultORM.user_id == user_id)
+        if exclude_result_id:
+            stmt = stmt.where(RCAResultORM.result_id != exclude_result_id)
+        if exclude_incident_id:
+            stmt = stmt.where(RCAResultORM.incident_id != exclude_incident_id)
+
+        rows = (await self._session.execute(stmt)).all()
+        scored: list[tuple[RCAResultORM, float]] = []
+        for row, embedding in rows:
+            similarity = cosine_similarity(query_embedding, list(embedding.embedding))
+            if similarity >= threshold:
+                scored.append((row, similarity))
+
+        scored.sort(key=lambda item: (item[1], item[0].created_at), reverse=True)
+
+        similar: list[SimilarIncident] = []
+        seen_incidents: set[str] = set()
+        for row, similarity in scored:
+            if row.incident_id in seen_incidents:
+                continue
+            similar.append(_orm_to_similar(row, similarity=similarity))
+            seen_incidents.add(row.incident_id)
+            if len(similar) >= limit:
+                break
+        return similar
+
+    def _dialect_name(self) -> str:
+        try:
+            return self._session.get_bind().dialect.name
+        except Exception:
+            return ""
 
     async def delete_result(self, result_id: str) -> bool:
         """Удалить результат анализа и все связанные записи (каскадно)."""
@@ -197,4 +402,42 @@ def _orm_to_domain(row: RCAResultORM) -> RCAResult:
         model_used=row.model_used,
         tokens_used=row.tokens_used,
         confidence_avg=row.confidence_avg,
+    )
+
+
+def _embedding_text_from_orm(row: RCAResultORM) -> str:
+    parts: list[str] = [
+        f"Методология: {row.methodology}",
+        row.summary,
+    ]
+    if row.causal_nodes:
+        parts.append("Причины")
+        parts.extend(node.text for node in row.causal_nodes if node.text)
+    if row.recommendations:
+        parts.append("Рекомендации")
+        parts.extend(rec.text for rec in row.recommendations if rec.text)
+    return "\n".join(part for part in parts if part).strip()
+
+
+def _orm_to_similar(row: RCAResultORM, *, similarity: float) -> SimilarIncident:
+    owner = row.user
+    root_preview = [
+        node.text for node in row.causal_nodes
+        if node.node_role == "root" and node.text
+    ][:3]
+    rec_preview = [rec.text for rec in row.recommendations if rec.text][:3]
+
+    return SimilarIncident(
+        result_id=row.result_id,
+        incident_id=row.incident_id,
+        user_id=row.user_id,
+        user_display_name=owner.display_name if owner else None,
+        user_email=owner.email if owner else None,
+        methodology=MethodologyType(row.methodology),
+        created_at=row.created_at,
+        summary=row.summary,
+        similarity=max(0.0, min(1.0, similarity)),
+        confidence_avg=row.confidence_avg,
+        root_causes_preview=root_preview,
+        recommendations_preview=rec_preview,
     )

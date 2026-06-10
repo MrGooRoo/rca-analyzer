@@ -32,6 +32,7 @@ from src.domain.models import (
     MethodologyNotSupportedError,
     MultiAnalysisRequest,
     RCAResult,
+    SimilarIncident,
 )
 from src.services.analysis_service import AnalysisService
 
@@ -277,6 +278,42 @@ async def list_results(
         limit=limit,
         offset=offset,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/incidents/similar
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/incidents/similar",
+    response_model=list[SimilarIncident],
+    summary="Найти похожие прошлые инциденты по тексту",
+)
+async def find_similar_incidents(
+    db: DbSession,
+    current_user: CurrentUser,
+    text: str = Query(..., min_length=3, max_length=5000, description="Текст нового инцидента"),
+    limit: int = Query(5, ge=1, le=20),
+    threshold: float = Query(0.15, ge=0.0, le=1.0),
+    exclude_result_id: str | None = Query(None),
+    exclude_incident_id: str | None = Query(None),
+) -> list[SimilarIncident]:
+    repo = RCARepository(db)
+    user_filter = None if current_user.role == "admin" else current_user.user_id
+
+    try:
+        await repo.backfill_missing_embeddings(user_id=user_filter, limit=100)
+        return await repo.find_similar_incidents(
+            text=text,
+            user_id=user_filter,
+            limit=limit,
+            threshold=threshold,
+            exclude_result_id=exclude_result_id,
+            exclude_incident_id=exclude_incident_id,
+        )
+    except Exception as exc:
+        logger.error("[API] similar incidents error: %s", exc)
+        raise HTTPException(status_code=500, detail="Ошибка поиска похожих инцидентов") from exc
 
 
 # ---------------------------------------------------------------------------

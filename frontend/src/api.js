@@ -316,6 +316,16 @@ async function uploadFileStream(path, file, onProgress, options = {}) {
  *   { status: 'done',      results }  ← возвращается из промиса
  *   { status: 'error',     message }  ← бросается как Error
  */
+function querySimilarIncidents(text, options = {}) {
+  const params = new URLSearchParams()
+  params.set('text', String(text || '').slice(0, 5000))
+  params.set('limit', String(options.limit || 5))
+  if (options.threshold !== undefined) params.set('threshold', String(options.threshold))
+  if (options.excludeResultId) params.set('exclude_result_id', options.excludeResultId)
+  if (options.excludeIncidentId) params.set('exclude_incident_id', options.excludeIncidentId)
+  return req('GET', `/api/v1/incidents/similar?${params.toString()}`, undefined, { authRequired: true })
+}
+
 async function analyzeMultiStream(payload, onEvent, retryOn401 = true) {
   const csrfToken = readCsrfToken()
   const headers = { 'Content-Type': 'application/json' }
@@ -390,6 +400,7 @@ export const api = {
   analyzeMulti: (payload) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true }),
   analyzeMultiStream: (payload, onEvent) => analyzeMultiStream(payload, onEvent),
   compareResults: (incidentId) => req('GET', `/api/v1/results/compare?incident_id=${encodeURIComponent(incidentId)}`, undefined, { authRequired: true }),
+  similarIncidents: (text, options = {}) => querySimilarIncidents(text, options),
   uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
   uploadReportStream: (file, onProgress) => uploadFileStream('/api/v1/upload-report-stream', file, onProgress, { authRequired: true }),
   exportDocx,

@@ -9,6 +9,7 @@ ORM-модели (таблицы БД).
     causal_nodes            — все узлы дерева причин (IC / CC / RC)
     recommendations         — корректирующие мероприятия
     docx_extraction_cache   — кэш результатов LLM-извлечения по хешу файла
+    result_embeddings       — pgvector-эмбеддинги RCA-результатов для похожих инцидентов
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Optional
 
+from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
     DateTime,
@@ -29,6 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
+from src.services.embedding_service import EMBEDDING_DIMENSION
 
 
 class UserORM(Base):
@@ -122,6 +125,9 @@ class RCAResultORM(Base):
     recommendations: Mapped[list[RecommendationORM]] = relationship(
         back_populates="result", cascade="all, delete-orphan"
     )
+    embedding: Mapped[ResultEmbeddingORM | None] = relationship(
+        back_populates="result", cascade="all, delete-orphan", uselist=False
+    )
 
 
 class CausalNodeORM(Base):
@@ -158,6 +164,34 @@ class RecommendationORM(Base):
     status: Mapped[str] = mapped_column(String(20), default="open")
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")
+
+
+class ResultEmbeddingORM(Base):
+    """
+    Dense-вектор RCA-результата для поиска похожих инцидентов.
+
+    Хранится в PostgreSQL через pgvector. Вектор строится из summary,
+    причин и рекомендаций результата.
+    """
+    __tablename__ = "result_embeddings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    result_id: Mapped[str] = mapped_column(
+        String(36),
+        ForeignKey("rca_results.result_id", ondelete="CASCADE"),
+        unique=True,
+        nullable=False,
+        index=True,
+    )
+    model_name: Mapped[str] = mapped_column(String(100), nullable=False)
+    dimension: Mapped[int] = mapped_column(Integer, nullable=False)
+    embedding: Mapped[list[float]] = mapped_column(Vector(EMBEDDING_DIMENSION), nullable=False)
+    source_text: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    result: Mapped[RCAResultORM] = relationship(back_populates="embedding")
 
 
 class DocxExtractionCacheORM(Base):

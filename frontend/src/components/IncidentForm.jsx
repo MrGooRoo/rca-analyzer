@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react'
 import { api } from '../api.js'
+import SimilarIncidentsPanel from './SimilarIncidentsPanel.jsx'
 import './IncidentForm.css'
 
 const METHODOLOGIES = [
@@ -229,6 +230,16 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     }
   }
 
+  const similarQueryText = [
+    form.title,
+    form.description,
+    form.short_description,
+    form.scene_description,
+    form.equipment_description,
+    form.full_circumstances,
+    form.established_facts,
+  ].filter(Boolean).join('\n')
+
   return (
     <form className="incident-form" onSubmit={handleSubmit}>
       <h2 className="form-title">Новый анализ инцидента</h2>
@@ -263,6 +274,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         <div className="form-group form-group--full"><label>Описание</label>
           <textarea rows={4} value={form.description} onChange={e => set('description', e.target.value)} required minLength={20} /></div>
       </div>
+
+      <SimilarIncidentsPanel queryText={similarQueryText} compact />
 
       <div className="form-row">
         <div className="form-group"><label>Дата инцидента</label>

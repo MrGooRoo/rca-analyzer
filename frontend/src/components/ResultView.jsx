@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
+import SimilarIncidentsPanel from './SimilarIncidentsPanel.jsx'
 import { api } from '../api.js'
 import './ResultView.css'
 
@@ -46,6 +47,14 @@ export default function ResultView({ result }) {
         { id: 'recs', label: `Рекомендации (${result.recommendations.length})` },
         { id: 'meta', label: 'Мета' },
       ]
+
+  const similarQueryText = [
+    result.summary,
+    ...(result.root_causes || []).map(n => n.text),
+    ...(result.contributing_causes || []).map(n => n.text),
+    ...(result.immediate_causes || []).map(n => n.text),
+    ...(result.recommendations || []).map(r => r.text),
+  ].filter(Boolean).join('\n')
 
   return (
     <div className="result">
@@ -98,6 +107,14 @@ export default function ResultView({ result }) {
       <div className="summary-box">
         <p>{result.summary}</p>
       </div>
+
+      <SimilarIncidentsPanel
+        queryText={similarQueryText}
+        excludeResultId={result.result_id}
+        excludeIncidentId={result.incident_id}
+        auto
+        title="Похожие инциденты в истории"
+      />
 
       <div className="tabs">
         {tabs.map(t => (

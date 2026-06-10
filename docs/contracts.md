@@ -4,7 +4,7 @@
 > Любой новый чат с AI-ассистентом должен получить этот файл как первый контекст.
 > Запрещено менять типы и названия полей без обновления этого документа.
 >
-> **Дата актуализации:** 2026-06-08 (приоритет C: валидация MultiAnalysisRequest, улучшенный compare(), обработка ошибок, тесты, фикс маршрутизации).
+> **Дата актуализации:** 2026-06-10 (приоритет D: векторный поиск похожих инцидентов / RAG baseline через pgvector).
 
 ---
 
@@ -94,9 +94,10 @@ class IncidentInput(BaseModel):
 ### 10.2. API-клиент (api.js)
 
 ```js
-api.analyze(payload)       // POST /api/v1/analyze      → RCAResult
-api.analyzeMulti(payload)  // POST /api/v1/analyze-multi → RCAResult[]
-api.compareResults(id)     // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
+api.analyze(payload)                // POST /api/v1/analyze      → RCAResult
+api.analyzeMulti(payload)           // POST /api/v1/analyze-multi → RCAResult[]
+api.compareResults(id)              // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
+api.similarIncidents(text, options) // GET  /api/v1/incidents/similar?text=... → SimilarIncident[]
 ```
 
 ### 10.3. Компонент CompareView
@@ -169,3 +170,98 @@ class MultiAnalysisRequest(BaseModel):
 
 В `analyze.py` фиксированные пути (`/results`, `/results/compare`) определены **ДО** параметризованного `/results/{result_id}`, чтобы FastAPI не перехватывал `compare` как `result_id`.
 
+---
+
+## 14. Векторный поиск похожих инцидентов / RAG baseline (добавлено 10.06.2026)
+
+### 14.1. Embedding-модель
+
+Текущий baseline не использует внешний API и работает детерминированно:
+
+```python
+EMBEDDING_MODEL_NAME = "local/hash-ngrams-v1"
+EMBEDDING_DIMENSION = 384
+```
+
+`LocalHashEmbeddingService` строит нормализованный dense-вектор по словам и символьным n-граммам.
+Это быстрый локальный baseline: хорошо ловит лексически похожие случаи и может быть позже заменён на внешнюю embedding-модель без изменения HTTP-контракта.
+
+### 14.2. Таблица `result_embeddings`
+
+Хранилище векторов — PostgreSQL + pgvector.
+
+```python
+class ResultEmbeddingORM(Base):
+    __tablename__ = "result_embeddings"
+
+    id: str                         # UUID записи embedding
+    result_id: str                  # unique FK → rca_results.result_id, cascade delete
+    model_name: str                 # например, local/hash-ngrams-v1
+    dimension: int                  # 384
+    embedding: vector(384)          # pgvector
+    source_text: str                # текст, по которому построен embedding
+    created_at: datetime
+```
+
+Миграция: `alembic/versions/007_add_result_embeddings.py`.
+Docker Compose использует образ БД `pgvector/pgvector:pg16`.
+
+### 14.3. Индексация RCA-результатов
+
+При каждом `RCARepository.save_result(result, user_id=...)` дополнительно создаётся запись в `result_embeddings`.
+Текст для индексации собирается из:
+
+- `result.methodology`
+- `result.summary`
+- `root_causes`, `contributing_causes`, `immediate_causes`
+- `recommendations`
+
+Для старых записей есть ленивый backfill: `RCARepository.backfill_missing_embeddings(user_id, limit=100)` вызывается перед поиском похожих.
+
+### 14.4. API: `GET /api/v1/incidents/similar`
+
+Защищённый endpoint (auth required). User видит только свои результаты, admin — все.
+
+Query params:
+
+```text
+text: str                         # required, min_length=3, max_length=5000
+limit: int = 5                    # 1..20
+threshold: float = 0.15           # 0..1
+exclude_result_id: str | None     # исключить конкретный результат
+exclude_incident_id: str | None   # исключить текущий incident_id
+```
+
+Response model:
+
+```python
+class SimilarIncident(BaseModel):
+    result_id: str
+    incident_id: str
+    methodology: MethodologyType
+    created_at: datetime
+    summary: str
+    similarity: float = Field(ge=0.0, le=1.0)
+    confidence_avg: float
+    root_causes_preview: list[str] = Field(default_factory=list)
+    recommendations_preview: list[str] = Field(default_factory=list)
+    user_id: str | None = None
+    user_display_name: str | None = None
+    user_email: str | None = None
+```
+
+### 14.5. Frontend UI
+
+Компонент `SimilarIncidentsPanel.jsx` показывает карточки похожих случаев:
+
+- процент похожести (`similarity * 100`),
+- методику,
+- дату,
+- summary,
+- preview корневых причин и рекомендаций,
+- result/incident id.
+
+Точки подключения:
+
+1. `IncidentForm.jsx` — ручной поиск похожих по введённому описанию до запуска анализа.
+2. `ResultView.jsx` — автоматический поиск похожих после анализа, с исключением текущего `result_id` и `incident_id`.

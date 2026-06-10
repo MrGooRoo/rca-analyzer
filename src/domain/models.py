@@ -159,3 +159,22 @@ class ComparisonResult(BaseModel):
     common_recommendations: list[Recommendation] = Field(default_factory=list)
     differing_causes: dict[str, list[str]] = Field(default_factory=dict)
     summary: str = ""
+
+
+# ----------------------------------------------------------------------
+# Похожие инциденты / RAG (добавлено 10.06.2026, приоритет D)
+# ----------------------------------------------------------------------
+
+class SimilarIncident(BaseModel):
+    result_id: str
+    incident_id: str
+    methodology: MethodologyType
+    created_at: datetime
+    summary: str
+    similarity: float = Field(ge=0.0, le=1.0)
+    confidence_avg: float
+    root_causes_preview: list[str] = Field(default_factory=list)
+    recommendations_preview: list[str] = Field(default_factory=list)
+    user_id: str | None = None
+    user_display_name: str | None = None
+    user_email: str | None = None
