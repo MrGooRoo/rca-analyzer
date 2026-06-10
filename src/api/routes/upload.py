@@ -12,39 +12,35 @@ FastAPI-роутер: загрузка DOCX-отчёта и извлечение
 
 from __future__ import annotations
 
+import hashlib
+import json
 import logging
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-import json
 import asyncio
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
-from src.db.base import get_async_session
+from src.db.base import get_db
 from src.services.docx_extractor import extract_text_from_docx
 from src.services.docx_fields_service import extract_fields_from_text
 from src.services.docx_cache_service import get_or_extract
 from src.domain.models import LLMResponseValidationError
-from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["upload"])
 
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
-DBSession = Annotated[AsyncSession, Depends(get_async_session)]
+DBSession = Annotated[AsyncSession, Depends(get_db)]
 
 # Лимит размера файла: 10 МБ
 MAX_FILE_SIZE = 10 * 1024 * 1024
-
-# Допустимые MIME-типы для DOCX
-ALLOWED_CONTENT_TYPES = {
-    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    "application/octet-stream",  # Некоторые браузеры отправляют этот тип
-}
 
 
 class VictimFields(BaseModel):
@@ -69,7 +65,6 @@ class VictimFields(BaseModel):
 
 class ExtractedFields(BaseModel):
     """Результат извлечения полей из отчёта."""
-    # Основные поля
     title: str
     description: str
     incident_date: Optional[str] = None
@@ -80,29 +75,25 @@ class ExtractedFields(BaseModel):
     incident_type: str
     severity: str
 
-    # Числовые счётчики
     victims: int = 0
     injured_count: Optional[int] = None
     fatalities_count: Optional[int] = None
 
-    # Дополнительные текстовые поля (старые)
     equipment: Optional[str] = None
     conditions: Optional[str] = None
     actions_taken: Optional[str] = None
     short_description: Optional[str] = None
 
-    # Расширенные поля (разделы 3.x)
     scene_description: Optional[str] = None
     equipment_description: Optional[str] = None
     full_circumstances: Optional[str] = None
     established_facts: Optional[str] = None
 
-    # Список пострадавших
     victims_list: List[VictimFields] = Field(default_factory=list)
 
 
 def _validate_docx_file(filename: str, file_bytes: bytes) -> None:
-    """Общая валидация загружаемого файла. Бросает HTTPException при ошибке."""
+    """Бросает HTTPException при недопустимом файле."""
     if not filename.lower().endswith(".docx"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -121,10 +112,9 @@ def _validate_docx_file(filename: str, file_bytes: bytes) -> None:
 
 
 def _normalize_victims(fields: dict) -> list:
-    """Привести victims_list к списку VictimFields-объектов."""
-    raw_victims = fields.get("victims_list", [])
+    raw = fields.get("victims_list", [])
     result = []
-    for v in raw_victims:
+    for v in raw:
         if isinstance(v, dict):
             try:
                 result.append(VictimFields(**v))
@@ -134,10 +124,9 @@ def _normalize_victims(fields: dict) -> list:
 
 
 def _normalize_victims_as_dicts(fields: dict) -> list:
-    """Привести victims_list к списку plain dict (для SSE-ответа)."""
-    raw_victims = fields.get("victims_list", [])
+    raw = fields.get("victims_list", [])
     result = []
-    for v in raw_victims:
+    for v in raw:
         if isinstance(v, dict):
             try:
                 result.append(VictimFields(**v).model_dump())
@@ -200,13 +189,10 @@ async def upload_report_stream(
     try:
         _validate_docx_file(filename, file_bytes)
     except HTTPException as exc:
-        # При валидационной ошибке отдаём SSE с error, а не HTTP 4xx,
-        # чтобы фронтенд мог его обработать через EventSource.
         async def _err():
             yield f"data: {json.dumps({'status': 'error', 'message': exc.detail})}\n\n"
         return StreamingResponse(_err(), media_type="text/event-stream")
 
-    import hashlib
     file_hash = hashlib.sha256(file_bytes).hexdigest()
 
     async def event_generator():
@@ -254,7 +240,7 @@ async def upload_report_stream(
             yield f"data: {json.dumps({'status': 'error', 'message': 'Произошла непредвиденная ошибка при анализе отчёта.'})}\n\n"
             return
 
-        # Сохраняем в кэш (без нормализованных жертв — храним raw dict)
+        # Сохраняем в кэш (raw dict, без нормализованных жертв)
         await repo.save(file_hash, fields)
 
         fields["victims_list"] = _normalize_victims_as_dicts(fields)
