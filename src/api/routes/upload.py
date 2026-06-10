@@ -41,12 +41,12 @@ router = APIRouter(prefix="/api/v1", tags=["upload"])
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 DBSession = Annotated[AsyncSession, Depends(get_db)]
 
-# Лимит размера файла: 10 МБ
 MAX_FILE_SIZE = 10 * 1024 * 1024
+
+_NARRATIVE_REQUIRED = ("full_circumstances", "established_facts")
 
 
 class VictimFields(BaseModel):
-    """Сведения о пострадавшем, извлечённые из отчёта."""
     full_name: Optional[str] = None
     birth_date: Optional[str] = None
     age: Optional[int] = None
@@ -66,7 +66,6 @@ class VictimFields(BaseModel):
 
 
 class ExtractedFields(BaseModel):
-    """Результат извлечения полей из отчёта."""
     title: str
     description: str
     incident_date: Optional[str] = None
@@ -76,26 +75,21 @@ class ExtractedFields(BaseModel):
     location: str
     incident_type: str
     severity: str
-
     victims: int = 0
     injured_count: Optional[int] = None
     fatalities_count: Optional[int] = None
-
     equipment: Optional[str] = None
     conditions: Optional[str] = None
     actions_taken: Optional[str] = None
     short_description: Optional[str] = None
-
     scene_description: Optional[str] = None
     equipment_description: Optional[str] = None
     full_circumstances: Optional[str] = None
     established_facts: Optional[str] = None
-
     victims_list: List[VictimFields] = Field(default_factory=list)
 
 
 def _validate_docx_file(filename: str, file_bytes: bytes) -> None:
-    """Бросает HTTPException при недопустимом файле."""
     if not filename.lower().endswith(".docx"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -201,7 +195,6 @@ async def upload_report_stream(
         from src.db.cache_repository import ExtractionCacheRepository
         repo = ExtractionCacheRepository(db)
 
-        # --- Проверка кэша ---
         cached = await repo.get(file_hash)
         if cached is not None:
             logger.info("[UploadStream] Кэш-попадание: hash=%s", file_hash[:16])
@@ -211,7 +204,6 @@ async def upload_report_stream(
             yield f"data: {json.dumps({'status': 'done', 'result': cached})}\n\n"
             return
 
-        # --- Кэш-промах: полный pipeline ---
         yield f"data: {json.dumps({'status': 'reading', 'message': 'Извлечение текста из документа...'})}\n\n"
         await asyncio.sleep(0.05)
 
@@ -242,16 +234,17 @@ async def upload_report_stream(
             yield f"data: {json.dumps({'status': 'error', 'message': 'Произошла непредвиденная ошибка при анализе отчёта.'})}\n\n"
             return
 
-        # Сохраняем в кэш только если результат полный
         if _is_complete(fields):
             await repo.save(file_hash, fields)
         else:
-            missing = [k for k in ("full_circumstances", "established_facts") if not fields.get(k)]
+            missing = [k for k in _NARRATIVE_REQUIRED if not fields.get(k)]
+            missing_str = ", ".join(missing)
             logger.warning(
                 "[UploadStream] Результат неполный (пустые: %s) — кэш не сохранён",
-                ", ".join(missing),
+                missing_str,
             )
-            yield f"data: {json.dumps({'status': 'warning', 'message': f'Некоторые поля не извлечены ({", ".join(missing)}). Попробуйте загрузить файл ещё раз.'})}\n\n"
+            warn_msg = "Некоторые поля не извлечены (" + missing_str + "). Попробуйте загрузить файл ещё раз."
+            yield f"data: {json.dumps({'status': 'warning', 'message': warn_msg})}\n\n"
             await asyncio.sleep(0.05)
 
         fields["victims_list"] = _normalize_victims_as_dicts(fields)
