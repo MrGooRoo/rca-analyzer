@@ -1,4 +1,3 @@
-
 """
 Сервис извлечения структурированных полей инцидента из текста отчёта через LLM.
 """
@@ -11,56 +10,29 @@ from src.integrations.llm.openrouter import OpenRouterClient
 
 logger = logging.getLogger(__name__)
 
-# ---------------------------------------------------------------------------
-# Адаптивная стратегия обрезки текста в зависимости от контекстного окна модели.
-# Модели с контекстом ≥ 200 000 токенов получают полный текст без обрезки.
-# Для остальных — сохраняется section-aware head+tail стратегия.
-# ---------------------------------------------------------------------------
-
-# Порог: если модель поддерживает ≥ столько токенов контекста — не обрезаем.
 _LARGE_CONTEXT_THRESHOLD_TOKENS = 200_000
 
-# Известные модели с большим контекстом (бесплатные через OpenRouter).
-# Ключ — подстрока из OPENROUTER_MODEL, значение — размер контекста в токенах.
 _KNOWN_MODEL_CONTEXTS: dict[str, int] = {
-    # NVIDIA Nemotron (1M)
     "nemotron-3-ultra":   1_000_000,
     "nemotron-3-super":   1_000_000,
     "nemotron-3-nano":      256_000,
-    # Qwen (256K–1M)
     "qwen3-next":           262_144,
     "qwen3-coder":        1_048_576,
-    # Google Gemma 4 (262K)
     "gemma-4":              262_144,
-    # Moonshot Kimi (262K)
     "kimi":                 262_144,
-    # Poolside Laguna (262K)
     "laguna":               262_144,
-    # OpenRouter meta-models
     "openrouter/owl":     1_048_756,
     "openrouter/free":      200_000,
-    # Google Lyria
     "lyria":              1_048_576,
-    # Llama 3.3 70B (131K — ниже порога, но всё ещё прилично)
     "llama-3.3-70b":        131_072,
-    # GPT-OSS (131K)
     "gpt-oss-120b":         131_072,
     "gpt-oss-20b":          131_072,
-    # Hermes 405B (131K)
     "hermes-3-llama-3.1-405b": 131_072,
 }
 
 
 def _get_model_context_limit() -> int:
-    """Возвращает размер контекстного окна модели в токенах.
-
-    Источники (в порядке приоритета):
-      1. OPENROUTER_MODEL_MAX_CONTEXT (явное указание пользователем)
-      2. _KNOWN_MODEL_CONTEXTS (по подстроке model_id)
-      3. 131_072 (консервативное значение по умолчанию)
-    """
     from os import getenv
-
     explicit = getenv("OPENROUTER_MODEL_MAX_CONTEXT")
     if explicit:
         try:
@@ -71,60 +43,35 @@ def _get_model_context_limit() -> int:
                 "использую автоопределение",
                 explicit,
             )
-
     model_id = getenv("OPENROUTER_MODEL", "").lower()
     for key, ctx in _KNOWN_MODEL_CONTEXTS.items():
         if key in model_id:
             return ctx
-
-    return 131_072  # консервативный дефолт
+    return 131_072
 
 
 def _model_supports_full_text(model_ctx_tokens: int) -> bool:
-    """True если контекст модели позволяет отправить весь документ без обрезки."""
-    # Порог: ≈ 200K токенов → ~600K–800K символов (русский текст).
-    # Типичный большой DOCX: 150–200K символов → ~40–55K токенов.
-    # С запасом на системный промпт + ответ (8K токенов) + оверхед.
     return model_ctx_tokens >= _LARGE_CONTEXT_THRESHOLD_TOKENS
 
 
-# Максимальный размер текста для отправки в LLM (с обрезкой).
-# Используется ТОЛЬКО когда модель НЕ поддерживает полный текст.
-# Настраивается через DOCX_MAX_INPUT_CHARS (по умолчанию 20_000).
 _DEFAULT_MAX_INPUT_CHARS = 20_000
 
 
 def _get_max_input_chars() -> int:
-    """Максимальное кол-во символов текста отчёта для отправки в LLM."""
     from os import getenv
-
     val = getenv("DOCX_MAX_INPUT_CHARS")
     if val:
         try:
             return int(val)
         except ValueError:
-            logger.warning(
-                "[DocxFields] Некорректный DOCX_MAX_INPUT_CHARS=%s", val
-            )
+            logger.warning("[DocxFields] Некорректный DOCX_MAX_INPUT_CHARS=%s", val)
     return _DEFAULT_MAX_INPUT_CHARS
 
-# Стратегия head + tail + section-aware:
-#   * head  — начало документа (обзор, пострадавшие, даты);
-#   * tail  — конец документа (часто там выводы/заключение);
-#   * section slices — целевые срезы вокруг ключевых разделов
-#     («Установленные факты», «Обстоятельства», «Причины» и т.д.),
-#     чтобы они не терялись в «мёртвой зоне» между head и tail
-#     в очень длинных документах (>16 000 символов).
+
 HEAD_CHUNK = 10_000
 TAIL_CHUNK = 10_000
-
-# Сколько символов захватывать вокруг найденного заголовка раздела.
-# Заголовок может быть в любом месте документа; берём весь раздел целиком
-# (до следующего известного заголовка или до SECTION_WINDOW символов).
 SECTION_WINDOW = 14_000
 
-# Ключевые заголовки разделов, которые ОБЯЗАТЕЛЬНО должны попасть в срез.
-# Сопоставление регистронезависимое, по вхождению подстроки в строку-начало абзаца.
 SECTION_KEYWORDS: tuple[str, ...] = (
     "установленные факты",
     "комиссией установлено",
@@ -224,18 +171,9 @@ USER_PROMPT_TEMPLATE = """\
 
 
 def _find_section_spans(text: str) -> list[tuple[int, int]]:
-    """Находит позиции ключевых разделов в тексте.
-
-    Для каждого найденного заголовка раздела захватывает текст
-    либо до следующего известного заголовка, либо до SECTION_WINDOW
-    символов — что больше (чтобы не обрезать длинные разделы).
-    Регистронезависимый поиск по вхождению ключевых слов.
-    """
     lowered = text.lower()
     n = len(text)
-
-    # Собираем все позиции всех ключевых слов
-    positions: list[tuple[int, str]] = []  # (индекс, ключевое_слово)
+    positions: list[tuple[int, str]] = []
     for kw in SECTION_KEYWORDS:
         start = 0
         while True:
@@ -244,16 +182,11 @@ def _find_section_spans(text: str) -> list[tuple[int, int]]:
                 break
             positions.append((idx, kw))
             start = idx + len(kw)
-
     if not positions:
         return []
-
     positions.sort()
-
     spans: list[tuple[int, int]] = []
     for i, (pos, _kw) in enumerate(positions):
-        # Конец раздела: либо позиция следующего заголовка, либо SECTION_WINDOW
-        # Используем max, чтобы гарантированно захватить SECTION_WINDOW минимум
         if i + 1 < len(positions):
             next_pos = positions[i + 1][0]
             end = max(pos + SECTION_WINDOW, next_pos)
@@ -261,12 +194,10 @@ def _find_section_spans(text: str) -> list[tuple[int, int]]:
             end = pos + SECTION_WINDOW
         end = min(end, n)
         spans.append((pos, end))
-
     return spans
 
 
 def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
-    """Сливает пересекающиеся/смежные диапазоны в упорядоченный список."""
     if not spans:
         return []
     spans = sorted(spans)
@@ -281,35 +212,16 @@ def _merge_spans(spans: list[tuple[int, int]]) -> list[tuple[int, int]]:
 
 
 def _trim_text(text: str, max_input_chars: int | None = None) -> tuple[str, bool]:
-    """Возвращает (trimmed_text, was_trimmed).
-
-    Стратегия для длинных документов (> max_input_chars):
-      1. Берём head (начало) и tail (конец).
-      2. Дополнительно ищем ключевые разделы по всему документу
-         («Установленные факты» и т.п.) и принудительно включаем
-         их срезы, даже если они находятся в середине.
-      3. Все диапазоны сливаются и склеиваются по порядку с метками
-         о пропущенных фрагментах.
-
-    Так раздел «Установленные факты» гарантированно попадёт в срез
-    независимо от его положения в документе.
-
-    Если max_input_chars не задан — используется _get_max_input_chars().
-    """
     if max_input_chars is None:
         max_input_chars = _get_max_input_chars()
-
     if len(text) <= max_input_chars:
         return text, False
-
     n = len(text)
-    # Динамический head/tail: пропорционально лимиту
     head_sz = min(HEAD_CHUNK, max_input_chars // 2)
     tail_sz = min(TAIL_CHUNK, max_input_chars // 2)
     spans: list[tuple[int, int]] = [(0, head_sz), (n - tail_sz, n)]
     spans.extend(_find_section_spans(text))
     merged = _merge_spans(spans)
-
     parts: list[str] = []
     prev_end = 0
     for start, end in merged:
@@ -319,7 +231,6 @@ def _trim_text(text: str, max_input_chars: int | None = None) -> tuple[str, bool
         prev_end = end
     if prev_end < n:
         parts.append(f"\n...[пропущено {n - prev_end} символов]...\n")
-
     trimmed = "".join(parts)
     return trimmed, True
 
@@ -332,7 +243,6 @@ async def extract_fields_from_text(report_text: str) -> dict:
     full_text_ok = _model_supports_full_text(model_ctx)
 
     if full_text_ok:
-        # Модель с большим контекстом — отправляем ВЕСЬ документ
         trimmed = report_text
         was_trimmed = False
         logger.info(
@@ -348,9 +258,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
             logger.warning(
                 "[DocxFields] Текст обрезан (контекст модели %d токенов): "
                 "%d → %d символов",
-                model_ctx,
-                len(report_text),
-                len(trimmed),
+                model_ctx, len(report_text), len(trimmed),
             )
         else:
             logger.info(
@@ -360,19 +268,39 @@ async def extract_fields_from_text(report_text: str) -> dict:
 
     user_prompt = USER_PROMPT_TEMPLATE.format(report_text=trimmed)
 
-    # Для полного текста увеличиваем max_tokens чтобы модель могла
-    # вернуть все поля без урезания
-    response_tokens = 16384 if full_text_ok else 8192
+    # Первая попытка: полный текст, большой лимит токенов
+    response_tokens = 32768 if full_text_ok else 8192
 
-    async with OpenRouterClient() as client:
-        raw = await client.complete(
-            system_prompt=SYSTEM_PROMPT,
-            user_prompt=user_prompt,
-            temperature=0.1,
-            max_tokens=response_tokens,
-            # upload использует свою схему — не требуем summary/recommendations
-            required_keys={"title"},
-        )
+    try:
+        async with OpenRouterClient() as client:
+            raw = await client.complete(
+                system_prompt=SYSTEM_PROMPT,
+                user_prompt=user_prompt,
+                temperature=0.1,
+                max_tokens=response_tokens,
+                required_keys={"title"},
+            )
+    except Exception as exc:
+        if full_text_ok and not was_trimmed:
+            # Fallback: повторить с обрезанным текстом
+            logger.warning(
+                "[DocxFields] Полный текст не сработал (%s). "
+                "Повторяю с обрезанным текстом.",
+                exc,
+            )
+            max_chars = _get_max_input_chars()
+            trimmed_fallback, _ = _trim_text(report_text, max_input_chars=max_chars)
+            user_prompt_fallback = USER_PROMPT_TEMPLATE.format(report_text=trimmed_fallback)
+            async with OpenRouterClient() as client2:
+                raw = await client2.complete(
+                    system_prompt=SYSTEM_PROMPT,
+                    user_prompt=user_prompt_fallback,
+                    temperature=0.1,
+                    max_tokens=8192,
+                    required_keys={"title"},
+                )
+        else:
+            raise
 
     raw.pop("_meta", None)
     fields = _normalize_fields(raw)
@@ -394,7 +322,6 @@ VALID_SEVERITIES = {"critical", "major", "moderate", "minor", "near_miss"}
 
 def _normalize_fields(raw: dict) -> dict:
     fields: dict = {}
-
     fields["title"] = str(raw.get("title", "Инцидент (из отчёта)"))[:200]
     fields["description"] = str(raw.get("description", ""))
     fields["incident_date"] = str(raw.get("incident_date", "")) or None
@@ -405,20 +332,15 @@ def _normalize_fields(raw: dict) -> dict:
     fields["injured_count"] = int(raw.get("injured_count", 0)) or None
     fields["fatalities_count"] = int(raw.get("fatalities_count", 0)) or None
     fields["short_description"] = str(raw.get("short_description", "")) or None
-
     it = str(raw.get("incident_type", "")).lower().strip()
     fields["incident_type"] = it if it in VALID_TYPES else "process_upset"
-
     sev = str(raw.get("severity", "")).lower().strip()
     fields["severity"] = sev if sev in VALID_SEVERITIES else "moderate"
-
     for key in ("equipment", "conditions", "actions_taken",
                 "scene_description", "equipment_description",
                 "full_circumstances", "established_facts"):
         val = raw.get(key)
         fields[key] = str(val) if val and str(val).lower() != "null" else None
-
     victims_raw = raw.get("victims_list", [])
     fields["victims_list"] = victims_raw if isinstance(victims_raw, list) else []
-
     return fields

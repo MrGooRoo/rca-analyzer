@@ -6,7 +6,7 @@
 - Валидация минимального JSON-формата (contracts.md раздел 6)
 - Снятие маркдаун-забора ```json ... ``` перед парсингом
 - Поддержка нескольких моделей через переменную окружения
-- Все HTTP-ошибки оборачиваются в LLMResponseValidationError
+- Все HTTP-ошибки обёртываются в LLMResponseValidationError
 - response_format json_object не передаётся моделям из _NO_JSON_FORMAT_MODELS
 
 Стацк моделей (primary + fallbacks):
@@ -46,14 +46,10 @@ logger = logging.getLogger(__name__)
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 
-# Минимально необходимые ключи (по умолчанию) для RCA-методологий.
 _DEFAULT_REQUIRED_KEYS: frozenset[str] = frozenset({"summary", "recommendations"})
 
-# Регулярка для снятия markdown-забора ```json ... ```
 _MD_FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?```\s*$", re.DOTALL)
 
-# Модели, которые не поддерживают response_format={"type": "json_object"}.
-# gpt-oss-120b:free, nemotron, deepseek-v3 — поддерживают, поэтому их здесь нет.
 _NO_JSON_FORMAT_MODELS: frozenset[str] = frozenset({
     "google/gemma-4-26b-a4b-it:free",
     "google/gemma-3-27b-it:free",
@@ -68,12 +64,10 @@ _NO_JSON_FORMAT_MODELS: frozenset[str] = frozenset({
     "qwen/qwen3-30b-a3b:free",
 })
 
-# Fallback-модели по умолчанию (если OPENROUTER_FALLBACK_MODELS не задан).
-# Контекст всех моделей ≥ 128K — достаточно для DOCX 165K символов.
 _DEFAULT_FALLBACK_MODELS: list[str] = [
-    "openai/gpt-oss-120b:free",               # 131K, MoE 117B, structured output
-    "meta-llama/llama-3.3-70b-instruct:free", # 131K, стабильный
-    "deepseek/deepseek-chat-v3-0324:free",    # 1M контекст, хороший JSON
+    "openai/gpt-oss-120b:free",
+    "meta-llama/llama-3.3-70b-instruct:free",
+    "deepseek/deepseek-chat-v3-0324:free",
 ]
 
 
@@ -262,7 +256,6 @@ class OpenRouterClient:
             ],
         }
 
-        # response_format json_object поддерживают не все модели
         if self.current_model not in _NO_JSON_FORMAT_MODELS:
             payload["response_format"] = {"type": "json_object"}
 
@@ -290,6 +283,20 @@ class OpenRouterClient:
         content = data["choices"][0]["message"]["content"]
         usage   = data.get("usage", {})
 
+        # Проверяем finish_reason — если 'length', модель обрезала ответ по max_tokens
+        finish_reason = data["choices"][0].get("finish_reason", "")
+        if finish_reason == "length":
+            logger.warning(
+                "[OpenRouter] Модель %s обрезала ответ по max_tokens=%d (finish_reason=length). "
+                "Ответ может быть неполным JSON.",
+                self.current_model,
+                max_tokens,
+            )
+            raise LLMResponseValidationError(
+                f"Ответ модели {self.current_model} обрезан по лимиту токенов (max_tokens={max_tokens}). "
+                "Переключение на fallback."
+            )
+
         parsed = self._parse_and_validate(content, required_keys=required_keys)
         parsed["_meta"] = {
             "model":  self.current_model,
@@ -311,7 +318,15 @@ class OpenRouterClient:
         try:
             parsed: dict = json.loads(content)
         except json.JSONDecodeError as exc:
-            logger.warning("[OpenRouter] Невалидный JSON: %.200s", content)
+            # Логируем полный невалидный ответ до 2000 символов для диагностики
+            logger.warning(
+                "[OpenRouter] Невалидный JSON от %s. Ошибка: %s. "
+                "Начало ответа: %.500s ... Конец ответа: %.500s",
+                self.current_model,
+                exc,
+                content[:500],
+                content[-500:],
+            )
             raise LLMResponseValidationError(
                 f"LLM вернул невалидный JSON: {exc}"
             ) from exc
