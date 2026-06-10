@@ -7,9 +7,12 @@
 
 Группы:
   1. metadata     — title, date, time, company, location, severity, type (~500 tok)
-  2. description  — description, short_description, scene_description, equipment_description (~2000 tok)
+  2. description  — description, short_description, scene_description, equipment_description (~4000 tok)
   3. narrative    — full_circumstances, established_facts, actions_taken (~8000 tok)
   4. victims      — victims_list (~4000 tok)
+
+Timeout на каждую группу: 300 сек 
+(допускает до 5 мин на генерацию длинных полей narrative).
 """
 
 from __future__ import annotations
@@ -69,7 +72,7 @@ def _model_supports_full_text(model_ctx_tokens: int) -> bool:
 
 
 # ---------------------------------------------------------------------------
-# Обрезка текста (используется при fallback или маленьком контексте)
+# Обрезка текста
 # ---------------------------------------------------------------------------
 
 _DEFAULT_MAX_INPUT_CHARS = 20_000
@@ -186,6 +189,10 @@ def _trim_text(text: str, max_input_chars: int | None = None) -> tuple[str, bool
 # Параллельное извлечение: 4 группы полей
 # ---------------------------------------------------------------------------
 
+# Timeout на каждую группу отдельно — больше чем дефолтный OPENROUTER_TIMEOUT (120с),
+# так как narrative может генерировать 16K токенов до 5 мин.
+_GROUP_TIMEOUT = 300
+
 _BASE_SYSTEM = """\
 Ты — специалист по анализу отчётов об инцидентах на производстве.
 Прочитай текст отчёта и извлеки из него ТОЛЬКО запрошенные поля.
@@ -193,7 +200,6 @@ _BASE_SYSTEM = """\
 Если поле невозможно определить — используй null.
 """
 
-# --- Группа 1: Метаданные ---
 _SYSTEM_METADATA = _BASE_SYSTEM + """\
 Верни JSON со следующими полями:
 {
@@ -210,7 +216,6 @@ _SYSTEM_METADATA = _BASE_SYSTEM + """\
 }
 """
 
-# --- Группа 2: Описания ---
 _SYSTEM_DESCRIPTION = _BASE_SYSTEM + """\
 Верни JSON со следующими полями.
 Для текстовых полей извлекай текст ДОСЛОВНО из отчёта, не сокращай:
@@ -224,7 +229,6 @@ _SYSTEM_DESCRIPTION = _BASE_SYSTEM + """\
 }
 """
 
-# --- Группа 3: Обстоятельства и меры ---
 _SYSTEM_NARRATIVE = _BASE_SYSTEM + """\
 Верни JSON со следующими полями.
 Для всех полей извлекай текст ДОСЛОВНО, сохраняя все абзацы, списки и пункты ПОЛНОСТЬЮ:
@@ -235,7 +239,6 @@ _SYSTEM_NARRATIVE = _BASE_SYSTEM + """\
 }
 """
 
-# --- Группа 4: Пострадавшие ---
 _SYSTEM_VICTIMS = _BASE_SYSTEM + """\
 Верни JSON с одним полем:
 {
@@ -279,10 +282,10 @@ async def _extract_group(
     max_tokens: int,
     required_keys: set[str],
 ) -> dict:
-    """Один параллельный вызов LLM для группы полей."""
-    logger.info("[DocxFields] Запрос группы '%s' ...", group_name)
+    """\u041e\u0434\u0438\u043d \u043f\u0430\u0440\u0430\u043b\u043b\u0435\u043b\u044c\u043d\u044b\u0439 \u0432\u044b\u0437\u043e\u0432 LLM \u0434\u043b\u044f \u0433\u0440\u0443\u043f\u043f\u044b \u043f\u043e\u043b\u0435\u0439."""
+    logger.info("[DocxFields] \u0417\u0430\u043f\u0440\u043e\u0441 \u0433\u0440\u0443\u043f\u043f\u044b '%s' ...", group_name)
     try:
-        async with OpenRouterClient() as client:
+        async with OpenRouterClient(timeout=_GROUP_TIMEOUT) as client:
             result = await client.complete(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
@@ -291,16 +294,16 @@ async def _extract_group(
                 required_keys=required_keys,
             )
         result.pop("_meta", None)
-        logger.info("[DocxFields] Группа '%s' — успешно (%d ключей)", group_name, len(result))
+        logger.info("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 '%s' \u2014 \u0443\u0441\u043f\u0435\u0448\u043d\u043e (%d \u043a\u043b\u044e\u0447\u0435\u0439)", group_name, len(result))
         return result
     except Exception as exc:
-        logger.error("[DocxFields] Группа '%s' — ошибка: %s", group_name, exc)
-        return {}  # Не роняем всё из-за одной группы
+        logger.error("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 '%s' \u2014 \u043e\u0448\u0438\u0431\u043a\u0430: %s", group_name, exc)
+        return {}
 
 
 async def extract_fields_from_text(report_text: str) -> dict:
     if not report_text or not report_text.strip():
-        raise ValueError("Текст отчёта пустой — невозможно извлечь данные.")
+        raise ValueError("\u0422\u0435\u043a\u0441\u0442 \u043e\u0442\u0447\u0451\u0442\u0430 \u043f\u0443\u0441\u0442\u043e\u0439 \u2014 \u043d\u0435\u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e \u0438\u0437\u0432\u043b\u0435\u0447\u044c \u0434\u0430\u043d\u043d\u044b\u0435.")
 
     model_ctx = _get_model_context_limit()
     full_text_ok = _model_supports_full_text(model_ctx)
@@ -308,8 +311,8 @@ async def extract_fields_from_text(report_text: str) -> dict:
     if full_text_ok:
         text_to_send = report_text
         logger.info(
-            "[DocxFields] Модель с контекстом %d токенов — "
-            "отправляю полный текст (%d символов) без обрезки",
+            "[DocxFields] \u041c\u043e\u0434\u0435\u043b\u044c \u0441 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u043e\u043c %d \u0442\u043e\u043a\u0435\u043d\u043e\u0432 \u2014 "
+            "\u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u044e \u043f\u043e\u043b\u043d\u044b\u0439 \u0442\u0435\u043a\u0441\u0442 (%d \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432) \u0431\u0435\u0437 \u043e\u0431\u0440\u0435\u0437\u043a\u0438",
             model_ctx, len(report_text),
         )
     else:
@@ -317,13 +320,12 @@ async def extract_fields_from_text(report_text: str) -> dict:
         text_to_send, was_trimmed = _trim_text(report_text, max_input_chars=max_chars)
         if was_trimmed:
             logger.warning(
-                "[DocxFields] Текст обрезан (контекст %d токенов): %d → %d символов",
+                "[DocxFields] \u0422\u0435\u043a\u0441\u0442 \u043e\u0431\u0440\u0435\u0437\u0430\u043d (\u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 %d \u0442\u043e\u043a\u0435\u043d\u043e\u0432): %d \u2192 %d \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432",
                 model_ctx, len(report_text), len(text_to_send),
             )
 
     user_prompt = _USER_PROMPT_TEMPLATE.format(report_text=text_to_send)
 
-    # Запускаем 4 группы параллельно
     results = await asyncio.gather(
         _extract_group(
             "metadata",
@@ -336,7 +338,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
             "description",
             _SYSTEM_DESCRIPTION,
             user_prompt,
-            max_tokens=4096,
+            max_tokens=8192,  # \u0443\u0432\u0435\u043b\u0438\u0447\u0435\u043d\u043e \u0441 4096 \u2014 \u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u043b\u044f \u0434\u043b\u0438\u043d\u043d\u044b\u0445 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0439
             required_keys={"description"},
         ),
         _extract_group(
@@ -355,30 +357,24 @@ async def extract_fields_from_text(report_text: str) -> dict:
         ),
     )
 
-    # Сливаем все группы в один словарь
     merged: dict = {}
     for group_result in results:
         merged.update(group_result)
 
-    # Если title всё равно не пришёл — минимальный fallback
     if not merged.get("title"):
-        logger.error("[DocxFields] Группа 'metadata' не вернула title — все группы упали?")
-        raise ValueError("LLM не смог извлечь данные ни из одной группы полей.")
+        logger.error("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 'metadata' \u043d\u0435 \u0432\u0435\u0440\u043d\u0443\u043b\u0430 title \u2014 \u0432\u0441\u0435 \u0433\u0440\u0443\u043f\u043f\u044b \u0443\u043f\u0430\u043b\u0438?")
+        raise ValueError("LLM \u043d\u0435 \u0441\u043c\u043e\u0433 \u0438\u0437\u0432\u043b\u0435\u0447\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u043d\u0438 \u0438\u0437 \u043e\u0434\u043d\u043e\u0439 \u0433\u0440\u0443\u043f\u043f\u044b \u043f\u043e\u043b\u0435\u0439.")
 
     fields = _normalize_fields(merged)
 
     logger.info(
-        "[DocxFields] Извлечены поля: title=%s, victims=%d",
+        "[DocxFields] \u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u044b \u043f\u043e\u043b\u044f: title=%s, victims=%d",
         fields.get("title", "")[:60],
         len(fields.get("victims_list") or []),
     )
 
     return fields
 
-
-# ---------------------------------------------------------------------------
-# Нормализация и валидация
-# ---------------------------------------------------------------------------
 
 VALID_TYPES = {
     "injury", "equipment", "fire", "spill",
@@ -389,7 +385,7 @@ VALID_SEVERITIES = {"critical", "major", "moderate", "minor", "near_miss"}
 
 def _normalize_fields(raw: dict) -> dict:
     fields: dict = {}
-    fields["title"] = str(raw.get("title", "Инцидент (из отчёта)"))[:200]
+    fields["title"] = str(raw.get("title", "\u0418\u043d\u0446\u0438\u0434\u0435\u043d\u0442 (\u0438\u0437 \u043e\u0442\u0447\u0451\u0442\u0430)"))[:200]
     fields["description"] = str(raw.get("description", ""))
     fields["incident_date"] = str(raw.get("incident_date", "")) or None
     fields["incident_time"] = str(raw.get("incident_time", "")) or None
