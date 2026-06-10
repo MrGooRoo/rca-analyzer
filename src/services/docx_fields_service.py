@@ -1,14 +1,29 @@
 """
 Сервис извлечения структурированных полей инцидента из текста отчёта через LLM.
+
+Стратегия: параллельный вызов LLM для 4 групп полей через asyncio.gather.
+Каждая группа — отдельный запрос с маленькой схемой и своим лимитом токенов.
+Итоговый словарь собирается слиянием 4 ответов.
+
+Группы:
+  1. metadata     — title, date, time, company, location, severity, type (~500 tok)
+  2. description  — description, short_description, scene_description, equipment_description (~2000 tok)
+  3. narrative    — full_circumstances, established_facts, actions_taken (~8000 tok)
+  4. victims      — victims_list (~4000 tok)
 """
 
 from __future__ import annotations
 
+import asyncio
 import logging
 
 from src.integrations.llm.openrouter import OpenRouterClient
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# Контекстное окно модели
+# ---------------------------------------------------------------------------
 
 _LARGE_CONTEXT_THRESHOLD_TOKENS = 200_000
 
@@ -40,8 +55,7 @@ def _get_model_context_limit() -> int:
         except ValueError:
             logger.warning(
                 "[DocxFields] Некорректный OPENROUTER_MODEL_MAX_CONTEXT=%s — "
-                "использую автоопределение",
-                explicit,
+                "использую автоопределение", explicit,
             )
     model_id = getenv("OPENROUTER_MODEL", "").lower()
     for key, ctx in _KNOWN_MODEL_CONTEXTS.items():
@@ -54,7 +68,14 @@ def _model_supports_full_text(model_ctx_tokens: int) -> bool:
     return model_ctx_tokens >= _LARGE_CONTEXT_THRESHOLD_TOKENS
 
 
+# ---------------------------------------------------------------------------
+# Обрезка текста (используется при fallback или маленьком контексте)
+# ---------------------------------------------------------------------------
+
 _DEFAULT_MAX_INPUT_CHARS = 20_000
+HEAD_CHUNK = 10_000
+TAIL_CHUNK = 10_000
+SECTION_WINDOW = 14_000
 
 
 def _get_max_input_chars() -> int:
@@ -67,10 +88,6 @@ def _get_max_input_chars() -> int:
             logger.warning("[DocxFields] Некорректный DOCX_MAX_INPUT_CHARS=%s", val)
     return _DEFAULT_MAX_INPUT_CHARS
 
-
-HEAD_CHUNK = 10_000
-TAIL_CHUNK = 10_000
-SECTION_WINDOW = 14_000
 
 SECTION_KEYWORDS: tuple[str, ...] = (
     "установленные факты",
@@ -99,75 +116,6 @@ SECTION_KEYWORDS: tuple[str, ...] = (
     "акт о несчастном случае",
     "результаты расследования",
 )
-
-SYSTEM_PROMPT = """\
-Ты — специалист по анализу отчётов об инцидентах на производстве.
-Твоя задача: прочитать текст отчёта и извлечь из него структурированную информацию.
-
-Верни СТРОГО JSON-объект со следующими полями (все поля на верхнем уровне):
-
-{
-  "title": "Краткий заголовок инцидента",
-  "description": "Подробное описание инцидента",
-  "incident_date": "Дата в формате YYYY-MM-DD (если неизвестна — null)",
-  "incident_time": "Время в формате HH:MM (если неизвестно — null)",
-  "company": "Название компании",
-  "department": "Подразделение",
-  "location": "Место происшествия",
-  "injured_count": число пострадавших,
-  "fatalities_count": число погибших,
-  "short_description": "Краткое описание",
-  "incident_type": "Тип: injury|equipment|fire|spill|near_miss|process_upset|security|environmental",
-  "severity": "Тяжесть: critical|major|moderate|minor|near_miss",
-  "equipment": "Оборудование (или null)",
-  "conditions": "Условия (или null)",
-  "actions_taken": "Принятые меры (или null)",
-  "scene_description": "Описание места происшествия",
-  "equipment_description": "Характеристика оборудования/объекта",
-  "full_circumstances": "Полное описание обстоятельств происшествия",
-  "established_facts": "Установленные факты",
-  "victims_list": [ массив объектов Victim — см. ниже ]
-}
-
-Структура объекта Victim:
-{
-  "full_name": "ФИО",
-  "birth_date": "YYYY-MM-DD или null",
-  "age": число или null,
-  "family_status": "семейное положение",
-  "children_under_21": число,
-  "profession": "профессия/должность",
-  "workplace": "место работы",
-  "total_experience": "общий стаж",
-  "experience_in_organization": "стаж в организации",
-  "qualification_certificate": "квалификационное удостоверение",
-  "introductory_briefing": "вводный инструктаж",
-  "workplace_briefing": "инструктаж на рабочем месте",
-  "internship": "стажировка/допуск",
-  "safety_knowledge_test": "проверка знаний",
-  "medical_examination": "медосмотр",
-  "diagnosis_severity": "диагноз / степень тяжести"
-}
-
-Правила:
-- Если поле невозможно определить — используй null.
-- НЕ перефразируй и НЕ сокращай текст для полей description, scene_description, equipment_description, full_circumstances, established_facts.
-- Извлекай их ДОСЛОВНО (прямым копированием из текста), сохраняя все абзацы, списки и маркированные пункты целиком.
-- В разделе "Установленные факты" ("established_facts") часто содержатся длинные списки или хронологии — обязательно извлеки их ПОЛНОСТЬЮ, без потери пунктов.
-- victims_list может быть пустым массивом.
-- incident_type и severity — строго из перечисленных значений.
-- Ответ — ТОЛЬКО JSON, без markdown.\
-"""
-
-USER_PROMPT_TEMPLATE = """\
-Проанализируй следующий текст отчёта об инциденте и извлеки структурированные данные.
-
---- ТЕКСТ ОТЧЁТА ---
-{report_text}
---- КОНЕЦ ОТЧЁТА ---
-
-Верни JSON со всеми полями из схемы (включая victims_list, scene_description и т.д.).\
-"""
 
 
 def _find_section_spans(text: str) -> list[tuple[int, int]]:
@@ -231,8 +179,123 @@ def _trim_text(text: str, max_input_chars: int | None = None) -> tuple[str, bool
         prev_end = end
     if prev_end < n:
         parts.append(f"\n...[пропущено {n - prev_end} символов]...\n")
-    trimmed = "".join(parts)
-    return trimmed, True
+    return "".join(parts), True
+
+
+# ---------------------------------------------------------------------------
+# Параллельное извлечение: 4 группы полей
+# ---------------------------------------------------------------------------
+
+_BASE_SYSTEM = """\
+Ты — специалист по анализу отчётов об инцидентах на производстве.
+Прочитай текст отчёта и извлеки из него ТОЛЬКО запрошенные поля.
+Ответ — СТРОГО JSON-объект, без markdown, без пояснений.
+Если поле невозможно определить — используй null.
+"""
+
+# --- Группа 1: Метаданные ---
+_SYSTEM_METADATA = _BASE_SYSTEM + """\
+Верни JSON со следующими полями:
+{
+  "title": "Краткий заголовок инцидента",
+  "incident_date": "YYYY-MM-DD или null",
+  "incident_time": "HH:MM или null",
+  "company": "Название компании или null",
+  "department": "Подразделение или null",
+  "location": "Место происшествия",
+  "injured_count": число или null,
+  "fatalities_count": число или null,
+  "incident_type": "injury|equipment|fire|spill|near_miss|process_upset|security|environmental",
+  "severity": "critical|major|moderate|minor|near_miss"
+}
+"""
+
+# --- Группа 2: Описания ---
+_SYSTEM_DESCRIPTION = _BASE_SYSTEM + """\
+Верни JSON со следующими полями.
+Для текстовых полей извлекай текст ДОСЛОВНО из отчёта, не сокращай:
+{
+  "description": "Подробное описание инцидента",
+  "short_description": "Краткое описание (1-3 предложения)",
+  "scene_description": "Описание места происшествия (дословно)",
+  "equipment_description": "Характеристика оборудования/объекта (дословно)",
+  "equipment": "Название оборудования или null",
+  "conditions": "Условия труда/среды или null"
+}
+"""
+
+# --- Группа 3: Обстоятельства и меры ---
+_SYSTEM_NARRATIVE = _BASE_SYSTEM + """\
+Верни JSON со следующими полями.
+Для всех полей извлекай текст ДОСЛОВНО, сохраняя все абзацы, списки и пункты ПОЛНОСТЬЮ:
+{
+  "full_circumstances": "Полное описание обстоятельств происшествия (дословно)",
+  "established_facts": "Установленные факты — весь список/хронология без потери пунктов (дословно)",
+  "actions_taken": "Принятые меры или null"
+}
+"""
+
+# --- Группа 4: Пострадавшие ---
+_SYSTEM_VICTIMS = _BASE_SYSTEM + """\
+Верни JSON с одним полем:
+{
+  "victims_list": [
+    {
+      "full_name": "ФИО",
+      "birth_date": "YYYY-MM-DD или null",
+      "age": число или null,
+      "family_status": "семейное положение или null",
+      "children_under_21": число или 0,
+      "profession": "профессия/должность",
+      "workplace": "место работы",
+      "total_experience": "общий стаж или null",
+      "experience_in_organization": "стаж в организации или null",
+      "qualification_certificate": "квалификационное удостоверение или null",
+      "introductory_briefing": "вводный инструктаж или null",
+      "workplace_briefing": "инструктаж на рабочем месте или null",
+      "internship": "стажировка/допуск или null",
+      "safety_knowledge_test": "проверка знаний или null",
+      "medical_examination": "медосмотр или null",
+      "diagnosis_severity": "диагноз / степень тяжести или null"
+    }
+  ]
+}
+Если пострадавших нет — верни {"victims_list": []}.
+"""
+
+_USER_PROMPT_TEMPLATE = """\
+Проанализируй следующий текст отчёта об инциденте и извлеки запрошенные поля.
+
+--- ТЕКСТ ОТЧЁТА ---
+{report_text}
+--- КОНЕЦ ОТЧЁТА ---
+"""
+
+
+async def _extract_group(
+    group_name: str,
+    system_prompt: str,
+    user_prompt: str,
+    max_tokens: int,
+    required_keys: set[str],
+) -> dict:
+    """Один параллельный вызов LLM для группы полей."""
+    logger.info("[DocxFields] Запрос группы '%s' ...", group_name)
+    try:
+        async with OpenRouterClient() as client:
+            result = await client.complete(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.1,
+                max_tokens=max_tokens,
+                required_keys=required_keys,
+            )
+        result.pop("_meta", None)
+        logger.info("[DocxFields] Группа '%s' — успешно (%d ключей)", group_name, len(result))
+        return result
+    except Exception as exc:
+        logger.error("[DocxFields] Группа '%s' — ошибка: %s", group_name, exc)
+        return {}  # Не роняем всё из-за одной группы
 
 
 async def extract_fields_from_text(report_text: str) -> dict:
@@ -243,75 +306,79 @@ async def extract_fields_from_text(report_text: str) -> dict:
     full_text_ok = _model_supports_full_text(model_ctx)
 
     if full_text_ok:
-        trimmed = report_text
-        was_trimmed = False
+        text_to_send = report_text
         logger.info(
             "[DocxFields] Модель с контекстом %d токенов — "
             "отправляю полный текст (%d символов) без обрезки",
-            model_ctx,
-            len(report_text),
+            model_ctx, len(report_text),
         )
     else:
         max_chars = _get_max_input_chars()
-        trimmed, was_trimmed = _trim_text(report_text, max_input_chars=max_chars)
+        text_to_send, was_trimmed = _trim_text(report_text, max_input_chars=max_chars)
         if was_trimmed:
             logger.warning(
-                "[DocxFields] Текст обрезан (контекст модели %d токенов): "
-                "%d → %d символов",
-                model_ctx, len(report_text), len(trimmed),
-            )
-        else:
-            logger.info(
-                "[DocxFields] Текст уместился в лимит %d символов, не обрезан",
-                max_chars,
+                "[DocxFields] Текст обрезан (контекст %d токенов): %d → %d символов",
+                model_ctx, len(report_text), len(text_to_send),
             )
 
-    user_prompt = USER_PROMPT_TEMPLATE.format(report_text=trimmed)
+    user_prompt = _USER_PROMPT_TEMPLATE.format(report_text=text_to_send)
 
-    # Первая попытка: полный текст, большой лимит токенов
-    response_tokens = 32768 if full_text_ok else 8192
+    # Запускаем 4 группы параллельно
+    results = await asyncio.gather(
+        _extract_group(
+            "metadata",
+            _SYSTEM_METADATA,
+            user_prompt,
+            max_tokens=1024,
+            required_keys={"title"},
+        ),
+        _extract_group(
+            "description",
+            _SYSTEM_DESCRIPTION,
+            user_prompt,
+            max_tokens=4096,
+            required_keys={"description"},
+        ),
+        _extract_group(
+            "narrative",
+            _SYSTEM_NARRATIVE,
+            user_prompt,
+            max_tokens=16384,
+            required_keys={"established_facts"},
+        ),
+        _extract_group(
+            "victims",
+            _SYSTEM_VICTIMS,
+            user_prompt,
+            max_tokens=8192,
+            required_keys={"victims_list"},
+        ),
+    )
 
-    try:
-        async with OpenRouterClient() as client:
-            raw = await client.complete(
-                system_prompt=SYSTEM_PROMPT,
-                user_prompt=user_prompt,
-                temperature=0.1,
-                max_tokens=response_tokens,
-                required_keys={"title"},
-            )
-    except Exception as exc:
-        if full_text_ok and not was_trimmed:
-            # Fallback: повторить с обрезанным текстом
-            logger.warning(
-                "[DocxFields] Полный текст не сработал (%s). "
-                "Повторяю с обрезанным текстом.",
-                exc,
-            )
-            max_chars = _get_max_input_chars()
-            trimmed_fallback, _ = _trim_text(report_text, max_input_chars=max_chars)
-            user_prompt_fallback = USER_PROMPT_TEMPLATE.format(report_text=trimmed_fallback)
-            async with OpenRouterClient() as client2:
-                raw = await client2.complete(
-                    system_prompt=SYSTEM_PROMPT,
-                    user_prompt=user_prompt_fallback,
-                    temperature=0.1,
-                    max_tokens=8192,
-                    required_keys={"title"},
-                )
-        else:
-            raise
+    # Сливаем все группы в один словарь
+    merged: dict = {}
+    for group_result in results:
+        merged.update(group_result)
 
-    raw.pop("_meta", None)
-    fields = _normalize_fields(raw)
+    # Если title всё равно не пришёл — минимальный fallback
+    if not merged.get("title"):
+        logger.error("[DocxFields] Группа 'metadata' не вернула title — все группы упали?")
+        raise ValueError("LLM не смог извлечь данные ни из одной группы полей.")
+
+    fields = _normalize_fields(merged)
 
     logger.info(
-        "[DocxFields] Извлечены поля: title=%s",
-        fields.get("title", "")[:50],
+        "[DocxFields] Извлечены поля: title=%s, victims=%d",
+        fields.get("title", "")[:60],
+        len(fields.get("victims_list") or []),
     )
 
     return fields
 
+
+# ---------------------------------------------------------------------------
+# Нормализация и валидация
+# ---------------------------------------------------------------------------
 
 VALID_TYPES = {
     "injury", "equipment", "fire", "spill",
@@ -329,16 +396,18 @@ def _normalize_fields(raw: dict) -> dict:
     fields["company"] = str(raw.get("company", "")) or None
     fields["department"] = str(raw.get("department", "")) or None
     fields["location"] = str(raw.get("location", ""))
-    fields["injured_count"] = int(raw.get("injured_count", 0)) or None
-    fields["fatalities_count"] = int(raw.get("fatalities_count", 0)) or None
+    fields["injured_count"] = int(raw.get("injured_count") or 0) or None
+    fields["fatalities_count"] = int(raw.get("fatalities_count") or 0) or None
     fields["short_description"] = str(raw.get("short_description", "")) or None
     it = str(raw.get("incident_type", "")).lower().strip()
     fields["incident_type"] = it if it in VALID_TYPES else "process_upset"
     sev = str(raw.get("severity", "")).lower().strip()
     fields["severity"] = sev if sev in VALID_SEVERITIES else "moderate"
-    for key in ("equipment", "conditions", "actions_taken",
-                "scene_description", "equipment_description",
-                "full_circumstances", "established_facts"):
+    for key in (
+        "equipment", "conditions", "actions_taken",
+        "scene_description", "equipment_description",
+        "full_circumstances", "established_facts",
+    ):
         val = raw.get(key)
         fields[key] = str(val) if val and str(val).lower() != "null" else None
     victims_raw = raw.get("victims_list", [])
