@@ -5,7 +5,9 @@ FastAPI-роутер: загрузка DOCX-отчёта и извлечение
 извлекает текст и отправляет в LLM для структурирования.
 
 Кэш: повторная загрузка того же файла (по SHA-256) пропускает LLM и
-возвращает результат из БД за миллисекунды.
+возвращает результат из БД за миллисекунды — НО только если предыдущее
+извлечение было полным (full_circumstances + established_facts непустые).
+Если группа narrative упала — кэш не пишется, следующий запрос идёт в LLM.
 
 Защита: auth-cookie (или Bearer) + CSRF.
 """
@@ -29,7 +31,7 @@ from src.auth.service import get_current_user
 from src.db.base import get_db
 from src.services.docx_extractor import extract_text_from_docx
 from src.services.docx_fields_service import extract_fields_from_text
-from src.services.docx_cache_service import get_or_extract
+from src.services.docx_cache_service import get_or_extract, _is_complete
 from src.domain.models import LLMResponseValidationError
 
 logger = logging.getLogger(__name__)
@@ -240,8 +242,17 @@ async def upload_report_stream(
             yield f"data: {json.dumps({'status': 'error', 'message': 'Произошла непредвиденная ошибка при анализе отчёта.'})}\n\n"
             return
 
-        # Сохраняем в кэш (raw dict, без нормализованных жертв)
-        await repo.save(file_hash, fields)
+        # Сохраняем в кэш только если результат полный
+        if _is_complete(fields):
+            await repo.save(file_hash, fields)
+        else:
+            missing = [k for k in ("full_circumstances", "established_facts") if not fields.get(k)]
+            logger.warning(
+                "[UploadStream] Результат неполный (пустые: %s) — кэш не сохранён",
+                ", ".join(missing),
+            )
+            yield f"data: {json.dumps({'status': 'warning', 'message': f'Некоторые поля не извлечены ({", ".join(missing)}). Попробуйте загрузить файл ещё раз.'})}\n\n"
+            await asyncio.sleep(0.05)
 
         fields["victims_list"] = _normalize_victims_as_dicts(fields)
         yield f"data: {json.dumps({'status': 'done', 'result': fields})}\n\n"
