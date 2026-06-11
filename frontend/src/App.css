@@ -1,35 +1,24 @@
-:root {
-  --bg:             #0f1117;
-  --surface:        #1a1d2e;
-  --surface-raised: #21253a;
-  --border:         #2a2d4a;
-  --text-primary:   #e8eaf6;
-  --text-secondary: #8f96b8;
-  --accent:         #4f8ef7;
-  --accent-hover:   #3a7ae0;
-  --danger:         #f76f6f;
-}
+/* ==========================================
+   App Layout - Apple Style
+   ========================================== */
 
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
-body {
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
   background: var(--bg);
-  color: var(--text-primary);
-  font-family: 'Inter', system-ui, sans-serif;
-  font-size: 15px;
-  line-height: 1.5;
 }
-
-.app { min-height: 100vh; display: flex; flex-direction: column; }
 
 /* ---- Header ---- */
 .app-header {
   display: flex;
   align-items: center;
-  gap: 1rem;
-  padding: 0 1.5rem;
-  height: 56px;
-  background: var(--surface);
+  gap: var(--space-md);
+  padding: 0 var(--space-lg);
+  height: 52px;
+  background: rgba(28, 28, 30, 0.8);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border);
   position: sticky;
   top: 0;
@@ -39,43 +28,64 @@ body {
 .logo {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  font-weight: 700;
-  font-size: 1rem;
-  color: var(--text-primary);
+  gap: var(--space-sm);
+  font-weight: 600;
+  font-size: var(--text-lg);
+  color: var(--text);
   user-select: none;
   flex-shrink: 0;
 }
 
+.logo-icon {
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .app-nav {
   display: flex;
-  gap: 0.25rem;
+  gap: var(--space-xs);
   flex: 1;
 }
 
 .nav-btn {
-  padding: 0.35rem 0.9rem;
+  padding: var(--space-sm) var(--space-md);
   border: none;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: transparent;
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  transition: background var(--transition-fast), color var(--transition-fast);
 }
-.nav-btn:hover { background: rgba(255,255,255,0.06); color: var(--text-primary); }
-.nav-btn--active { background: rgba(79,142,247,0.15); color: var(--accent); }
+
+.nav-btn:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
+.nav-btn--active {
+  background: var(--primary);
+  color: white;
+}
+
+/* Hover effect for active state */
+.nav-btn--active:hover {
+  background: var(--primary-hover);
+}
 
 .header-right {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: var(--space-md);
   flex-shrink: 0;
 }
 
 .header-user {
-  font-size: 0.875rem;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
   max-width: 160px;
   overflow: hidden;
@@ -84,64 +94,127 @@ body {
 }
 
 .header-role-badge {
-  font-size: 0.7rem;
-  font-weight: 700;
-  padding: 0.15rem 0.45rem;
-  border-radius: 20px;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 10px;
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
-.header-role-badge--admin { background: rgba(247,185,85,0.15); color: #f7b955; }
-.header-role-badge--user  { background: rgba(79,142,247,0.1);  color: #4f8ef7; }
+
+.header-role-badge--admin {
+  background: rgba(255, 214, 10, 0.15);
+  color: var(--warning);
+}
+
+.header-role-badge--user {
+  background: rgba(10, 132, 255, 0.15);
+  color: var(--primary);
+}
 
 .btn-logout {
-  padding: 0.3rem 0.75rem;
-  border-radius: 8px;
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border);
-  background: transparent;
+  background: var(--surface);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.8rem;
-  transition: border-color 0.15s, color 0.15s;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
 }
-.btn-logout:hover { border-color: var(--danger); color: var(--danger); }
+
+.btn-logout:hover {
+  border-color: var(--error);
+  color: var(--error);
+  background: rgba(255, 69, 58, 0.1);
+}
 
 /* ---- Main ---- */
 .app-main {
   flex: 1;
-  max-width: 1100px;
+  max-width: 900px;
   width: 100%;
   margin: 0 auto;
-  padding: 1.5rem 1rem;
+  padding: var(--space-2xl) var(--space-lg);
 }
 
 /* ---- Alerts ---- */
 .alert {
-  padding: 0.75rem 1rem;
-  border-radius: 10px;
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
   background: var(--surface);
   border: 1px solid var(--border);
-  font-size: 0.875rem;
-  margin-bottom: 1rem;
-}
-.alert-error {
-  background: rgba(247,111,111,0.08);
-  border-color: rgba(247,111,111,0.3);
-  color: #f79f9f;
+  font-size: var(--text-sm);
+  margin-bottom: var(--space-lg);
 }
 
-/* ---- Back button (view mode) ---- */
+.alert-error {
+  background: rgba(255, 69, 58, 0.1);
+  border-color: rgba(255, 69, 58, 0.3);
+  color: #ff9a96;
+}
+
+/* ---- Back button ---- */
 .btn-back {
   display: inline-flex;
   align-items: center;
-  gap: 0.4rem;
-  padding: 0.4rem 1rem;
-  border-radius: 8px;
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text-secondary);
   cursor: pointer;
-  font-size: 0.875rem;
-  transition: border-color 0.15s, color 0.15s;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  transition: all var(--transition-fast);
 }
-.btn-back:hover { border-color: var(--accent); color: var(--accent); }
+
+.btn-back:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  background: rgba(10, 132, 255, 0.1);
+}
+
+/* ---- Loading spinner ---- */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.spinner {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  border: 2px solid transparent;
+  border-top-color: currentColor;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+/* ---- Page transitions ---- */
+.app-main > * {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 768px) {
+  .app-main {
+    padding: var(--space-lg) var(--space-md);
+  }
+  
+  .header-user {
+    display: none;
+  }
+}

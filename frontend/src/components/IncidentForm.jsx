@@ -52,7 +52,7 @@ const EMPTY_VICTIM = {
 const DEFAULTS = {
   title: '', description: '', incident_date: '', location: '',
   incident_type: 'injury', severity: 'moderate', victims: 0,
-  methodology: 'bowtie', language: 'ru', detail_level: 2,
+  methodology: 'bowtie', detail_level: 2,
   incident_time: '', company: '', department: '', location_detailed: '',
   injured_count: 0, fatalities_count: 0, short_description: '',
   photo_urls: [], scene_description: '', equipment_description: '',
@@ -215,7 +215,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       // Multi-analysis
       onSubmitMulti({
         methodologies: form.methodologies,
-        language: form.language,
+        language: 'ru',
         detail_level: Number(form.detail_level),
         incident: incidentPayload,
       })
@@ -223,7 +223,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       // Single analysis
       onSubmit({
         methodology: form.methodology,
-        language: form.language,
+        language: 'ru',
         detail_level: Number(form.detail_level),
         incident: incidentPayload,
       })
@@ -493,9 +493,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
               {METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
             </select>
           </div>
-          <div className="form-group"><label>Язык</label>
-            <select value={form.language} onChange={e => set('language', e.target.value)}><option value="ru">Русский</option><option value="en">English</option></select>
-          </div>
           <div className="form-group form-group--sm"><label>Детализация</label>
             <select value={form.detail_level} onChange={e => set('detail_level', e.target.value)}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></select>
           </div>
@@ -523,9 +520,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           </div>
 
           <div className="form-row">
-            <div className="form-group"><label>Язык</label>
-              <select value={form.language} onChange={e => set('language', e.target.value)}><option value="ru">Русский</option><option value="en">English</option></select>
-            </div>
             <div className="form-group form-group--sm"><label>Детализация</label>
               <select value={form.detail_level} onChange={e => set('detail_level', e.target.value)}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></select>
             </div>
