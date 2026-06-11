@@ -77,6 +77,7 @@ async def analyze_incident(
     db: DbSession,
     current_user: CurrentUser,
 ) -> RCAResult:
+    import uuid as _uuid
     try:
         result = await _service.analyze(request)
     except MethodologyNotSupportedError as exc:
@@ -84,6 +85,9 @@ async def analyze_incident(
     except LLMResponseValidationError as exc:
         logger.error("[API] LLM error: %s", exc)
         raise HTTPException(status_code=502, detail="LLM не вернул валидный ответ.") from exc
+
+    # Генерируем уникальный incident_id для каждого одиночного анализа
+    result.incident_id = str(_uuid.uuid4())
 
     repo = RCARepository(db)
     await repo.save_result(result, user_id=current_user.user_id)
