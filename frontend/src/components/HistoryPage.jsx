@@ -21,19 +21,42 @@ const SEVERITY_COLORS = {
 const PAGE_SIZE = 20
 
 /**
- * Помечает каждую запись: isCompare=true если её incident_id
- * встречается у других записей в том же наборе.
+ * Группирует записи по incident_id.
+ *
+ * Результаты multi-анализа (сравнения методик) — это ОДНО исследование:
+ * у них общий incident_id и одинаковые входные данные, отличается только
+ * методика. Поэтому в истории они отображаются одной карточкой-группой.
+ *
+ * Возвращает массив элементов:
+ *   { isCompare: false, result }                — одиночный анализ
+ *   { isCompare: true, incidentId, results[] }  — сравнение (>= 2 результатов)
+ * Порядок — по дате самого нового результата в группе.
  */
-function markCompareItems(items) {
-  const incidentCounts = {}
+function groupByIncident(items) {
+  const byIncident = new Map()
   for (const r of items) {
-    const key = r.incident_id
-    if (key) incidentCounts[key] = (incidentCounts[key] || 0) + 1
+    const key = r.incident_id || r.result_id
+    if (!byIncident.has(key)) byIncident.set(key, [])
+    byIncident.get(key).push(r)
   }
-  return items.map(r => ({
-    ...r,
-    isCompare: r.incident_id ? (incidentCounts[r.incident_id] > 1) : false,
-  }))
+
+  const groups = []
+  for (const [incidentId, results] of byIncident) {
+    if (results.length > 1) {
+      // Сортируем результаты внутри группы по дате (стабильный порядок методик)
+      results.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+      groups.push({ isCompare: true, incidentId, results })
+    } else {
+      groups.push({ isCompare: false, result: results[0] })
+    }
+  }
+
+  groups.sort((a, b) => {
+    const lastA = a.isCompare ? a.results[a.results.length - 1] : a.result
+    const lastB = b.isCompare ? b.results[b.results.length - 1] : b.result
+    return new Date(lastB.created_at) - new Date(lastA.created_at)
+  })
+  return groups
 }
 
 export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
@@ -74,46 +97,50 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
     setFilterType('')
   }
 
-  const marked = useMemo(() => markCompareItems(items), [items])
+  const groups = useMemo(() => groupByIncident(items), [items])
 
   const filtered = useMemo(() => {
-    let result = marked
+    let result = groups
+
+    // Хелпер: все результаты группы (1 для одиночного, N для сравнения)
+    const resultsOf = g => (g.isCompare ? g.results : [g.result])
 
     if (search.trim()) {
       const q = search.toLowerCase()
-      result = result.filter(r =>
+      result = result.filter(g => resultsOf(g).some(r =>
         r.summary?.toLowerCase().includes(q) ||
         r.result_id?.includes(q) ||
         r.incident?.title?.toLowerCase().includes(q)
-      )
+      ))
     }
 
     if (filterMethod) {
-      result = result.filter(r => r.methodology === filterMethod)
+      // Группа подходит, если ХОТЯ БЫ одна из методик совпадает
+      result = result.filter(g => resultsOf(g).some(r => r.methodology === filterMethod))
     }
 
     if (filterSeverity) {
-      result = result.filter(r => r.incident?.severity === filterSeverity)
+      result = result.filter(g => resultsOf(g).some(r => r.incident?.severity === filterSeverity))
     }
 
     if (filterType === 'single') {
-      result = result.filter(r => !r.isCompare)
+      result = result.filter(g => !g.isCompare)
     } else if (filterType === 'compare') {
-      result = result.filter(r => r.isCompare)
+      result = result.filter(g => g.isCompare)
     }
 
     return result
-  }, [marked, search, filterMethod, filterSeverity, filterType])
+  }, [groups, search, filterMethod, filterSeverity, filterType])
 
   const hasFilters = search || filterMethod || filterSeverity || filterType
 
-  async function handleOpenCompareItem(result) {
-    // Если это часть сравнения — загружаем полное сравнение по incident_id
+  async function handleOpenCompareGroup(group) {
+    // Открыть сравнение целиком по incident_id
     try {
-      const comp = await api.compareResults(result.incident_id)
+      const comp = await api.compareResults(group.incidentId)
       onOpenComparison(comp)
     } catch {
-      onOpen(result) // fallback: открыть как одиночный
+      onOpen(group.results[group.results.length - 1]) // fallback: самый свежий результат
     }
   }
 
@@ -189,13 +216,22 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
         </div>
       )}
 
-      {/* ===== Плоский список ===== */}
+      {/* ===== Список: одиночные карточки + группы сравнений ===== */}
       <div className="history-list">
-        {filtered.map(result => (
+        {filtered.map(group => group.isCompare ? (
+          <CompareGroupCard
+            key={group.incidentId}
+            group={group}
+            onOpenComparison={() => handleOpenCompareGroup(group)}
+            onOpenResult={onOpen}
+            isAdmin={isAdmin}
+            currentUserId={currentUser?.user_id}
+          />
+        ) : (
           <HistoryCard
-            key={result.result_id}
-            result={result}
-            onOpen={result.isCompare ? handleOpenCompareItem : onOpen}
+            key={group.result.result_id}
+            result={group.result}
+            onOpen={onOpen}
             isAdmin={isAdmin}
             currentUserId={currentUser?.user_id}
           />
@@ -224,22 +260,14 @@ function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
   const authorName = result.user_display_name || result.user_email || null
 
   return (
-    <div
-      className={`hcard ${result.isCompare ? 'hcard--compare' : ''}`}
-      onClick={() => onOpen(result)}
-    >
+    <div className="hcard" onClick={() => onOpen(result)}>
       <div className="hcard-left">
         <div className="hcard-top">
 
           {/* Методика */}
-          <span className={`hcard-method ${result.isCompare ? 'hcard-method--compare' : ''}`}>
+          <span className="hcard-method">
             {METHODOLOGY_LABELS[result.methodology] || result.methodology}
           </span>
-
-          {/* Бейдж сравнения */}
-          {result.isCompare && (
-            <span className="hcard-compare-badge">⚖️ Сравнение</span>
-          )}
 
           {/* Автор (admin) */}
           {isAdmin && authorName && (
@@ -265,6 +293,83 @@ function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
           <span className="hcard-stat">{result.recommendations?.length || 0} рек.</span>
           <span className="hcard-stat">{result.tokens_used} ток.</span>
           <span className="hcard-stat">{((result.confidence_avg || 0) * 100).toFixed(0)}% ув.</span>
+        </div>
+      </div>
+      <div className="hcard-arrow">›</div>
+    </div>
+  )
+}
+
+/**
+ * Карточка-группа: ОДНО исследование, проанализированное несколькими методиками.
+ * Клик по карточке открывает сравнение целиком; чипы методик
+ * позволяют открыть конкретный результат отдельно.
+ */
+function CompareGroupCard({ group, onOpenComparison, onOpenResult, isAdmin, currentUserId }) {
+  const { results } = group
+  const newest = results[results.length - 1]
+  const sev  = SEVERITY_COLORS[newest.incident?.severity] || null
+  const date = new Date(newest.created_at).toLocaleString('ru-RU', {
+    day: '2-digit', month: '2-digit', year: 'numeric',
+    hour: '2-digit', minute: '2-digit',
+  })
+  const isMine     = newest.user_id === currentUserId
+  const authorName = newest.user_display_name || newest.user_email || null
+
+  // Суммарные показатели по группе
+  const totalRecs   = results.reduce((s, r) => s + (r.recommendations?.length || 0), 0)
+  const totalTokens = results.reduce((s, r) => s + (r.tokens_used || 0), 0)
+  const avgConf     = results.reduce((s, r) => s + (r.confidence_avg || 0), 0) / results.length
+
+  function openSingle(e, r) {
+    e.stopPropagation() // не открывать сравнение при клике по чипу
+    onOpenResult(r)
+  }
+
+  return (
+    <div className="hcard hcard--compare" onClick={onOpenComparison}>
+      <div className="hcard-left">
+        <div className="hcard-top">
+          <span className="hcard-compare-badge">
+            ⚖️ Сравнение · {results.length} методик{results.length >= 5 ? '' : 'и'}
+          </span>
+
+          {isAdmin && authorName && (
+            <span className={`hcard-author ${isMine ? 'hcard-author--self' : ''}`}>
+              👤 {authorName}{isMine ? ' (вы)' : ''}
+            </span>
+          )}
+
+          {sev && (
+            <span className="hcard-severity" style={{ background: sev.bg, color: sev.color }}>
+              {sev.label}
+            </span>
+          )}
+
+          <span className="hcard-date">{date}</span>
+        </div>
+
+        <p className="hcard-summary">{newest.summary}</p>
+
+        {/* Чипы методик: клик открывает конкретный результат */}
+        <div className="hcard-method-chips">
+          {results.map(r => (
+            <button
+              key={r.result_id}
+              className="hcard-method-chip"
+              title={`Открыть результат ${METHODOLOGY_LABELS[r.methodology] || r.methodology}`}
+              onClick={e => openSingle(e, r)}
+            >
+              {METHODOLOGY_LABELS[r.methodology] || r.methodology}
+            </button>
+          ))}
+        </div>
+
+        <div className="hcard-footer">
+          <span className="hcard-id">#{group.incidentId.slice(0, 8)}</span>
+          <span className="hcard-stat">{totalRecs} рек.</span>
+          <span className="hcard-stat">{totalTokens} ток.</span>
+          <span className="hcard-stat">{(avgConf * 100).toFixed(0)}% ув.</span>
         </div>
       </div>
       <div className="hcard-arrow">›</div>

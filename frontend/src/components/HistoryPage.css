@@ -163,13 +163,39 @@
 }
 
 .hcard-compare-badge {
-  font-size: 0.72rem;
-  padding: 0.15rem 0.45rem;
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 0.18rem 0.5rem;
   border-radius: 20px;
-  background: rgba(167,139,250,0.1);
+  background: rgba(167,139,250,0.15);
   color: #a78bfa;
   border: 1px solid rgba(167,139,250,0.25);
   white-space: nowrap;
+}
+
+/* Чипы методик внутри карточки-группы сравнения */
+.hcard-method-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin: 0.4rem 0 0.5rem;
+}
+
+.hcard-method-chip {
+  font-size: 0.74rem;
+  font-weight: 600;
+  padding: 0.2rem 0.55rem;
+  border-radius: 20px;
+  border: 1px solid rgba(79,142,247,0.35);
+  background: rgba(79,142,247,0.08);
+  color: #4f8ef7;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.hcard-method-chip:hover {
+  background: rgba(79,142,247,0.22);
+  border-color: #4f8ef7;
 }
 
 .hcard-severity {
