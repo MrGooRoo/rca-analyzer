@@ -186,16 +186,15 @@
 .differing-grid {
   display: flex;
   flex-direction: row;
-  gap: 12px;
+  gap: 8px;
   overflow-x: auto;
   padding-bottom: 8px;
-  /* Горизонтальный скроллбар при необходимости */
   scrollbar-width: thin;
   scrollbar-color: var(--border) transparent;
 }
 
 .differing-grid::-webkit-scrollbar {
-  height: 6px;
+  height: 4px;
 }
 
 .differing-grid::-webkit-scrollbar-track {
@@ -204,32 +203,34 @@
 
 .differing-grid::-webkit-scrollbar-thumb {
   background: var(--border);
-  border-radius: 3px;
+  border-radius: 2px;
 }
 
 .differing-card {
-  flex: 1 1 180px;
-  min-width: 180px;
-  max-width: 280px;
+  flex: 0 0 auto;
+  width: 150px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 14px;
+  border-radius: var(--radius-md);
+  padding: 10px;
 }
 
 .differing-card-header {
-  margin-bottom: 8px;
+  margin-bottom: 6px;
 }
 
 .differing-card .method-badge {
   background: rgba(247, 185, 85, 0.12);
   color: var(--warning);
   border: 1px solid rgba(247, 185, 85, 0.25);
-  border-radius: 6px;
-  padding: 3px 10px;
-  font-size: 12px;
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-size: 10px;
   font-weight: 600;
   white-space: nowrap;
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .differing-list {
@@ -238,16 +239,16 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .differing-item {
-  font-size: 13px;
+  font-size: 11px;
   color: var(--text);
-  padding: 6px 10px;
+  padding: 4px 6px;
   background: rgba(255, 255, 255, 0.03);
-  border-radius: 6px;
-  line-height: 1.5;
+  border-radius: 4px;
+  line-height: 1.4;
 }
 
 .differing-item::before {
@@ -265,7 +266,6 @@
 
   .differing-card {
     flex: none;
-    min-width: unset;
-    max-width: none;
+    width: auto;
   }
 }
