@@ -2,9 +2,9 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — приоритет E завершён (качество embeddings)
+## Статус: 🟢 Рабочая версия — embeddings (E/E2), фикс 431, группировка сравнений в истории
 
-**Дата обновления:** 2026-06-11
+**Дата обновления:** 2026-06-12
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
@@ -106,6 +106,12 @@
 - `npm run build` во frontend → **успешно** после регенерации `package-lock.json` с optional Rollup/esbuild packages.
 
 ## В работе / следующий приоритет
+- [ ] **Вариант 2 — сущность «исследование» в БД** (согласовано с владельцем проекта):
+  - таблица analysis_session (id, created_at, user_id, входные данные инцидента),
+  - FK rca_results → analysis_session, миграция Alembic + backfill по incident_id,
+  - история/сравнение читают по session_id «по конструкции», а не «по соглашению».
+- [ ] Docker-интеграция HF-эмбеддингов: volume под `HF_HOME` в docker-compose,
+  build-arg/target с extras `[embeddings]`, прогрев модели в lifespan FastAPI.
 - [ ] Убрать оставшиеся `httpx` deprecation warnings в CSRF-тестах.
 - [ ] Улучшить UX блока похожих инцидентов: открытие найденного результата из карточки, фильтры по методике/дате.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе и сравнить качество с local v2.
