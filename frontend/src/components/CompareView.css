@@ -1,119 +1,120 @@
-/* ========== CompareView ========== */
+/* ==========================================
+   CompareView - Apple Style
+   ========================================== */
 
+/* ---- Основной контейнер ---- */
 .compare-view {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 28px;
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-xl);
 }
 
+/* ---- Заголовок ---- */
 .compare-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: var(--space-md);
 }
 
 .compare-title {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 18px;
+  gap: var(--space-md);
+  font-size: var(--text-xl);
   font-weight: 700;
-  color: var(--text);
+  letter-spacing: -0.02em;
 }
 
 .compare-icon {
-  font-size: 24px;
+  font-size: 28px;
   line-height: 1;
 }
 
 .compare-badge {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
-  background: rgba(79, 142, 247, 0.12);
+  background: rgba(10, 132, 255, 0.15);
   color: var(--primary);
-  border: 1px solid rgba(79, 142, 247, 0.25);
+  border: 1px solid rgba(10, 132, 255, 0.25);
   border-radius: 20px;
-  padding: 2px 12px;
+  padding: 4px 14px;
 }
 
 /* ---- Сводка сравнения ---- */
-
 .compare-summary-box {
   background: var(--surface-2);
   border-left: 4px solid var(--primary);
-  border-radius: 0 10px 10px 0;
-  padding: 18px 22px;
+  border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+  padding: var(--space-lg);
 }
 
 .compare-summary-title {
-  font-size: 13px;
-  font-weight: 700;
+  font-size: var(--text-xs);
+  font-weight: 600;
   color: var(--primary);
   text-transform: uppercase;
-  letter-spacing: 0.6px;
-  margin-bottom: 8px;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-sm);
 }
 
 .compare-summary-text {
-  font-size: 14px;
+  font-size: var(--text-base);
   line-height: 1.7;
   color: var(--text);
 }
 
 /* ---- Секции ---- */
-
 .compare-section {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: var(--space-md);
 }
 
 .compare-section-title {
-  font-size: 14px;
-  font-weight: 700;
+  font-size: var(--text-base);
+  font-weight: 600;
   color: var(--text);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-sm);
 }
 
 .compare-subsection-title {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 600;
-  color: var(--muted);
+  color: var(--text-secondary);
   text-transform: uppercase;
-  letter-spacing: 0.5px;
-  margin-bottom: 8px;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-sm);
 }
 
 /* ---- Табы методик ---- */
-
 .compare-tabs {
   display: flex;
-  gap: 6px;
+  gap: var(--space-xs);
   flex-wrap: wrap;
   border-bottom: 1px solid var(--border);
-  padding-bottom: 8px;
+  padding-bottom: var(--space-sm);
 }
 
 .compare-tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  border-radius: 8px 8px 0 0;
-  font-size: 13px;
-  color: var(--muted);
+  gap: var(--space-sm);
+  padding: var(--space-sm) var(--space-md);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: color 0.15s, background 0.15s;
+  transition: all var(--transition-fast);
+  font-weight: 500;
   border: 1px solid transparent;
-  border-bottom: none;
 }
 
 .compare-tab:hover {
@@ -123,13 +124,13 @@
 
 .compare-tab--active {
   color: var(--primary);
-  background: rgba(79, 142, 247, 0.08);
+  background: rgba(10, 132, 255, 0.1);
   border-color: var(--border);
   font-weight: 600;
 }
 
 .compare-tab-icon {
-  font-size: 14px;
+  font-size: 16px;
   line-height: 1;
 }
 
@@ -138,26 +139,24 @@
 }
 
 .compare-tab-conf {
-  font-size: 11px;
-  background: rgba(62, 207, 142, 0.12);
+  font-size: var(--text-xs);
+  background: rgba(48, 209, 88, 0.15);
   color: var(--success);
   border-radius: 4px;
-  padding: 0 6px;
-  line-height: 18px;
+  padding: 2px 8px;
 }
 
 /* ---- Панель результата ---- */
-
 .compare-result-panel {
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: 10px;
-  padding: 18px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
 }
 
 .compare-result-panel .result-stats {
   display: flex;
-  gap: 1.5rem;
+  gap: var(--space-lg);
   flex-wrap: wrap;
 }
 
@@ -168,69 +167,63 @@
 }
 
 .compare-result-panel .stat-label {
-  font-size: 0.7rem;
-  color: var(--muted);
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .compare-result-panel .stat-value {
-  font-size: 0.9rem;
+  font-size: var(--text-base);
   font-weight: 600;
   color: var(--text);
 }
 
-/* ---- Различающиеся выводы ---- */
-/* Все колонки в одну строку, max 5 методик, прокрутка если не помещаются */
+/* ==========================================
+   Различающиеся выводы - Резиновый дизайн
+   ========================================== */
 
+/* Гибкий контейнер - карточки занимают всё пространство */
 .differing-grid {
-  display: flex;
-  flex-direction: row;
-  gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 8px;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+  display: grid;
+  /* Автоматически распределяет карточки: 1-5 штук в ряд */
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-md);
+  align-items: start;
 }
 
-.differing-grid::-webkit-scrollbar {
-  height: 4px;
-}
-
-.differing-grid::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.differing-grid::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 2px;
-}
-
+/* Адаптивные карточки - подстраиваются под ширину экрана */
 .differing-card {
-  flex: 0 0 auto;
-  width: 150px;
   background: var(--surface-2);
   border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 10px;
+  border-radius: var(--radius-lg);
+  padding: var(--space-md);
+  transition: all var(--transition-fast);
+  min-width: 0; /* Позволяет карточке сжиматься */
+}
+
+.differing-card:hover {
+  border-color: var(--text-tertiary);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
 }
 
 .differing-card-header {
-  margin-bottom: 6px;
+  margin-bottom: var(--space-sm);
 }
 
 .differing-card .method-badge {
-  background: rgba(247, 185, 85, 0.12);
+  display: inline-block;
+  background: rgba(255, 214, 10, 0.15);
   color: var(--warning);
-  border: 1px solid rgba(247, 185, 85, 0.25);
-  border-radius: 4px;
-  padding: 2px 6px;
-  font-size: 10px;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: var(--text-xs);
   font-weight: 600;
   white-space: nowrap;
-  display: block;
   overflow: hidden;
   text-overflow: ellipsis;
+  max-width: 100%;
 }
 
 .differing-list {
@@ -239,16 +232,16 @@
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-xs);
 }
 
 .differing-item {
-  font-size: 11px;
+  font-size: var(--text-sm);
   color: var(--text);
-  padding: 4px 6px;
-  background: rgba(255, 255, 255, 0.03);
-  border-radius: 4px;
-  line-height: 1.4;
+  padding: var(--space-sm);
+  background: rgba(255, 255, 255, 0.02);
+  border-radius: var(--radius-sm);
+  line-height: 1.5;
 }
 
 .differing-item::before {
@@ -257,15 +250,49 @@
   font-weight: bold;
 }
 
-/* На мобильных — вертикальная раскладка */
-@media (max-width: 600px) {
-  .differing-grid {
-    flex-direction: column;
-    overflow-x: visible;
-  }
+/* ==========================================
+   Responsive - адаптация под размер экрана
+   ========================================== */
 
+/* Большие экраны - больше места для карточек */
+@media (min-width: 1400px) {
+  .differing-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
+}
+
+/* Средние экраны */
+@media (max-width: 900px) {
+  .differing-grid {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  }
+}
+
+/* Планшеты */
+@media (max-width: 600px) {
+  .compare-view {
+    padding: var(--space-lg);
+    border-radius: var(--radius-lg);
+  }
+  
+  .compare-title {
+    font-size: var(--text-lg);
+  }
+  
+  .differing-grid {
+    /* На маленьких экранах карточки в колонку */
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-sm);
+  }
+  
   .differing-card {
-    flex: none;
-    width: auto;
+    padding: var(--space-sm);
+  }
+}
+
+/* Телефоны */
+@media (max-width: 400px) {
+  .differing-grid {
+    grid-template-columns: 1fr;
   }
 }
