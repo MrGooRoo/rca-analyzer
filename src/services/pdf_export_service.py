@@ -14,7 +14,7 @@ PDF Export Service — генерация PDF-отчёта по результа
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fpdf import FPDF
@@ -314,7 +314,7 @@ def _add_meta(pdf: FPDF, result: RCAResult) -> None:
         ("tokens_used", str(result.tokens_used)),
         ("confidence_avg", f"{result.confidence_avg:.3f}"),
         ("created_at", result.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")),
-        ("exported_at", datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
+        ("exported_at", datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
     ]
 
     epw = _epw(pdf)

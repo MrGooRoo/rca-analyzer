@@ -19,27 +19,24 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import uuid
 from difflib import SequenceMatcher
 
-import uuid
-from src.domain.models import (
-    ComparisonResult,
-    MultiAnalysisRequest,
-    Recommendation,
-)
-
-from src.domain.models import (
-    AnalysisRequest,
-    MethodologyNotSupportedError,
-    MethodologyType,
-    RCAResult,
-)
 from src.domain.methodologies.base import MethodologyRunner
 from src.domain.methodologies.bowtie import BowTieRunner
 from src.domain.methodologies.five_why import FiveWhyRunner
 from src.domain.methodologies.fta import FaultTreeRunner
 from src.domain.methodologies.ishikawa import IshikawaRunner
 from src.domain.methodologies.rca_systemic import RcaSystemicRunner
+from src.domain.models import (
+    AnalysisRequest,
+    ComparisonResult,
+    MethodologyNotSupportedError,
+    MethodologyType,
+    MultiAnalysisRequest,
+    RCAResult,
+    Recommendation,
+)
 from src.integrations.llm.openrouter import OpenRouterClient
 from src.services.prompt_renderer import PromptRenderer
 

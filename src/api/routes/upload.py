@@ -14,25 +14,24 @@ FastAPI-роутер: загрузка DOCX-отчёта и извлечение
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import logging
-from typing import Annotated, List, Optional
+from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, status
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
-import asyncio
-
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import get_db
+from src.domain.models import LLMResponseValidationError
+from src.services.docx_cache_service import _is_complete, get_or_extract
 from src.services.docx_extractor import extract_text_from_docx
 from src.services.docx_fields_service import extract_fields_from_text
-from src.services.docx_cache_service import get_or_extract, _is_complete
-from src.domain.models import LLMResponseValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -47,46 +46,46 @@ _NARRATIVE_REQUIRED = ("full_circumstances", "established_facts")
 
 
 class VictimFields(BaseModel):
-    full_name: Optional[str] = None
-    birth_date: Optional[str] = None
-    age: Optional[int] = None
-    family_status: Optional[str] = None
-    children_under_21: Optional[int] = None
-    profession: Optional[str] = None
-    workplace: Optional[str] = None
-    total_experience: Optional[str] = None
-    experience_in_organization: Optional[str] = None
-    qualification_certificate: Optional[str] = None
-    introductory_briefing: Optional[str] = None
-    workplace_briefing: Optional[str] = None
-    internship: Optional[str] = None
-    safety_knowledge_test: Optional[str] = None
-    medical_examination: Optional[str] = None
-    diagnosis_severity: Optional[str] = None
+    full_name: str | None = None
+    birth_date: str | None = None
+    age: int | None = None
+    family_status: str | None = None
+    children_under_21: int | None = None
+    profession: str | None = None
+    workplace: str | None = None
+    total_experience: str | None = None
+    experience_in_organization: str | None = None
+    qualification_certificate: str | None = None
+    introductory_briefing: str | None = None
+    workplace_briefing: str | None = None
+    internship: str | None = None
+    safety_knowledge_test: str | None = None
+    medical_examination: str | None = None
+    diagnosis_severity: str | None = None
 
 
 class ExtractedFields(BaseModel):
     title: str
     description: str
-    incident_date: Optional[str] = None
-    incident_time: Optional[str] = None
-    company: Optional[str] = None
-    department: Optional[str] = None
+    incident_date: str | None = None
+    incident_time: str | None = None
+    company: str | None = None
+    department: str | None = None
     location: str
     incident_type: str
     severity: str
     victims: int = 0
-    injured_count: Optional[int] = None
-    fatalities_count: Optional[int] = None
-    equipment: Optional[str] = None
-    conditions: Optional[str] = None
-    actions_taken: Optional[str] = None
-    short_description: Optional[str] = None
-    scene_description: Optional[str] = None
-    equipment_description: Optional[str] = None
-    full_circumstances: Optional[str] = None
-    established_facts: Optional[str] = None
-    victims_list: List[VictimFields] = Field(default_factory=list)
+    injured_count: int | None = None
+    fatalities_count: int | None = None
+    equipment: str | None = None
+    conditions: str | None = None
+    actions_taken: str | None = None
+    short_description: str | None = None
+    scene_description: str | None = None
+    equipment_description: str | None = None
+    full_circumstances: str | None = None
+    established_facts: str | None = None
+    victims_list: list[VictimFields] = Field(default_factory=list)
 
 
 def _validate_docx_file(filename: str, file_bytes: bytes) -> None:
@@ -185,9 +184,9 @@ async def upload_report_stream(
     try:
         _validate_docx_file(filename, file_bytes)
     except HTTPException as exc:
-        async def _err():
-            yield f"data: {json.dumps({'status': 'error', 'message': exc.detail})}\n\n"
-        return StreamingResponse(_err(), media_type="text/event-stream")
+        async def _err(err_exc):
+            yield f"data: {json.dumps({'status': 'error', 'message': err_exc.detail})}\n\n"
+        return StreamingResponse(_err(exc), media_type="text/event-stream")
 
     file_hash = hashlib.sha256(file_bytes).hexdigest()
 

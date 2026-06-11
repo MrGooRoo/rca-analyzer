@@ -6,9 +6,8 @@ LLM и PromptRenderer мокируются — реальных HTTP-вызов�
 
 from __future__ import annotations
 
-import json
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
@@ -19,7 +18,6 @@ from src.domain.models import (
     MethodologyType,
 )
 from src.services.analysis_service import AnalysisService
-
 
 # ---------------------------------------------------------------------------
 # Фикстуры

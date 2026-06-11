@@ -11,7 +11,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -42,7 +42,7 @@ def _make_result(methodology: MethodologyType, *, with_recs: bool = True) -> RCA
         result_id="abcd1234-uuid-0001",
         incident_id="inc-1",
         methodology=methodology,
-        created_at=datetime(2026, 6, 1, 10, 0, tzinfo=timezone.utc),
+        created_at=datetime(2026, 6, 1, 10, 0, tzinfo=UTC),
         immediate_causes=[n1],
         contributing_causes=[n1],
         root_causes=[n2],

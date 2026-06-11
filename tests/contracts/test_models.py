@@ -14,11 +14,11 @@ from src.domain.models import (
     CauseNode,
     IncidentInput,
     MethodologyType,
+    MultiAnalysisRequest,
     RCAResult,
     Recommendation,
     Victim,
 )
-
 
 # ---------------------------------------------------------------------------
 # Фикстуры
@@ -199,8 +199,6 @@ class TestIncidentInputExpanded:
         assert obj.victims_list[0].profession == "Электрик"
         assert obj.established_facts == "Установлено: отсутствие ограждения."
         assert obj.photo_urls == []  # default
-
-from src.domain.models import MultiAnalysisRequest, ComparisonResult
 
 
 class TestMultiAnalysisRequest:

@@ -7,13 +7,13 @@ from datetime import datetime
 
 import pytest
 
+from src.domain.methodologies.fta import FaultTreeRunner
 from src.domain.models import (
     AnalysisRequest,
     IncidentInput,
     LLMResponseValidationError,
     MethodologyType,
 )
-from src.domain.methodologies.fta import FaultTreeRunner
 
 
 @pytest.fixture

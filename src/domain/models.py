@@ -5,13 +5,12 @@ Pydantic domain-модели RCA Analyzer.
 from __future__ import annotations
 
 from datetime import date, datetime, time
-from enum import Enum
-from typing import Optional
+from enum import StrEnum
 
 from pydantic import BaseModel, Field, field_validator
 
 
-class MethodologyType(str, Enum):
+class MethodologyType(StrEnum):
     FIVE_WHY     = "five_why"
     ISHIKAWA     = "ishikawa"
     FTA          = "fta"
@@ -62,10 +61,10 @@ class IncidentInput(BaseModel):
     location: str = ""
     incident_type: str
     severity: str
-    victims: Optional[int] = None
-    equipment: Optional[str] = None
-    conditions: Optional[str] = None
-    actions_taken: Optional[str] = None
+    victims: int | None = None
+    equipment: str | None = None
+    conditions: str | None = None
+    actions_taken: str | None = None
 
     # --- Новые расширенные поля ---
     incident_time: time | None = None
@@ -95,7 +94,7 @@ class CauseNode(BaseModel):
     text:       str
     category:   str
     level:      int
-    parent_id:  Optional[str]   = None
+    parent_id:  str | None   = None
     confidence: float           = 0.5
 
 
@@ -105,15 +104,15 @@ class Recommendation(BaseModel):
     priority:    str
     category:    str
     cause_id:    str
-    responsible: Optional[str]  = None
+    responsible: str | None  = None
 
 
 class RCAResult(BaseModel):
     result_id:           str
     incident_id:         str
-    user_id:             Optional[str]              = None
-    user_display_name:   Optional[str]              = None
-    user_email:          Optional[str]              = None
+    user_id:             str | None              = None
+    user_display_name:   str | None              = None
+    user_email:          str | None              = None
     methodology:         MethodologyType
     created_at:          datetime
     immediate_causes:    list[CauseNode]            = []

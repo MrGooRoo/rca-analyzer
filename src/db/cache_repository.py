@@ -8,8 +8,7 @@ from __future__ import annotations
 
 import json
 import logging
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +22,7 @@ class ExtractionCacheRepository:
     def __init__(self, session: AsyncSession) -> None:
         self._session = session
 
-    async def get(self, file_hash: str) -> Optional[dict]:
+    async def get(self, file_hash: str) -> dict | None:
         """
         Вернуть кэшированные поля для данного хеша файла.
         Обновляет hit_count и last_hit_at при попадании.
@@ -38,7 +37,7 @@ class ExtractionCacheRepository:
 
         # Обновляем статистику попаданий
         row.hit_count += 1
-        row.last_hit_at = datetime.now(timezone.utc)
+        row.last_hit_at = datetime.now(UTC)
         await self._session.commit()
 
         logger.info(

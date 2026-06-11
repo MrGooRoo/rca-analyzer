@@ -14,7 +14,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from typing import Annotated, Optional
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -267,7 +267,7 @@ async def list_methodologies() -> dict:
 async def list_results(
     db: DbSession,
     current_user: CurrentUser,
-    incident_id: Optional[str] = Query(None),
+    incident_id: str | None = Query(None),
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[RCAResult]:

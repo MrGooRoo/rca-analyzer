@@ -7,14 +7,13 @@ from datetime import datetime
 
 import pytest
 
+from src.domain.methodologies.five_why import FiveWhyRunner
 from src.domain.models import (
     AnalysisRequest,
     IncidentInput,
     LLMResponseValidationError,
     MethodologyType,
 )
-from src.domain.methodologies.five_why import FiveWhyRunner
-
 
 # ---------------------------------------------------------------------------
 # Фикстуры

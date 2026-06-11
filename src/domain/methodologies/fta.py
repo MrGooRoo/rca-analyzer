@@ -13,10 +13,10 @@ Algorithm:
 from __future__ import annotations
 
 import uuid
-from dataclasses import dataclass, field
-from datetime import datetime, timezone
-from typing import Optional
+from dataclasses import dataclass
+from datetime import UTC, datetime
 
+from src.domain.methodologies.base import MethodologyRunner
 from src.domain.models import (
     AnalysisRequest,
     CauseNode,
@@ -25,7 +25,6 @@ from src.domain.models import (
     RCAResult,
     Recommendation,
 )
-from src.domain.methodologies.base import MethodologyRunner
 
 # Допустимые затворы FTA
 FTA_GATES = {"AND", "OR", "BASIC", "INHIBIT", "NOT", "XOR"}
@@ -93,7 +92,7 @@ class FaultTreeRunner(MethodologyRunner):
             result_id=str(uuid.uuid4()),
             incident_id=str(request.incident.incident_date),
             methodology=MethodologyType.FTA,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             immediate_causes=[top_node] + immediate,
             contributing_causes=contributing,
             root_causes=root,

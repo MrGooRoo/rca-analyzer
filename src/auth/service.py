@@ -10,8 +10,7 @@ import hashlib
 import os
 import secrets
 import uuid
-from datetime import datetime, timedelta, timezone
-from typing import Optional
+from datetime import UTC, datetime, timedelta
 
 import bcrypt
 from fastapi import Depends, HTTPException, Request, status
@@ -44,13 +43,13 @@ bearer = HTTPBearer(auto_error=False)
 
 # ---- Время ------------------------------------------------------------------
 def utcnow() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def ensure_utc(dt: datetime) -> datetime:
     if dt.tzinfo is None:
-        return dt.replace(tzinfo=timezone.utc)
-    return dt.astimezone(timezone.utc)
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
 
 
 # ---- Хэширование паролей (чистый bcrypt без passlib) ------------------------
@@ -172,8 +171,8 @@ async def revoke_refresh_token(db: AsyncSession, refresh_token: str) -> None:
 # ---- FastAPI Depends --------------------------------------------------------
 def extract_access_token(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials],
-) -> Optional[str]:
+    credentials: HTTPAuthorizationCredentials | None,
+) -> str | None:
     cookie_token = request.cookies.get(ACCESS_COOKIE_NAME)
     if cookie_token:
         return cookie_token
@@ -184,7 +183,7 @@ def extract_access_token(
 
 async def get_current_user(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: AsyncSession = Depends(get_db),
 ) -> UserInfo:
     token = extract_access_token(request, credentials)
@@ -209,9 +208,9 @@ async def get_current_user(
 
 async def get_current_user_optional(
     request: Request,
-    credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer),
+    credentials: HTTPAuthorizationCredentials | None = Depends(bearer),
     db: AsyncSession = Depends(get_db),
-) -> Optional[UserInfo]:
+) -> UserInfo | None:
     token = extract_access_token(request, credentials)
     if token is None:
         return None

@@ -107,7 +107,7 @@ class OpenRouterClient:
         self._http: httpx.AsyncClient | None = None
         self.current_model = self.primary_model
 
-    async def __aenter__(self) -> "OpenRouterClient":
+    async def __aenter__(self) -> OpenRouterClient:
         self._http = httpx.AsyncClient(
             base_url=OPENROUTER_BASE_URL,
             headers={

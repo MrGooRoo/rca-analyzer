@@ -17,8 +17,9 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from src.domain.methodologies.base import MethodologyRunner
 from src.domain.models import (
     AnalysisRequest,
     CauseNode,
@@ -27,7 +28,6 @@ from src.domain.models import (
     RCAResult,
     Recommendation,
 )
-from src.domain.methodologies.base import MethodologyRunner
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ class BowTieRunner(MethodologyRunner):
             result_id=str(uuid.uuid4()),
             incident_id=str(request.incident.incident_date),
             methodology=MethodologyType.BOWTIE,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             immediate_causes=immediate_causes,
             contributing_causes=contributing_causes,
             root_causes=root_causes,

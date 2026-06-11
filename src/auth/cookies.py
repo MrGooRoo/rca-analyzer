@@ -8,7 +8,6 @@ from typing import Final
 
 from fastapi import Response
 
-
 ACCESS_COOKIE_NAME: Final[str] = os.environ.get("ACCESS_COOKIE_NAME", "access_token")
 REFRESH_COOKIE_NAME: Final[str] = os.environ.get("REFRESH_COOKIE_NAME", "refresh_token")
 COOKIE_DOMAIN: Final[str | None] = os.environ.get("AUTH_COOKIE_DOMAIN") or None

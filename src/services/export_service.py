@@ -11,14 +11,13 @@ BOWTIE:CONSEQUENCE, BOWTIE:HAZARD, BOWTIE:TOP_EVENT).
 from __future__ import annotations
 
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from docx import Document
-from docx.shared import Pt, RGBColor, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.shared import Cm, Pt, RGBColor
 
-from src.domain.models import RCAResult, MethodologyType
-
+from src.domain.models import MethodologyType, RCAResult
 
 # ---------------------------------------------------------------------------
 # Цветовая палитра (RGB)
@@ -106,15 +105,15 @@ def _add_header(doc: Document, result: RCAResult) -> None:
 
     # Мета-строка
     p = doc.add_paragraph()
-    _colored_run(p, f"ID: ", _C_MUTED, bold=False, size=9)
+    _colored_run(p, "ID: ", _C_MUTED, bold=False, size=9)
     _colored_run(p, result.result_id, _C_MUTED, bold=False, size=9)
-    _colored_run(p, f"  |  Дата: ", _C_MUTED, bold=False, size=9)
+    _colored_run(p, "  |  Дата: ", _C_MUTED, bold=False, size=9)
     _colored_run(p, created, _C_MUTED, bold=False, size=9)
-    _colored_run(p, f"  |  Модель: ", _C_MUTED, bold=False, size=9)
+    _colored_run(p, "  |  Модель: ", _C_MUTED, bold=False, size=9)
     _colored_run(p, result.model_used, _C_MUTED, bold=False, size=9)
-    _colored_run(p, f"  |  Токены: ", _C_MUTED, bold=False, size=9)
+    _colored_run(p, "  |  Токены: ", _C_MUTED, bold=False, size=9)
     _colored_run(p, str(result.tokens_used), _C_MUTED, bold=False, size=9)
-    _colored_run(p, f"  |  Уверенность: ", _C_MUTED, bold=False, size=9)
+    _colored_run(p, "  |  Уверенность: ", _C_MUTED, bold=False, size=9)
     _colored_run(p, f"{result.confidence_avg * 100:.0f}%", _C_MUTED, bold=False, size=9)
 
     doc.add_paragraph()  # отступ
@@ -254,7 +253,7 @@ def _add_meta(doc: Document, result: RCAResult) -> None:
         ("tokens_used",    str(result.tokens_used)),
         ("confidence_avg", f"{result.confidence_avg:.3f}"),
         ("created_at",     result.created_at.strftime("%Y-%m-%d %H:%M:%S UTC")),
-        ("exported_at",    datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")),
+        ("exported_at",    datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")),
     ]
 
     table = doc.add_table(rows=len(rows), cols=2)

@@ -8,21 +8,21 @@ from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  # noqa: E402 - must load env vars before other imports
 
-from fastapi import FastAPI, Request
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi import FastAPI, Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.responses import JSONResponse  # noqa: E402
 
-from src.api.middleware.csrf import CSRFMiddleware
-from src.api.routes.admin import router as admin_router
-from src.api.routes.analyze import router as analyze_router
-from src.api.routes.export import router as export_router
-from src.api.routes.upload import router as upload_router
-from src.auth.router import router as auth_router
-from src.auth.seed import ensure_admin_exists
-from src.db.base import AsyncSessionLocal
-from src.domain.models import LLMResponseValidationError, MethodologyNotSupportedError
+from src.api.middleware.csrf import CSRFMiddleware  # noqa: E402
+from src.api.routes.admin import router as admin_router  # noqa: E402
+from src.api.routes.analyze import router as analyze_router  # noqa: E402
+from src.api.routes.export import router as export_router  # noqa: E402
+from src.api.routes.upload import router as upload_router  # noqa: E402
+from src.auth.router import router as auth_router  # noqa: E402
+from src.auth.seed import ensure_admin_exists  # noqa: E402
+from src.db.base import AsyncSessionLocal  # noqa: E402
+from src.domain.models import LLMResponseValidationError, MethodologyNotSupportedError  # noqa: E402
 
 logging.basicConfig(
     level=logging.INFO,

@@ -49,8 +49,12 @@ def app() -> FastAPI:
     return application
 
 
-def _client(app: FastAPI) -> AsyncClient:
-    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+def _client(app: FastAPI, cookies: dict | None = None) -> AsyncClient:
+    return AsyncClient(
+        transport=ASGITransport(app=app),
+        base_url="http://test",
+        cookies=cookies or {},
+    )
 
 
 # --- unit: token helpers -----------------------------------------------------
@@ -83,8 +87,8 @@ def test_tokens_match() -> None:
 
 @pytest.mark.asyncio
 async def test_safe_method_no_csrf_required(app: FastAPI) -> None:
-    async with _client(app) as c:
-        r = await c.get("/api/v1/safe", cookies={ACCESS_COOKIE_NAME: "x"})
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x"}) as c:
+        r = await c.get("/api/v1/safe")
     assert r.status_code == 200
 
 
@@ -111,7 +115,7 @@ async def test_csrf_endpoint_returns_token(app: FastAPI) -> None:
 @pytest.mark.asyncio
 async def test_login_with_csrf_token_succeeds(app: FastAPI) -> None:
     """Двухфазный CSRF: GET /csrf → POST /login с X-CSRF-Token."""
-    async with _client(app) as c:
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x"}) as c:
         # Phase 1: получить CSRF-cookie
         r1 = await c.get("/api/v1/auth/csrf")
         assert r1.status_code == 200
@@ -122,7 +126,6 @@ async def test_login_with_csrf_token_succeeds(app: FastAPI) -> None:
         # Phase 2: login с CSRF-заголовком
         r2 = await c.post(
             "/api/v1/auth/login",
-            cookies={ACCESS_COOKIE_NAME: "x"},
             headers={CSRF_HEADER_NAME: csrf},
         )
     assert r2.status_code == 200
@@ -150,8 +153,8 @@ async def test_bearer_without_cookie_exempt(app: FastAPI) -> None:
 
 @pytest.mark.asyncio
 async def test_cookie_auth_missing_csrf_rejected(app: FastAPI) -> None:
-    async with _client(app) as c:
-        r = await c.post("/api/v1/protected", cookies={ACCESS_COOKIE_NAME: "x"})
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x"}) as c:
+        r = await c.post("/api/v1/protected")
     assert r.status_code == 403
     assert "CSRF cookie missing" in r.json()["detail"]
 
@@ -159,11 +162,8 @@ async def test_cookie_auth_missing_csrf_rejected(app: FastAPI) -> None:
 @pytest.mark.asyncio
 async def test_cookie_auth_missing_header_rejected(app: FastAPI) -> None:
     token = generate_csrf_token()
-    async with _client(app) as c:
-        r = await c.post(
-            "/api/v1/protected",
-            cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: token},
-        )
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: token}) as c:
+        r = await c.post("/api/v1/protected")
     assert r.status_code == 403
     assert "header" in r.json()["detail"]
 
@@ -172,10 +172,9 @@ async def test_cookie_auth_missing_header_rejected(app: FastAPI) -> None:
 async def test_cookie_auth_mismatch_rejected(app: FastAPI) -> None:
     token = generate_csrf_token()
     other = generate_csrf_token()
-    async with _client(app) as c:
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: token}) as c:
         r = await c.post(
             "/api/v1/protected",
-            cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: token},
             headers={CSRF_HEADER_NAME: other},
         )
     assert r.status_code == 403
@@ -184,10 +183,9 @@ async def test_cookie_auth_mismatch_rejected(app: FastAPI) -> None:
 @pytest.mark.asyncio
 async def test_cookie_auth_invalid_signature_rejected(app: FastAPI) -> None:
     bad = "fake.deadbeef"
-    async with _client(app) as c:
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: bad}) as c:
         r = await c.post(
             "/api/v1/protected",
-            cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: bad},
             headers={CSRF_HEADER_NAME: bad},
         )
     assert r.status_code == 403
@@ -197,10 +195,9 @@ async def test_cookie_auth_invalid_signature_rejected(app: FastAPI) -> None:
 @pytest.mark.asyncio
 async def test_cookie_auth_valid_csrf_passes(app: FastAPI) -> None:
     token = generate_csrf_token()
-    async with _client(app) as c:
+    async with _client(app, cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: token}) as c:
         r = await c.post(
             "/api/v1/protected",
-            cookies={ACCESS_COOKIE_NAME: "x", CSRF_COOKIE_NAME: token},
             headers={CSRF_HEADER_NAME: token},
         )
     assert r.status_code == 200
@@ -216,7 +213,9 @@ async def test_disabled_middleware_passes_through() -> None:
         return {"ok": True}
 
     async with AsyncClient(
-        transport=ASGITransport(app=application), base_url="http://test"
+        transport=ASGITransport(app=application),
+        base_url="http://test",
+        cookies={ACCESS_COOKIE_NAME: "x"},
     ) as c:
-        r = await c.post("/api/v1/protected", cookies={ACCESS_COOKIE_NAME: "x"})
+        r = await c.post("/api/v1/protected")
     assert r.status_code == 200

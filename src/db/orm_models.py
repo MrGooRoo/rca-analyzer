@@ -15,7 +15,6 @@ ORM-модели (таблицы БД).
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Optional
 
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
@@ -66,7 +65,7 @@ class RefreshTokenORM(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    revoked_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[UserORM] = relationship(back_populates="refresh_tokens")
 
@@ -81,18 +80,18 @@ class IncidentORM(Base):
     location: Mapped[str] = mapped_column(String(200))
     incident_type: Mapped[str] = mapped_column(String(50))
     severity: Mapped[str] = mapped_column(String(50))
-    victims: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    equipment: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    conditions: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    actions_taken: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    user_id: Mapped[Optional[str]] = mapped_column(
+    victims: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    equipment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    conditions: Mapped[str | None] = mapped_column(Text, nullable=True)
+    actions_taken: Mapped[str | None] = mapped_column(Text, nullable=True)
+    user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
 
-    user: Mapped[Optional[UserORM]] = relationship(back_populates="incidents")
+    user: Mapped[UserORM | None] = relationship(back_populates="incidents")
     results: Mapped[list[RCAResultORM]] = relationship(
         back_populates="incident", cascade="all, delete-orphan"
     )
@@ -105,7 +104,7 @@ class RCAResultORM(Base):
     incident_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("incidents.id", ondelete="CASCADE")
     )
-    user_id: Mapped[Optional[str]] = mapped_column(
+    user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     methodology: Mapped[str] = mapped_column(String(50))
@@ -117,7 +116,7 @@ class RCAResultORM(Base):
         DateTime(timezone=True), server_default=func.now()
     )
 
-    user: Mapped[Optional[UserORM]] = relationship(back_populates="results")
+    user: Mapped[UserORM | None] = relationship(back_populates="results")
     incident: Mapped[IncidentORM] = relationship(back_populates="results")
     causal_nodes: Mapped[list[CausalNodeORM]] = relationship(
         back_populates="result", cascade="all, delete-orphan"
@@ -142,7 +141,7 @@ class CausalNodeORM(Base):
     text: Mapped[str] = mapped_column(Text)
     category: Mapped[str] = mapped_column(String(100))
     level: Mapped[int] = mapped_column(Integer)
-    parent_id: Mapped[Optional[str]] = mapped_column(String(36), nullable=True)
+    parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     confidence: Mapped[float] = mapped_column(Float)
 
     result: Mapped[RCAResultORM] = relationship(back_populates="causal_nodes")
@@ -160,7 +159,7 @@ class RecommendationORM(Base):
     priority: Mapped[str] = mapped_column(String(20))
     category: Mapped[str] = mapped_column(String(50))
     cause_id: Mapped[str] = mapped_column(String(36))
-    responsible: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    responsible: Mapped[str | None] = mapped_column(String(200), nullable=True)
     status: Mapped[str] = mapped_column(String(20), default="open")
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")
@@ -214,4 +213,4 @@ class DocxExtractionCacheORM(Base):
         DateTime(timezone=True), server_default=func.now()
     )
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
-    last_hit_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True), nullable=True)
+    last_hit_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

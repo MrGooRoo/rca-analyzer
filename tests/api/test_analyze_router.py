@@ -10,7 +10,7 @@ from datetime import datetime
 from unittest.mock import AsyncMock, patch
 
 import pytest
-from httpx import AsyncClient, ASGITransport
+from httpx import ASGITransport, AsyncClient
 
 from src.api.app import app
 from src.auth.models import UserInfo
@@ -24,7 +24,6 @@ from src.domain.models import (
     RCAResult,
     Recommendation,
 )
-
 
 # ---------------------------------------------------------------------------
 # Фикстуры

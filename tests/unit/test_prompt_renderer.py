@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 from src.domain.models import AnalysisRequest, IncidentInput, MethodologyType
-from src.services.prompt_renderer import PromptRenderer, TemplateRenderError
+from src.services.prompt_renderer import PromptRenderer
 
 
 @pytest.fixture

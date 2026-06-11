@@ -8,13 +8,12 @@ from __future__ import annotations
 
 import json
 
+import httpx
 import pytest
 import respx
-import httpx
 
-from src.integrations.llm.openrouter import OpenRouterClient, OPENROUTER_BASE_URL
 from src.domain.models import LLMResponseValidationError
-
+from src.integrations.llm.openrouter import OPENROUTER_BASE_URL, OpenRouterClient
 
 # ---------------------------------------------------------------------------
 # Вспомогательные функции

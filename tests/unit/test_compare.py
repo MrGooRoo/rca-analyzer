@@ -8,13 +8,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
+from pydantic import ValidationError
 
 from src.domain.models import (
     CauseNode,
-    ComparisonResult,
     IncidentInput,
     MethodologyType,
     MultiAnalysisRequest,
@@ -22,7 +22,6 @@ from src.domain.models import (
     Recommendation,
 )
 from src.services.analysis_service import AnalysisService, _texts_are_similar
-
 
 # ---------------------------------------------------------------------------
 # Фикстуры
@@ -80,7 +79,7 @@ class TestMultiAnalysisRequestValidation:
 
     def test_min_2_methodologies_required(self, incident):
         """Меньше 2 методик — ошибка валидации."""
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             MultiAnalysisRequest(
                 methodologies=[MethodologyType.FIVE_WHY],
                 incident=incident,
@@ -88,7 +87,7 @@ class TestMultiAnalysisRequestValidation:
 
     def test_max_5_methodologies(self, incident):
         """Больше 5 методик — ошибка валидации."""
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             MultiAnalysisRequest(
                 methodologies=[
                     MethodologyType.FIVE_WHY,
@@ -103,7 +102,7 @@ class TestMultiAnalysisRequestValidation:
 
     def test_duplicate_methodologies_rejected(self, incident):
         """Дубликат методики — ошибка валидации."""
-        with pytest.raises(Exception):
+        with pytest.raises(ValidationError):
             MultiAnalysisRequest(
                 methodologies=[
                     MethodologyType.FIVE_WHY,
@@ -234,11 +233,12 @@ class TestTextsAreSimilar:
 # 4. Роут /analyze-multi — интеграционные тесты
 # ---------------------------------------------------------------------------
 
-from httpx import AsyncClient, ASGITransport
-from src.api.app import app
-from src.auth.models import UserInfo
-from src.auth.service import get_current_user
-from src.db.base import get_db
+from httpx import ASGITransport, AsyncClient  # noqa: E402
+
+from src.api.app import app  # noqa: E402
+from src.auth.models import UserInfo  # noqa: E402
+from src.auth.service import get_current_user  # noqa: E402
+from src.db.base import get_db  # noqa: E402
 
 
 def _override_user(user: UserInfo):

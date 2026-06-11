@@ -6,11 +6,11 @@ import asyncio
 import os
 from logging.config import fileConfig
 
-from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
-from src.db.base import Base
 import src.db.orm_models  # noqa: F401 — регистрирует все модели в метаданных
+from alembic import context
+from src.db.base import Base
 
 config = context.config
 if config.config_file_name:

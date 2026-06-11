@@ -21,12 +21,16 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 from dotenv import load_dotenv
 
-load_dotenv()
+load_dotenv()  # noqa: E402 - must load env vars before other imports
 
-from sqlalchemy import select, update
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy import select, update  # noqa: E402
+from sqlalchemy.ext.asyncio import (  # noqa: E402
+    AsyncSession,
+    async_sessionmaker,
+    create_async_engine,
+)
 
-from src.db.orm_models import UserORM
+from src.db.orm_models import UserORM  # noqa: E402
 
 VALID_ROLES = {"user", "admin"}
 

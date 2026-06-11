@@ -14,8 +14,9 @@ Algorithm:
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
+from src.domain.methodologies.base import MethodologyRunner
 from src.domain.models import (
     AnalysisRequest,
     CauseNode,
@@ -24,7 +25,6 @@ from src.domain.models import (
     RCAResult,
     Recommendation,
 )
-from src.domain.methodologies.base import MethodologyRunner
 
 # Признанные категории Исикавы (6M + управление из contracts.md)
 ISHIKAWA_CATEGORIES = {
@@ -95,7 +95,7 @@ class IshikawaRunner(MethodologyRunner):
             result_id=str(uuid.uuid4()),
             incident_id=str(request.incident.incident_date),
             methodology=MethodologyType.ISHIKAWA,
-            created_at=datetime.now(timezone.utc),
+            created_at=datetime.now(UTC),
             immediate_causes=immediate,
             contributing_causes=contributing,
             root_causes=root,
