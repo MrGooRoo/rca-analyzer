@@ -317,13 +317,15 @@ async function uploadFileStream(path, file, onProgress, options = {}) {
  *   { status: 'error',     message }  ← бросается как Error
  */
 function querySimilarIncidents(text, options = {}) {
-  const params = new URLSearchParams()
-  params.set('text', String(text || '').slice(0, 5000))
-  params.set('limit', String(options.limit || 5))
-  if (options.threshold !== undefined) params.set('threshold', String(options.threshold))
-  if (options.excludeResultId) params.set('exclude_result_id', options.excludeResultId)
-  if (options.excludeIncidentId) params.set('exclude_incident_id', options.excludeIncidentId)
-  return req('GET', `/api/v1/incidents/similar?${params.toString()}`, undefined, { authRequired: true })
+  // POST с текстом в теле: длинные описания в query string вызывали HTTP 431
+  const payload = {
+    text: String(text || '').slice(0, 5000),
+    limit: options.limit || 5,
+  }
+  if (options.threshold !== undefined) payload.threshold = options.threshold
+  if (options.excludeResultId) payload.exclude_result_id = options.excludeResultId
+  if (options.excludeIncidentId) payload.exclude_incident_id = options.excludeIncidentId
+  return req('POST', '/api/v1/incidents/similar', payload, { authRequired: true })
 }
 
 async function analyzeMultiStream(payload, onEvent, retryOn401 = true) {

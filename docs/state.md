@@ -82,8 +82,15 @@
   - ✅ Тесты: `tests/unit/test_hf_local_embeddings.py` (12 юнит + 1 интеграционный `@pytest.mark.slow`)
   - ✅ pytest: маркер `slow`, по умолчанию `-m 'not slow'` (медленные тесты не гоняются в CI)
 
+- [x] **Фикс HTTP 431 в поиске похожих** (11.06.2026)
+  - ✅ Новый `POST /api/v1/incidents/similar` — текст в теле запроса (`SimilarIncidentsRequest`)
+  - ✅ Причина бага: длинный текст инцидента в query string → HTTP 431 Request Header Fields Too Large
+  - ✅ GET-вариант оставлен как deprecated (обратная совместимость)
+  - ✅ `frontend/src/api.js`: querySimilarIncidents переведён на POST
+  - ✅ +5 тестов: POST happy-path, длинный текст 5000 символов, excludes, валидация (422)
+
 ## Проверки
-- `python -m pytest tests/ -q` → **227 passed, 1 deselected (slow), 8 warnings**
+- `python -m pytest tests/ -q` → **235 passed, 1 deselected (slow), 8 warnings**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
   - Остались только предсуществующие `httpx` deprecation warnings по per-request cookies в CSRF-тестах.
 - `ruff check` по изменённым файлам → чисто.

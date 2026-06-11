@@ -18,7 +18,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import UserInfo
@@ -282,25 +282,35 @@ async def list_results(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/incidents/similar
+# POST + GET /api/v1/incidents/similar
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/incidents/similar",
-    response_model=list[SimilarIncident],
-    summary="Найти похожие прошлые инциденты по тексту",
-)
-async def find_similar_incidents(
-    db: DbSession,
-    current_user: CurrentUser,
-    text: str = Query(..., min_length=3, max_length=5000, description="Текст нового инцидента"),
-    limit: int = Query(5, ge=1, le=20),
-    threshold: float | None = Query(
+class SimilarIncidentsRequest(BaseModel):
+    """Тело запроса поиска похожих инцидентов.
+
+    Текст передаётся в теле (POST), а не в query string: длинные описания
+    инцидентов в URL приводят к HTTP 431 Request Header Fields Too Large.
+    """
+
+    text: str = Field(..., min_length=3, max_length=5000, description="Текст нового инцидента")
+    limit: int = Field(5, ge=1, le=20)
+    threshold: float | None = Field(
         None, ge=0.0, le=1.0,
         description="Порог похожести; если не задан — подбирается под провайдер эмбеддингов",
-    ),
-    exclude_result_id: str | None = Query(None),
-    exclude_incident_id: str | None = Query(None),
+    )
+    exclude_result_id: str | None = None
+    exclude_incident_id: str | None = None
+
+
+async def _do_find_similar(
+    db: AsyncSession,
+    current_user: UserInfo,
+    *,
+    text: str,
+    limit: int,
+    threshold: float | None,
+    exclude_result_id: str | None,
+    exclude_incident_id: str | None,
 ) -> list[SimilarIncident]:
     repo = RCARepository(db)
     user_filter = None if current_user.role == "admin" else current_user.user_id
@@ -321,6 +331,57 @@ async def find_similar_incidents(
     except Exception as exc:
         logger.error("[API] similar incidents error: %s", exc)
         raise HTTPException(status_code=500, detail="Ошибка поиска похожих инцидентов") from exc
+
+
+@router.post(
+    "/incidents/similar",
+    response_model=list[SimilarIncident],
+    summary="Найти похожие прошлые инциденты по тексту (текст в теле запроса)",
+)
+async def find_similar_incidents_post(
+    request: SimilarIncidentsRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[SimilarIncident]:
+    return await _do_find_similar(
+        db,
+        current_user,
+        text=request.text,
+        limit=request.limit,
+        threshold=request.threshold,
+        exclude_result_id=request.exclude_result_id,
+        exclude_incident_id=request.exclude_incident_id,
+    )
+
+
+@router.get(
+    "/incidents/similar",
+    response_model=list[SimilarIncident],
+    summary="Найти похожие прошлые инциденты по тексту (deprecated: используйте POST)",
+    deprecated=True,
+)
+async def find_similar_incidents(
+    db: DbSession,
+    current_user: CurrentUser,
+    text: str = Query(..., min_length=3, max_length=5000, description="Текст нового инцидента"),
+    limit: int = Query(5, ge=1, le=20),
+    threshold: float | None = Query(
+        None, ge=0.0, le=1.0,
+        description="Порог похожести; если не задан — подбирается под провайдер эмбеддингов",
+    ),
+    exclude_result_id: str | None = Query(None),
+    exclude_incident_id: str | None = Query(None),
+) -> list[SimilarIncident]:
+    """Старый GET-вариант: оставлен для обратной совместимости (короткие тексты)."""
+    return await _do_find_similar(
+        db,
+        current_user,
+        text=text,
+        limit=limit,
+        threshold=threshold,
+        exclude_result_id=exclude_result_id,
+        exclude_incident_id=exclude_incident_id,
+    )
 
 
 # ---------------------------------------------------------------------------

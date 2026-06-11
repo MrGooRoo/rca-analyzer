@@ -97,7 +97,7 @@ class IncidentInput(BaseModel):
 api.analyze(payload)                // POST /api/v1/analyze      → RCAResult
 api.analyzeMulti(payload)           // POST /api/v1/analyze-multi → RCAResult[]
 api.compareResults(id)              // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
-api.similarIncidents(text, options) // GET  /api/v1/incidents/similar?text=... → SimilarIncident[]
+api.similarIncidents(text, options) // POST /api/v1/incidents/similar (текст в теле) → SimilarIncident[]
 ```
 
 ### 10.3. Компонент CompareView
@@ -272,18 +272,24 @@ Docker Compose использует образ БД `pgvector/pgvector:pg16`.
 
 Для старых записей есть ленивый backfill: `RCARepository.backfill_missing_embeddings(user_id, limit=100)` вызывается перед поиском похожих.
 
-### 14.4. API: `GET /api/v1/incidents/similar`
+### 14.4. API: `POST /api/v1/incidents/similar` (обновлено 11.06.2026)
 
 Защищённый endpoint (auth required). User видит только свои результаты, admin — все.
 
-Query params:
+**Основной метод — POST** с текстом в теле запроса (фикс HTTP 431: длинные
+описания инцидентов не помещались в query string). Старый GET оставлен как
+deprecated для обратной совместимости (короткие тексты).
 
-```text
-text: str                         # required, min_length=3, max_length=5000
-limit: int = 5                    # 1..20
-threshold: float = 0.15           # 0..1
-exclude_result_id: str | None     # исключить конкретный результат
-exclude_incident_id: str | None   # исключить текущий incident_id
+Тело запроса (`SimilarIncidentsRequest`):
+
+```python
+class SimilarIncidentsRequest(BaseModel):
+    text: str                          # required, min_length=3, max_length=5000
+    limit: int = 5                     # 1..20
+    threshold: float | None = None     # 0..1; None → подбирается под провайдер
+                                       # (0.15 hashing / 0.55 нейросетевые)
+    exclude_result_id: str | None = None
+    exclude_incident_id: str | None = None
 ```
 
 Response model:
