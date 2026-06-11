@@ -181,14 +181,36 @@
 }
 
 /* ---- Различающиеся выводы ---- */
+/* Все колонки в одну строку, max 5 методик, прокрутка если не помещаются */
 
 .differing-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: flex;
+  flex-direction: row;
   gap: 12px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  /* Горизонтальный скроллбар при необходимости */
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+
+.differing-grid::-webkit-scrollbar {
+  height: 6px;
+}
+
+.differing-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.differing-grid::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 3px;
 }
 
 .differing-card {
+  flex: 1 1 180px;
+  min-width: 180px;
+  max-width: 280px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 10px;
@@ -207,6 +229,7 @@
   padding: 3px 10px;
   font-size: 12px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .differing-list {
@@ -231,4 +254,18 @@
   content: '• ';
   color: var(--warning);
   font-weight: bold;
+}
+
+/* На мобильных — вертикальная раскладка */
+@media (max-width: 600px) {
+  .differing-grid {
+    flex-direction: column;
+    overflow-x: visible;
+  }
+
+  .differing-card {
+    flex: none;
+    min-width: unset;
+    max-width: none;
+  }
 }
