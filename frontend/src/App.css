@@ -133,8 +133,8 @@
 /* ---- Main ---- */
 .app-main {
   flex: 1;
-  max-width: 900px;
   width: 100%;
+  max-width: 1200px;
   margin: 0 auto;
   padding: var(--space-2xl) var(--space-lg);
 }
@@ -216,5 +216,11 @@
   
   .header-user {
     display: none;
+  }
+}
+
+@media (min-width: 1400px) {
+  .app-main {
+    padding: 48px 32px;
   }
 }
