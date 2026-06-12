@@ -538,3 +538,27 @@
     min-width: 100%;
   }
 }
+/* ---- Заблокированная форма (анализ / загрузка DOCX) ---- */
+.incident-form input:disabled,
+.incident-form textarea:disabled,
+.incident-form select:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  background: var(--surface-3, #f0f0f0);
+}
+
+.incident-form button:disabled:not(.btn-analyze) {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.incident-form .checkbox-card:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.incident-form .mode-option:has(input:disabled) {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

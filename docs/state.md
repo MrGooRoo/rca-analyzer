@@ -2,9 +2,9 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — embeddings (E/E2), фикс 431, группировка сравнений в истории
+## Статус: 🟢 Рабочая версия — analysis_session + embeddings + Apple-style
 
-**Дата обновления:** 2026-06-12
+**Дата обновления:** 2026-06-13
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
@@ -91,30 +91,88 @@
     клик по карточке — сравнение целиком
   - ✅ Фильтры работают по группам (методика — «хотя бы одна в группе»)
   - ⏭️ Следующий этап (вариант 2): сущность «исследование» (analysis_session) в БД
+- [x] **Сущность «исследование» в БД** (13.06.2026)
+  - ✅ Таблица `analysis_sessions` (id, created_at, user_id, incident_title, incident_description,
+    incident_date, incident_location, incident_type, incident_severity, incident_data_json)
+  - ✅ FK `rca_results.session_id` → `analysis_sessions.id` (nullable, с индексом)
+  - ✅ Миграция Alembic 008 с backfill: для каждого incident_id создаётся сессия,
+    все результаты с этим incident_id получают session_id
+  - ✅ Pydantic-модель `AnalysisSession` + `session_id` в `RCAResult`
+  - ✅ Repository: `create_session()`, `get_session()`, `list_sessions()`, `list_results_by_session()`
+  - ✅ API: `GET /sessions`, `GET /sessions/{session_id}`, обновлён `/results/compare`
+    (принимает `session_id` и `incident_id`; session_id приоритетнее)
+  - ✅ `/analyze`, `/analyze-multi`, `/analyze-multi-stream` — создают сессию при каждом запросе
+  - ✅ Frontend: `api.sessions`, `compareResults(incidentId, sessionId)`,
+    `groupByIncident()` группирует по `session_id` (fallback на `incident_id`)
+  - ✅ Тесты: 15 новых (юнит + API), всего 250 passed
+  - ✅ Обновлены contracts.md (раздел 15) и state.md
+- [x] **Docker-интеграция HF-эмбеддингов** (13.06.2026)
+  - ✅ Dockerfile: target `prod-embeddings` (torch CPU + transformers)
+  - ✅ Dockerfile: target `dev-embeddings` для разработки
+  - ✅ docker-compose.yml: named volume `hf_cache` для `HF_HOME`
+  - ✅ app.py lifespan: прогрев модели при `EMBEDDINGS_PROVIDER=huggingface`
+  - ✅ `.env.example`: уточнена документация HF_HOME
+- [x] **UX похожих инцидентов** (13.06.2026)
+  - ✅ Клик по карточке → загружает полный RCAResult из БД и открывает его
+  - ✅ Фильтры по методике и диапазону дат
+  - ✅ Цветные бейджи похожести (🟢 ≥75%, 🟡 ≥50%, 🔴 <50%)
+  - ✅ Кнопка «Открыть →» на кликабельных карточках
+  - ✅ Лимит похожих увеличен до 10
+  - ✅ App.jsx: `handleSubmitMulti` использует `session_id`
 - [x] **Фикс HTTP 431 в поиске похожих** (11.06.2026)
   - ✅ Новый `POST /api/v1/incidents/similar` — текст в теле запроса (`SimilarIncidentsRequest`)
   - ✅ Причина бага: длинный текст инцидента в query string → HTTP 431 Request Header Fields Too Large
   - ✅ GET-вариант оставлен как deprecated (обратная совместимость)
   - ✅ `frontend/src/api.js`: querySimilarIncidents переведён на POST
   - ✅ +5 тестов: POST happy-path, длинный текст 5000 символов, excludes, валидация (422)
+- [x] **incident_hash + фильтр повторных анализов из «похожих»** (13.06.2026)
+  - ✅ SHA-256 отпечаток (`incident_hash`) от title+description в `analysis_sessions`
+  - ✅ Миграция 009: добавляет `incident_hash` с backfill
+  - ✅ `save_result()` принимает `incident_title`, `incident_description` и др. — API передаёт реальные данные
+  - ✅ `find_similar_incidents()`: параметр `exclude_incident_hash` — исключает сессии с тем же отпечатком
+  - ✅ `SimilarIncidentsRequest`: `incident_title`+`incident_description` для дедупа из формы
+  - ✅ `_do_find_similar()`: вычисляет hash из формы, передаёт `exclude_incident_hash`
+  - ✅ Старые сессии с `incident_title="—"` скрыты из «похожих» (неизвестный инцидент — не «похожий»)
+  - ✅ Миграция 010: чинит placeholder-данные старых сессий, извлекая из `incident_data_json`
+  - ✅ Frontend: `IncidentForm` передаёт `form.title`/`form.description` в SimilarIncidentsPanel
+- [x] **Контекст инцидента в карточках «похожих»** (13.06.2026)
+  - ✅ `SimilarIncident` модель: добавлены `incident_title`, `incident_description`, `incident_date`, `incident_location` (из сессии)
+  - ✅ `_orm_to_similar()`: подгружает `session` и передаёт данные инцидента
+  - ✅ SQL-запросы поиска похожих: добавлен `selectinload(RCAResultORM.session)`
+  - ✅ `SimilarCard`: визуальный блок с заголовком, описанием, датой и местом инцидента (голубая полоска слева)
+  - ✅ +1 тест: `test_similar_incidents_include_incident_context`
+- [x] **Блокировка формы при анализе/загрузке DOCX** (13.06.2026)
+  - ✅ Переменная `busy = loading || uploading` — единый флаг блокировки
+  - ✅ Все поля формы (input, textarea, select, radio, checkbox) получают `disabled={busy}`
+  - ✅ Кнопки «Добавить пострадавшего», «Сбросить DOCX» тоже заблокированы
+  - ✅ Зона загрузки DOCX не реагирует на клик при `busy`
+  - ✅ `SimilarIncidentsPanel` получает `disabled={busy}` — поиск похожих заблокирован
+  - ✅ CSS: заблокированные поля полупрозрачные (opacity 0.55), курсор not-allowed
+- [x] **Индикатор похожих в форме, полный блок в результате** (13.06.2026)
+  - ✅ `SimilarIncidentsHint` — лёгкий индикатор-счётчик в форме: «🔗 Найдено 3 похожих инцидента»
+  - ✅ Полный блок `SimilarIncidentsPanel` — только в ResultView (автопоиск после анализа)
+  - ✅ Нет дублей: одна строчка в форме, полный блок в результате
+- [x] **UI-kit + Tailwind + Toast + AuthContext** (13.06.2026)
+  - ✅ Tailwind CSS v4: @tailwindcss/vite плагин, только utilities (без reset — не ломает существующие стили)
+  - ✅ cn() утилита: clsx + tailwind-merge для корректного слияния классов
+  - ✅ Button: варианты primary/secondary/ghost/danger/outline, размеры sm/md/lg, loading-спиннер
+  - ✅ Card + CardBody + CardHeader + Badge: тонированные бейджи (7 цветов)
+  - ✅ Field: Input, Textarea, Select с label/hint/error
+  - ✅ Toast + ToastProvider + useToast: уведомления info/success/error/warning с автозакрытием
+  - ✅ methodologies.js: метаданные методологий (иконки, описания, цвета)
+  - ✅ AuthContext: чистая архитектура авторизации (login/register/logout/refresh)
+  - ✅ main.jsx: обёрнуто в AuthProvider + ToastProvider
 
 ## Проверки
-- `python -m pytest tests/ -q` → **235 passed, 1 deselected (slow), 8 warnings**
+- `python -m pytest tests/ -q` → **257 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
-  - Остались только предсуществующие `httpx` deprecation warnings по per-request cookies в CSRF-тестах.
-- `ruff check` по изменённым файлам → чисто.
-- `npm run build` во frontend → **успешно** после регенерации `package-lock.json` с optional Rollup/esbuild packages.
+- `ruff check` по изменённым файлам → **All checks passed!**
+- `npm run build` во frontend → **успешно**
 
 ## В работе / следующий приоритет
-- [ ] **Вариант 2 — сущность «исследование» в БД** (согласовано с владельцем проекта):
-  - таблица analysis_session (id, created_at, user_id, входные данные инцидента),
-  - FK rca_results → analysis_session, миграция Alembic + backfill по incident_id,
-  - история/сравнение читают по session_id «по конструкции», а не «по соглашению».
-- [ ] Docker-интеграция HF-эмбеддингов: volume под `HF_HOME` в docker-compose,
-  build-arg/target с extras `[embeddings]`, прогрев модели в lifespan FastAPI.
 - [ ] Убрать оставшиеся `httpx` deprecation warnings в CSRF-тестах.
-- [ ] Улучшить UX блока похожих инцидентов: открытие найденного результата из карточки, фильтры по методике/дате.
-- [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе и сравнить качество с local v2.
+- [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
+- [ ] (Опционально) Перевести историю на `/sessions` API (загрузка по исследованиям, а не плоский список результатов).
 
 ## Известные проблемы / нюансы
 - `EMBEDDINGS_PROVIDER=huggingface`: первый запрос скачивает модель с HF Hub (~120MB) — в Docker стоит смонтировать volume под `HF_HOME`, чтобы кэш переживал пересборку. Для нейросетевых эмбеддингов дефолтный `threshold=0.15` слишком низкий — используйте 0.55–0.6.

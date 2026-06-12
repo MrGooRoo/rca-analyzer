@@ -110,6 +110,7 @@ class Recommendation(BaseModel):
 class RCAResult(BaseModel):
     result_id:           str
     incident_id:         str
+    session_id:          str | None              = None
     user_id:             str | None              = None
     user_display_name:   str | None              = None
     user_email:          str | None              = None
@@ -161,6 +162,28 @@ class ComparisonResult(BaseModel):
 
 
 # ----------------------------------------------------------------------
+# Сущность «исследование» (добавлено 13.06.2026)
+# ----------------------------------------------------------------------
+
+class AnalysisSession(BaseModel):
+    """Логическая группа анализов одного инцидента."""
+    id:                     str
+    created_at:             datetime
+    user_id:                str | None              = None
+    user_display_name:      str | None              = None
+    user_email:             str | None              = None
+    incident_title:         str
+    incident_description:   str
+    incident_date:          datetime | None         = None
+    incident_location:      str | None              = None
+    incident_type:          str | None              = None
+    incident_severity:      str | None              = None
+    incident_data_json:     str | None              = None
+    incident_hash:          str | None              = None
+    results:                list[RCAResult]         = Field(default_factory=list)
+
+
+# ----------------------------------------------------------------------
 # Похожие инциденты / RAG (добавлено 10.06.2026, приоритет D)
 # ----------------------------------------------------------------------
 
@@ -177,3 +200,8 @@ class SimilarIncident(BaseModel):
     user_id: str | None = None
     user_display_name: str | None = None
     user_email: str | None = None
+    # Описание инцидента для контекста (из сессии)
+    incident_title: str | None = None
+    incident_description: str | None = None
+    incident_date: datetime | None = None
+    incident_location: str | None = None

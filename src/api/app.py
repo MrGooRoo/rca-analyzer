@@ -52,6 +52,29 @@ async def lifespan(application: FastAPI):
             await ensure_admin_exists(session)
     except Exception:
         logger.warning("[SEED] Не удалось выполнить admin-seed (БД недоступна?)", exc_info=True)
+
+    # --- Startup: прогрев HF-модели эмбеддингов ---
+    embeddings_provider = os.environ.get("EMBEDDINGS_PROVIDER", "local")
+    if embeddings_provider in ("huggingface", "hf"):
+        try:
+            from src.services.embedding_service import get_embedding_service  # noqa: E402
+            svc = get_embedding_service()
+            # Запускаем тестовый embedding — модель скачается и загрузится в память
+            import asyncio  # noqa: E402
+            result = svc.embed("прогрев модели")
+            if asyncio.iscoroutine(result):
+                await result
+            logger.info(
+                "[EMBEDDINGS] HF-модель %s загружена и готова (dimension=%d)",
+                svc.model_name, svc.dimension,
+            )
+        except Exception:
+            logger.warning(
+                "[EMBEDDINGS] Не удалось прогреть HF-модель; "
+                "будет использован fallback на local при первом запросе.",
+                exc_info=True,
+            )
+
     yield
     # --- Shutdown ---
 

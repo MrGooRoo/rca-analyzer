@@ -5,6 +5,7 @@ ORM-модели (таблицы БД).
     users                   — учётные записи пользователей
     refresh_tokens          — refresh-сессии для httpOnly cookie
     incidents               — входные данные инцидента
+    analysis_sessions       — исследование (группа анализов одного инцидента)
     rca_results             — результат анализа (summary, модель, токены)
     causal_nodes            — все узлы дерева причин (IC / CC / RC)
     recommendations         — корректирующие мероприятия
@@ -30,7 +31,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
-from src.services.embedding_service import EMBEDDING_DIMENSION
+from src.services.embedding_service import EMBEDDING_DIMENSION  # noqa: E402
 
 
 class UserORM(Base):
@@ -51,6 +52,7 @@ class UserORM(Base):
     )
     results: Mapped[list[RCAResultORM]] = relationship(back_populates="user")
     incidents: Mapped[list[IncidentORM]] = relationship(back_populates="user")
+    sessions: Mapped[list[AnalysisSessionORM]] = relationship(back_populates="user")
 
 
 class RefreshTokenORM(Base):
@@ -97,12 +99,53 @@ class IncidentORM(Base):
     )
 
 
+class AnalysisSessionORM(Base):
+    """
+    Исследование — логическая группа анализов одного инцидента.
+
+    Для одиночного анализа — одна сессия с одним результатом.
+    Для сравнения методик — одна сессия с N результатами (по одной на методику).
+    Заменяет неявную группировку по incident_id явным FK.
+    """
+    __tablename__ = "analysis_sessions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    user_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    # Ключевые поля инцидента для быстрого доступа (как в incidents)
+    incident_title: Mapped[str] = mapped_column(String(200), nullable=False)
+    incident_description: Mapped[str] = mapped_column(Text, nullable=False)
+    incident_date: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    incident_location: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    incident_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    incident_severity: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    # Полный IncidentInput как JSON — для сохранения всех полей
+    incident_data_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # SHA-256 отпечаток входных данных (title+description) — для исключения
+    # повторных анализов того же инцидента из «похожих».
+    # Один и тот же инцидент → одинаковый hash → не показываем как «похожий».
+    incident_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
+    user: Mapped[UserORM | None] = relationship(back_populates="sessions")
+    results: Mapped[list[RCAResultORM]] = relationship(back_populates="session")
+
+
 class RCAResultORM(Base):
     __tablename__ = "rca_results"
 
     result_id: Mapped[str] = mapped_column(String(36), primary_key=True)
     incident_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("incidents.id", ondelete="CASCADE")
+    )
+    session_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("analysis_sessions.id", ondelete="SET NULL"),
+        nullable=True, index=True,
     )
     user_id: Mapped[str | None] = mapped_column(
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
@@ -118,6 +161,7 @@ class RCAResultORM(Base):
 
     user: Mapped[UserORM | None] = relationship(back_populates="results")
     incident: Mapped[IncidentORM] = relationship(back_populates="results")
+    session: Mapped[AnalysisSessionORM | None] = relationship(back_populates="results")
     causal_nodes: Mapped[list[CausalNodeORM]] = relationship(
         back_populates="result", cascade="all, delete-orphan"
     )

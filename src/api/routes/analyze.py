@@ -27,6 +27,7 @@ from src.db.base import get_db
 from src.db.repository import RCARepository
 from src.domain.models import (
     AnalysisRequest,
+    AnalysisSession,
     ComparisonResult,
     LLMResponseValidationError,
     MethodologyNotSupportedError,
@@ -52,6 +53,19 @@ METHODOLOGY_NAMES_RU = {
     "rca_systemic": "RCA Системный",
     "bowtie":       "BowTie",
 }
+
+
+def _incident_to_session_kwargs(incident):
+    """Подготовить kwargs для RCARepository.create_session из IncidentInput."""
+    return dict(
+        incident_title=incident.title,
+        incident_description=incident.description,
+        incident_date=incident.incident_date,
+        incident_location=incident.location or None,
+        incident_type=incident.incident_type,
+        incident_severity=incident.severity,
+        incident_data_json=incident.model_dump_json(exclude_none=True),
+    )
 
 
 def _check_owner_or_admin(result: RCAResult, current_user: UserInfo) -> None:
@@ -90,8 +104,27 @@ async def analyze_incident(
     result.incident_id = str(_uuid.uuid4())
 
     repo = RCARepository(db)
-    await repo.save_result(result, user_id=current_user.user_id)
-    logger.info("[DB] saved result %s for user %s", result.result_id, current_user.user_id)
+
+    # Создаём сессию исследования
+    session_orm = await repo.create_session(
+        user_id=current_user.user_id,
+        **_incident_to_session_kwargs(request.incident),
+    )
+    result.session_id = session_orm.id
+
+    await repo.save_result(
+        result,
+        user_id=current_user.user_id,
+        session_id=session_orm.id,
+        incident_title=request.incident.title,
+        incident_description=request.incident.description,
+        incident_date=request.incident.incident_date,
+        incident_location=request.incident.location or None,
+        incident_type=request.incident.incident_type,
+        incident_severity=request.incident.severity,
+    )
+    await db.commit()
+    logger.info("[DB] saved result %s for user %s (session %s)", result.result_id, current_user.user_id, session_orm.id)
 
     result.user_id = current_user.user_id
     return result
@@ -124,9 +157,29 @@ async def analyze_multi(
         raise HTTPException(status_code=500, detail="Внутренняя ошибка сервера") from exc
 
     repo = RCARepository(db)
+
+    # Одна сессия на все методики сравнения
+    session_orm = await repo.create_session(
+        user_id=current_user.user_id,
+        **_incident_to_session_kwargs(request.incident),
+    )
+
     for result in results:
-        await repo.save_result(result, user_id=current_user.user_id)
+        result.session_id = session_orm.id
+        await repo.save_result(
+            result,
+            user_id=current_user.user_id,
+            session_id=session_orm.id,
+            incident_title=request.incident.title,
+            incident_description=request.incident.description,
+            incident_date=request.incident.incident_date,
+            incident_location=request.incident.location or None,
+            incident_type=request.incident.incident_type,
+            incident_severity=request.incident.severity,
+        )
         result.user_id = current_user.user_id
+
+    await db.commit()
     return results
 
 
@@ -170,6 +223,14 @@ async def analyze_multi_stream(
         import uuid as _uuid
         incident_id = str(_uuid.uuid4())
 
+        # Создаём сессию исследования
+        repo = RCARepository(db)
+        session_orm = await repo.create_session(
+            user_id=current_user.user_id,
+            **_incident_to_session_kwargs(request.incident),
+        )
+        session_id = session_orm.id
+
         # Очередь для результатов по мере готовности
         queue: asyncio.Queue = asyncio.Queue()
 
@@ -194,7 +255,6 @@ async def analyze_multi_stream(
         results = []
         errors = []
         done_count = 0
-        repo = RCARepository(db)
 
         while done_count < total:
             kind, methodology, payload = await queue.get()
@@ -204,7 +264,18 @@ async def analyze_multi_stream(
             if kind == "ok":
                 result = payload
                 try:
-                    await repo.save_result(result, user_id=current_user.user_id)
+                    result.session_id = session_id
+                    await repo.save_result(
+                        result,
+                        user_id=current_user.user_id,
+                        session_id=session_id,
+                        incident_title=request.incident.title,
+                        incident_description=request.incident.description,
+                        incident_date=request.incident.incident_date,
+                        incident_location=request.incident.location or None,
+                        incident_type=request.incident.incident_type,
+                        incident_severity=request.incident.severity,
+                    )
                     result.user_id = current_user.user_id
                 except Exception as exc:
                     logger.error("[AnalyzeMultiStream] Ошибка сохранения %s: %s", name, exc)
@@ -304,6 +375,16 @@ class SimilarIncidentsRequest(BaseModel):
     )
     exclude_result_id: str | None = None
     exclude_incident_id: str | None = None
+    # Поля для исключения повторных анализов того же инцидента:
+    # если заданы, из результата исключаются сессии с таким же incident_hash.
+    incident_title: str | None = Field(
+        None, max_length=200,
+        description="Заголовок инцидента — для исключения повторов",
+    )
+    incident_description: str | None = Field(
+        None, max_length=10000,
+        description="Описание инцидента — для исключения повторов",
+    )
 
 
 async def _do_find_similar(
@@ -315,12 +396,23 @@ async def _do_find_similar(
     threshold: float | None,
     exclude_result_id: str | None,
     exclude_incident_id: str | None,
+    incident_title: str | None = None,
+    incident_description: str | None = None,
 ) -> list[SimilarIncident]:
+    from src.db.repository import compute_incident_hash  # noqa: E402
+
     repo = RCARepository(db)
     user_filter = None if current_user.role == "admin" else current_user.user_id
     # У hashing-эмбеддингов несвязанные тексты ~0, у нейросетевых ~0.4-0.5 —
     # дефолтный порог зависит от EMBEDDINGS_PROVIDER (см. embedding_service).
     effective_threshold = threshold if threshold is not None else default_similarity_threshold()
+
+    # Вычисляем incident_hash для исключения повторов того же инцидента.
+    # Если заданы title+description — hash вычисляется из них (ручной поиск из формы).
+    # Если задан result_id/incident_id — hash определится автоматически в find_similar_incidents.
+    exclude_incident_hash: str | None = None
+    if incident_title and incident_description:
+        exclude_incident_hash = compute_incident_hash(incident_title, incident_description)
 
     try:
         await repo.backfill_missing_embeddings(user_id=user_filter, limit=100)
@@ -331,6 +423,7 @@ async def _do_find_similar(
             threshold=effective_threshold,
             exclude_result_id=exclude_result_id,
             exclude_incident_id=exclude_incident_id,
+            exclude_incident_hash=exclude_incident_hash,
         )
     except Exception as exc:
         logger.error("[API] similar incidents error: %s", exc)
@@ -355,6 +448,8 @@ async def find_similar_incidents_post(
         threshold=request.threshold,
         exclude_result_id=request.exclude_result_id,
         exclude_incident_id=request.exclude_incident_id,
+        incident_title=request.incident_title,
+        incident_description=request.incident_description,
     )
 
 
@@ -395,23 +490,35 @@ async def find_similar_incidents(
 @router.get(
     "/results/compare",
     response_model=ComparisonResult,
-    summary="Сравнение результатов нескольких методологий по incident_id",
+    summary="Сравнение результатов нескольких методологий по incident_id или session_id",
 )
 async def compare_results(
     db: DbSession,
     current_user: CurrentUser,
-    incident_id: str = Query(..., description="ID инцидента для сравнения"),
+    incident_id: str | None = Query(None, description="ID инцидента для сравнения"),
+    session_id: str | None = Query(None, description="ID сессии исследования"),
 ) -> ComparisonResult:
     repo = RCARepository(db)
     user_filter = None if current_user.role == "admin" else current_user.user_id
-    results = await repo.list_results(
-        user_id=user_filter,
-        incident_id=incident_id,
-        limit=10,
-        offset=0,
-    )
+
+    # Предпочитаем session_id; fallback на incident_id для обратной совместимости
+    if session_id:
+        results = await repo.list_results_by_session(
+            session_id=session_id,
+            user_id=user_filter,
+        )
+    elif incident_id:
+        results = await repo.list_results(
+            user_id=user_filter,
+            incident_id=incident_id,
+            limit=10,
+            offset=0,
+        )
+    else:
+        raise HTTPException(status_code=400, detail="Укажите incident_id или session_id")
+
     if not results:
-        raise HTTPException(status_code=404, detail=f"Нет результатов для incident_id={incident_id}")
+        raise HTTPException(status_code=404, detail="Нет результатов для сравнения")
 
     for r in results:
         _check_owner_or_admin(r, current_user)
@@ -423,6 +530,54 @@ async def compare_results(
         raise HTTPException(status_code=500, detail="Ошибка при сравнении") from exc
 
     return comparison
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/sessions
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/sessions",
+    response_model=list[AnalysisSession],
+    summary="Список сессий исследований (admin — все, user — свои)",
+)
+async def list_sessions(
+    db: DbSession,
+    current_user: CurrentUser,
+    limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+) -> list[AnalysisSession]:
+    repo = RCARepository(db)
+    user_id_filter = None if current_user.role == "admin" else current_user.user_id
+    return await repo.list_sessions(
+        user_id=user_id_filter,
+        limit=limit,
+        offset=offset,
+    )
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/sessions/{session_id}
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/sessions/{session_id}",
+    response_model=AnalysisSession,
+    summary="Получить сессию исследования со всеми результатами",
+)
+async def get_session(
+    session_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> AnalysisSession:
+    repo = RCARepository(db)
+    session = await repo.get_session(session_id)
+    if session is None:
+        raise HTTPException(status_code=404, detail=f"Сессия '{session_id}' не найдена.")
+    # Проверка доступа
+    if current_user.role != "admin" and session.user_id and session.user_id != current_user.user_id:
+        raise HTTPException(status_code=403, detail="Доступ запрещён")
+    return session
 
 
 # ---------------------------------------------------------------------------

@@ -64,6 +64,10 @@ def _similar_item() -> SimilarIncident:
         root_causes_preview=["Не очищалась мокрая лестница"],
         recommendations_preview=["Регулярная уборка ступеней"],
         user_id=TEST_USER.user_id,
+        incident_title="Падение с вышки-туры",
+        incident_description="Сварщик сорвался с вышки при спуске",
+        incident_date=datetime(2026, 5, 20, 9, 0),
+        incident_location="Цех №3, кровля",
     )
 
 
@@ -198,3 +202,26 @@ async def test_post_similar_incidents_text_too_long_rejected(async_client) -> No
         json={"text": "а" * 5001},
     )
     assert response.status_code == 422
+
+
+@pytest.mark.asyncio
+async def test_similar_incidents_include_incident_context(async_client) -> None:
+    """Похожие инциденты должны содержать описание происшествия для контекста."""
+    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        repo = AsyncMock()
+        repo.backfill_missing_embeddings = AsyncMock(return_value=0)
+        repo.find_similar_incidents = AsyncMock(return_value=[_similar_item()])
+        MockRepo.return_value = repo
+
+        response = await async_client.get(
+            "/api/v1/incidents/similar",
+            params={"text": "Падение с вышки", "limit": 3},
+        )
+
+    assert response.status_code == 200
+    data = response.json()
+    item = data[0]
+    assert item["incident_title"] == "Падение с вышки-туры"
+    assert item["incident_description"] == "Сварщик сорвался с вышки при спуске"
+    assert item["incident_date"] is not None
+    assert item["incident_location"] == "Цех №3, кровля"

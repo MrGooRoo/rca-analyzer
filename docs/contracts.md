@@ -4,7 +4,7 @@
 > Любой новый чат с AI-ассистентом должен получить этот файл как первый контекст.
 > Запрещено менять типы и названия полей без обновления этого документа.
 >
-> **Дата актуализации:** 2026-06-12 (история анализов: сравнение методик отображается как одно исследование, см. раздел 10.5; ранее — POST /incidents/similar (фикс 431) и приоритеты E/E2 по embeddings, разделы 14.1, 14.4).
+> **Дата актуализации:** 2026-06-13 (сущность «исследование» analysis_session, см. разделы 10.5, 15; ранее — POST /incidents/similar (фикс 431) и приоритеты E/E2 по embeddings, разделы 14.1, 14.4).
 
 ---
 
@@ -341,6 +341,11 @@ class SimilarIncident(BaseModel):
     user_id: str | None = None
     user_display_name: str | None = None
     user_email: str | None = None
+    # Описание инцидента для контекста сравнения (из сессии)
+    incident_title: str | None = None
+    incident_description: str | None = None
+    incident_date: datetime | None = None
+    incident_location: str | None = None
 ```
 
 ### 14.5. Frontend UI
@@ -350,6 +355,8 @@ class SimilarIncident(BaseModel):
 - процент похожести (`similarity * 100`),
 - методику,
 - дату,
+- **описание инцидента** (заголовок, описание, дата/место — из сессии,
+  выделено визуальным блоком для контекста сравнения),
 - summary,
 - preview корневых причин и рекомендаций,
 - result/incident id.
@@ -358,3 +365,89 @@ class SimilarIncident(BaseModel):
 
 1. `IncidentForm.jsx` — ручной поиск похожих по введённому описанию до запуска анализа.
 2. `ResultView.jsx` — автоматический поиск похожих после анализа, с исключением текущего `result_id` и `incident_id`.
+
+---
+
+## 15. Сущность «исследование» — analysis_session (добавлено 13.06.2026)
+
+### 15.1. Модель AnalysisSession
+
+Логическая группа анализов одного инцидента. Для одиночного анализа — одна сессия
+с одним результатом. Для сравнения методик — одна сессия с N результатами.
+
+```python
+class AnalysisSession(BaseModel):
+    id:                     str
+    created_at:             datetime
+    user_id:                str | None              = None
+    user_display_name:      str | None              = None
+    user_email:             str | None              = None
+    incident_title:         str
+    incident_description:   str
+    incident_date:          datetime | None         = None
+    incident_location:      str | None              = None
+    incident_type:          str | None              = None
+    incident_severity:      str | None              = None
+    incident_data_json:     str | None              = None
+    results:                list[RCAResult]         = Field(default_factory=list)
+```
+
+### 15.2. Таблица `analysis_sessions`
+
+```python
+class AnalysisSessionORM(Base):
+    __tablename__ = "analysis_sessions"
+    id: Mapped[str]                    # UUID
+    created_at: Mapped[datetime]
+    user_id: Mapped[str | None]        # FK → users.id
+    incident_title: Mapped[str]
+    incident_description: Mapped[str]
+    incident_date: Mapped[datetime | None]
+    incident_location: Mapped[str | None]
+    incident_type: Mapped[str | None]
+    incident_severity: Mapped[str | None]
+    incident_data_json: Mapped[str | None]  # полный IncidentInput как JSON
+```
+
+Миграция: `alembic/versions/008_add_analysis_sessions.py`.
+Backfill: для каждого уникального `incident_id` в `rca_results` создаётся
+одна сессия, и все результаты с этим `incident_id` получают `session_id`.
+
+### 15.3. Связь RCAResult → AnalysisSession
+
+`RCAResult.session_id` (str | None, nullable) — FK → `analysis_sessions.id`.
+Поле `incident_id` остаётся для обратной совместимости.
+
+### 15.4. API-эндпоинты
+
+```python
+# Новые эндпоинты
+GET /api/v1/sessions?limit=20&offset=0          → list[AnalysisSession]
+GET /api/v1/sessions/{session_id}               → AnalysisSession (с результатами)
+
+# Обновлённые эндпоинты
+GET /api/v1/results/compare?session_id=...      → ComparisonResult  # новый параметр
+GET /api/v1/results/compare?incident_id=...     → ComparisonResult  # backward compat
+```
+
+Правило: если указан `session_id`, используется он (результаты читаются
+по `session_id` из БД). Если указан только `incident_id` — fallback
+для обратной совместимости.
+
+### 15.5. Фронтенд
+
+- `api.sessions.list(limit, offset)` — список сессий
+- `api.sessions.get(sessionId)` — получить сессию
+- `api.compareResults(incidentId, sessionId)` — предпочитает `session_id`
+- `HistoryPage.jsx`: `groupByIncident()` группирует по `session_id`
+  (приоритет) или `incident_id` (fallback для старых данных)
+- `CompareGroupCard` передаёт `session_id` в `compareResults()`
+
+### 15.6. Жизненный цикл
+
+1. **POST /analyze** → создаёт сессию → возвращает `session_id` в `RCAResult`
+2. **POST /analyze-multi** → создаёт ОДНУ сессию → все N результатов
+   получают один `session_id`
+3. **POST /analyze-multi-stream** — аналогично: одна сессия на все методики
+4. **GET /sessions** — история по исследованиям (вместо плоской списка результатов)
+5. **GET /results/compare?session_id=...** — сравнение по сессии

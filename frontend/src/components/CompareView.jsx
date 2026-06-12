@@ -1,23 +1,9 @@
 import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
+import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
+import { Badge } from './ui/Card.jsx'
 import './CompareView.css'
 import './ResultView.css'
-
-const METHODOLOGY_LABELS = {
-  ishikawa:     'Ishikawa (Рыбья кость)',
-  five_why:     '5 Почему',
-  fta:          'FTA (Дерево отказов)',
-  rca_systemic: 'RCA Системный',
-  bowtie:       'Bowtie (Бабочка)',
-}
-
-const METHODOLOGY_ICONS = {
-  ishikawa:     '🐟',
-  five_why:     '❓',
-  fta:          '🌲',
-  rca_systemic: '🔬',
-  bowtie:       '🦋',
-}
 
 const PRIORITY_COLORS = {
   high:   '#f76f6f',
@@ -82,7 +68,7 @@ export default function CompareView({ comparison }) {
             {Object.entries(comparison.differing_causes).map(([methodology, causes]) => (
               <div key={methodology} className="differing-card">
                 <div className="differing-card-header">
-                  <span className="method-badge">{METHODOLOGY_LABELS[methodology] || methodology}</span>
+                  <Badge tone={methodologyMeta(methodology).badgeTone}>{methodologyMeta(methodology).icon} {METHODOLOGY_LABELS[methodology] || methodology}</Badge>
                 </div>
                 <ul className="differing-list">
                   {causes.map((cause, i) => (
@@ -107,7 +93,7 @@ export default function CompareView({ comparison }) {
               className={`compare-tab ${r.result_id === activeTab ? 'compare-tab--active' : ''}`}
               onClick={() => setActiveTab(r.result_id)}
             >
-              <span className="compare-tab-icon">{METHODOLOGY_ICONS[r.methodology] || '📌'}</span>
+              <span className="compare-tab-icon">{methodologyMeta(r.methodology).icon}</span>
               <span className="compare-tab-label">
                 {METHODOLOGY_LABELS[r.methodology] || r.methodology}
               </span>

@@ -4,22 +4,31 @@ RCA Repository — единственная точка доступа к БД.
 
 from __future__ import annotations
 
+import hashlib
 import inspect
 import logging
 import uuid
+from datetime import datetime
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from src.db.orm_models import (
+    AnalysisSessionORM,
     CausalNodeORM,
     IncidentORM,
     RCAResultORM,
     RecommendationORM,
     ResultEmbeddingORM,
 )
-from src.domain.models import CauseNode, RCAResult, Recommendation, SimilarIncident
+from src.domain.models import (
+    AnalysisSession,
+    CauseNode,
+    RCAResult,
+    Recommendation,
+    SimilarIncident,
+)
 from src.services.embedding_service import (
     EmbeddingService,
     EmbeddingServiceError,
@@ -30,6 +39,42 @@ from src.services.embedding_service import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+def compute_incident_hash(title: str, description: str) -> str:
+    """
+    SHA-256 отпечаток инцидента по title + description.
+
+    Один и тот же инцидент, проанализированный разными методиками
+    или в разное время, получает одинаковый hash. Это позволяет
+    исключать повторные анализы из результатов «похожих инцидентов».
+    """
+    raw = f"{title.strip().lower()}\n{description.strip().lower()}"
+    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+
+
+async def _get_incident_hash_for_result(
+    session: AsyncSession, result_id: str | None, incident_id: str | None,
+) -> str | None:
+    """
+    Получить incident_hash сессии, к которой принадлежит результат.
+
+    Используется для исключения повторных анализов того же инцидента
+    из результатов поиска похожих.
+    """
+    if not result_id and not incident_id:
+        return None
+    stmt = (
+        select(AnalysisSessionORM.incident_hash)
+        .join(RCAResultORM, RCAResultORM.session_id == AnalysisSessionORM.id)
+    )
+    if result_id:
+        stmt = stmt.where(RCAResultORM.result_id == result_id)
+    elif incident_id:
+        stmt = stmt.where(RCAResultORM.incident_id == incident_id)
+    stmt = stmt.limit(1)
+    row = (await session.execute(stmt)).scalar_one_or_none()
+    return row
 
 
 class RCARepository:
@@ -84,17 +129,28 @@ class RCARepository:
     # Запись
     # ------------------------------------------------------------------
 
-    async def save_result(self, result: RCAResult, user_id: str | None = None) -> None:
+    async def save_result(
+        self,
+        result: RCAResult,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        incident_title: str | None = None,
+        incident_description: str | None = None,
+        incident_date: datetime | None = None,
+        incident_location: str | None = None,
+        incident_type: str | None = None,
+        incident_severity: str | None = None,
+    ) -> None:
         existing_incident = await self._session.get(IncidentORM, result.incident_id)
         if existing_incident is None:
             incident_orm = IncidentORM(
                 id=result.incident_id,
-                title="—",
-                description="—",
-                incident_date=result.created_at,
-                location="—",
-                incident_type="unknown",
-                severity="unknown",
+                title=incident_title or "—",
+                description=incident_description or "—",
+                incident_date=incident_date or result.created_at,
+                location=incident_location or "—",
+                incident_type=incident_type or "unknown",
+                severity=incident_severity or "unknown",
                 user_id=user_id,
             )
             await self._session_call("add", incident_orm)
@@ -102,6 +158,7 @@ class RCARepository:
         rca_orm = RCAResultORM(
             result_id=result.result_id,
             incident_id=result.incident_id,
+            session_id=session_id,
             user_id=user_id,
             methodology=result.methodology.value,
             summary=result.summary,
@@ -282,8 +339,19 @@ class RCARepository:
         threshold: float = 0.15,
         exclude_result_id: str | None = None,
         exclude_incident_id: str | None = None,
+        exclude_incident_hash: str | None = None,
     ) -> list[SimilarIncident]:
-        """Найти top-N похожих инцидентов по cosine similarity."""
+        """Найти top-N похожих инцидентов по cosine similarity.
+
+        exclude_incident_hash: если задан, исключить результаты из сессий
+        с таким же hash (повторные анализы того же инцидента).
+        """
+        # Автоматически определяем hash сессии текущего результата
+        if not exclude_incident_hash and (exclude_result_id or exclude_incident_id):
+            exclude_incident_hash = await _get_incident_hash_for_result(
+                self._session, exclude_result_id, exclude_incident_id,
+            )
+
         query_embedding, query_model, _ = await self._embed(text)
         dialect = self._dialect_name()
 
@@ -296,6 +364,7 @@ class RCARepository:
                 threshold=threshold,
                 exclude_result_id=exclude_result_id,
                 exclude_incident_id=exclude_incident_id,
+                exclude_incident_hash=exclude_incident_hash,
             )
 
         return await self._find_similar_incidents_python(
@@ -306,6 +375,7 @@ class RCARepository:
             threshold=threshold,
             exclude_result_id=exclude_result_id,
             exclude_incident_id=exclude_incident_id,
+            exclude_incident_hash=exclude_incident_hash,
         )
 
     async def _find_similar_incidents_pgvector(
@@ -317,6 +387,7 @@ class RCARepository:
         threshold: float,
         exclude_result_id: str | None,
         exclude_incident_id: str | None,
+        exclude_incident_hash: str | None,
     ) -> list[SimilarIncident]:
         distance = ResultEmbeddingORM.embedding.cosine_distance(query_embedding)
         stmt = (
@@ -327,6 +398,7 @@ class RCARepository:
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
                 selectinload(RCAResultORM.user),
+                selectinload(RCAResultORM.session),
             )
             .order_by(distance.asc(), RCAResultORM.created_at.desc())
             .limit(max(limit * 3, limit))
@@ -337,6 +409,23 @@ class RCARepository:
             stmt = stmt.where(RCAResultORM.result_id != exclude_result_id)
         if exclude_incident_id:
             stmt = stmt.where(RCAResultORM.incident_id != exclude_incident_id)
+        # Исключаем результаты из сессий с таким же incident_hash
+        # (повторные анализы того же инцидента — не «похожие»)
+        if exclude_incident_hash:
+            stmt = stmt.where(
+                RCAResultORM.session_id.is_(None)
+                | (
+                    RCAResultORM.session_id.in_(
+                        select(AnalysisSessionORM.id).where(
+                            AnalysisSessionORM.incident_hash != exclude_incident_hash,
+                            # Также исключаем старые сессии с placeholder-заголовком "—"
+                            # (мы не можем определить, тот же это инцидент или нет,
+                            # поэтому лучше скрыть, чем показывать как «похожие»)
+                            AnalysisSessionORM.incident_title != "—",
+                        )
+                    )
+                )
+            )
 
         rows = (await self._session.execute(stmt)).all()
         similar: list[SimilarIncident] = []
@@ -365,6 +454,7 @@ class RCARepository:
         threshold: float,
         exclude_result_id: str | None,
         exclude_incident_id: str | None,
+        exclude_incident_hash: str | None,
     ) -> list[SimilarIncident]:
         stmt = (
             select(RCAResultORM, ResultEmbeddingORM)
@@ -374,6 +464,7 @@ class RCARepository:
                 selectinload(RCAResultORM.causal_nodes),
                 selectinload(RCAResultORM.recommendations),
                 selectinload(RCAResultORM.user),
+                selectinload(RCAResultORM.session),
             )
             .order_by(RCAResultORM.created_at.desc())
             .limit(500)
@@ -384,6 +475,18 @@ class RCARepository:
             stmt = stmt.where(RCAResultORM.result_id != exclude_result_id)
         if exclude_incident_id:
             stmt = stmt.where(RCAResultORM.incident_id != exclude_incident_id)
+        if exclude_incident_hash:
+            stmt = stmt.where(
+                RCAResultORM.session_id.is_(None)
+                | (
+                    RCAResultORM.session_id.in_(
+                        select(AnalysisSessionORM.id).where(
+                            AnalysisSessionORM.incident_hash != exclude_incident_hash,
+                            AnalysisSessionORM.incident_title != "—",
+                        )
+                    )
+                )
+            )
 
         rows = (await self._session.execute(stmt)).all()
         scored: list[tuple[RCAResultORM, float]] = []
@@ -434,6 +537,100 @@ class RCARepository:
         await self._session.commit()
         return True
 
+    # ------------------------------------------------------------------
+    # Сессии исследований (analysis_sessions)
+    # ------------------------------------------------------------------
+
+    async def create_session(
+        self,
+        *,
+        user_id: str | None = None,
+        incident_title: str,
+        incident_description: str,
+        incident_date: datetime | None = None,
+        incident_location: str | None = None,
+        incident_type: str | None = None,
+        incident_severity: str | None = None,
+        incident_data_json: str | None = None,
+    ) -> AnalysisSessionORM:
+        """Создать новую запись analysis_sessions и вернуть ORM-объект."""
+        incident_hash = compute_incident_hash(incident_title, incident_description)
+        session_orm = AnalysisSessionORM(
+            id=str(uuid.uuid4()),
+            user_id=user_id,
+            incident_title=incident_title,
+            incident_description=incident_description,
+            incident_date=incident_date,
+            incident_location=incident_location,
+            incident_type=incident_type,
+            incident_severity=incident_severity,
+            incident_data_json=incident_data_json,
+            incident_hash=incident_hash,
+        )
+        await self._session_call("add", session_orm)
+        await self._session.flush()
+        return session_orm
+
+    async def get_session(self, session_id: str) -> AnalysisSession | None:
+        """Получить сессию по id вместе со всеми результатами."""
+        stmt = (
+            select(AnalysisSessionORM)
+            .where(AnalysisSessionORM.id == session_id)
+            .options(
+                selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.causal_nodes),
+                selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.recommendations),
+                selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.user),
+                selectinload(AnalysisSessionORM.user),
+            )
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        return _session_orm_to_domain(row) if row else None
+
+    async def list_sessions(
+        self,
+        user_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[AnalysisSession]:
+        """Список сессий (без загрузки результатов — для истории)."""
+        stmt = (
+            select(AnalysisSessionORM)
+            .options(
+                selectinload(AnalysisSessionORM.user),
+                selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.user),
+            )
+            .order_by(AnalysisSessionORM.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+        )
+        if user_id:
+            stmt = stmt.where(AnalysisSessionORM.user_id == user_id)
+
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_session_orm_to_domain(r) for r in rows]
+
+    async def list_results_by_session(
+        self,
+        session_id: str,
+        user_id: str | None = None,
+    ) -> list[RCAResult]:
+        """Все результаты одной сессии."""
+        stmt = (
+            select(RCAResultORM)
+            .where(RCAResultORM.session_id == session_id)
+            .options(
+                selectinload(RCAResultORM.causal_nodes),
+                selectinload(RCAResultORM.recommendations),
+                selectinload(RCAResultORM.user),
+            )
+            .order_by(RCAResultORM.created_at.asc())
+        )
+        if user_id:
+            stmt = stmt.where(RCAResultORM.user_id == user_id)
+
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [_orm_to_domain(r) for r in rows]
+
 
 # ---------------------------------------------------------------------------
 
@@ -458,6 +655,7 @@ def _orm_to_domain(row: RCAResultORM) -> RCAResult:
     return RCAResult(
         result_id=row.result_id,
         incident_id=row.incident_id,
+        session_id=row.session_id,
         user_id=row.user_id,
         user_display_name=owner.display_name if owner else None,
         user_email=owner.email if owner else None,
@@ -497,6 +695,13 @@ def _orm_to_similar(row: RCAResultORM, *, similarity: float) -> SimilarIncident:
     ][:3]
     rec_preview = [rec.text for rec in row.recommendations if rec.text][:3]
 
+    # Берём описание инцидента из сессии (если есть)
+    session = row.session
+    incident_title = session.incident_title if session and session.incident_title != "—" else None
+    incident_description = session.incident_description if session and session.incident_description != "—" else None
+    incident_date = session.incident_date if session else None
+    incident_location = session.incident_location if session else None
+
     return SimilarIncident(
         result_id=row.result_id,
         incident_id=row.incident_id,
@@ -510,4 +715,33 @@ def _orm_to_similar(row: RCAResultORM, *, similarity: float) -> SimilarIncident:
         confidence_avg=row.confidence_avg,
         root_causes_preview=root_preview,
         recommendations_preview=rec_preview,
+        incident_title=incident_title,
+        incident_description=incident_description,
+        incident_date=incident_date,
+        incident_location=incident_location,
+    )
+
+
+def _session_orm_to_domain(row: AnalysisSessionORM) -> AnalysisSession:
+    owner = row.user
+    results = [_orm_to_domain(r) for r in row.results] if row.results else []
+
+    # Сортируем результаты по дате (стабильный порядок)
+    results.sort(key=lambda r: r.created_at)
+
+    return AnalysisSession(
+        id=row.id,
+        created_at=row.created_at,
+        user_id=row.user_id,
+        user_display_name=owner.display_name if owner else None,
+        user_email=owner.email if owner else None,
+        incident_title=row.incident_title,
+        incident_description=row.incident_description,
+        incident_date=row.incident_date,
+        incident_location=row.incident_location,
+        incident_type=row.incident_type,
+        incident_severity=row.incident_severity,
+        incident_data_json=row.incident_data_json,
+        incident_hash=row.incident_hash,
+        results=results,
     )

@@ -1,14 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
+import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
+import { Badge } from './ui/Card.jsx'
 import './HistoryPage.css'
-
-const METHODOLOGY_LABELS = {
-  ishikawa:     'Ishikawa',
-  five_why:     '5 Почему',
-  fta:          'FTA',
-  rca_systemic: 'RCA',
-  bowtie:       'Bowtie',
-}
 
 const SEVERITY_COLORS = {
   critical:  { bg: 'rgba(247,111,111,0.12)', color: '#f76f6f', label: 'Критический' },
@@ -21,31 +15,37 @@ const SEVERITY_COLORS = {
 const PAGE_SIZE = 20
 
 /**
- * Группирует записи по incident_id.
+ * Группирует записи по session_id (приоритет) или incident_id (fallback).
  *
  * Результаты multi-анализа (сравнения методик) — это ОДНО исследование:
- * у них общий incident_id и одинаковые входные данные, отличается только
- * методика. Поэтому в истории они отображаются одной карточкой-группой.
+ * у них общий session_id/incident_id и одинаковые входные данные,
+ * отличается только методика. Поэтому в истории они отображаются
+ * одной карточкой-группой.
  *
  * Возвращает массив элементов:
- *   { isCompare: false, result }                — одиночный анализ
- *   { isCompare: true, incidentId, results[] }  — сравнение (>= 2 результатов)
+ *   { isCompare: false, result }                     — одиночный анализ
+ *   { isCompare: true, sessionId, incidentId, results[] }  — сравнение (>= 2 результатов)
  * Порядок — по дате самого нового результата в группе.
  */
 function groupByIncident(items) {
-  const byIncident = new Map()
+  const byGroup = new Map()
   for (const r of items) {
-    const key = r.incident_id || r.result_id
-    if (!byIncident.has(key)) byIncident.set(key, [])
-    byIncident.get(key).push(r)
+    // Предпочитаем session_id; fallback на incident_id для старых данных
+    const key = r.session_id || r.incident_id || r.result_id
+    if (!byGroup.has(key)) byGroup.set(key, [])
+    byGroup.get(key).push(r)
   }
 
   const groups = []
-  for (const [incidentId, results] of byIncident) {
+  for (const [groupId, results] of byGroup) {
+    // Сортируем результаты внутри группы по дате (стабильный порядок методик)
+    results.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+    // Определяем incident_id и session_id из первого результата
+    const first = results[0]
+    const sessionId = first.session_id || null
+    const incidentId = first.incident_id || groupId
     if (results.length > 1) {
-      // Сортируем результаты внутри группы по дате (стабильный порядок методик)
-      results.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-      groups.push({ isCompare: true, incidentId, results })
+      groups.push({ isCompare: true, sessionId, incidentId, results })
     } else {
       groups.push({ isCompare: false, result: results[0] })
     }
@@ -135,9 +135,9 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
   const hasFilters = search || filterMethod || filterSeverity || filterType
 
   async function handleOpenCompareGroup(group) {
-    // Открыть сравнение целиком по incident_id
+    // Открыть сравнение целиком по session_id (приоритет) или incident_id
     try {
-      const comp = await api.compareResults(group.incidentId)
+      const comp = await api.compareResults(group.incidentId, group.sessionId)
       onOpenComparison(comp)
     } catch {
       onOpen(group.results[group.results.length - 1]) // fallback: самый свежий результат
@@ -220,7 +220,7 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
       <div className="history-list">
         {filtered.map(group => group.isCompare ? (
           <CompareGroupCard
-            key={group.incidentId}
+            key={group.sessionId || group.incidentId}
             group={group}
             onOpenComparison={() => handleOpenCompareGroup(group)}
             onOpenResult={onOpen}
@@ -366,7 +366,7 @@ function CompareGroupCard({ group, onOpenComparison, onOpenResult, isAdmin, curr
         </div>
 
         <div className="hcard-footer">
-          <span className="hcard-id">#{group.incidentId.slice(0, 8)}</span>
+          <span className="hcard-id">#{(group.sessionId || group.incidentId).slice(0, 8)}</span>
           <span className="hcard-stat">{totalRecs} рек.</span>
           <span className="hcard-stat">{totalTokens} ток.</span>
           <span className="hcard-stat">{(avgConf * 100).toFixed(0)}% ув.</span>

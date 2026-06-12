@@ -1,3 +1,6 @@
+/* Tailwind utilities (no preflight/reset — keeps existing styles) */
+@import "tailwindcss/utilities" layer(tailwind);
+
 /* ==========================================
    Apple-inspired Design System (Dark Mode)
    ========================================== */

@@ -325,6 +325,9 @@ function querySimilarIncidents(text, options = {}) {
   if (options.threshold !== undefined) payload.threshold = options.threshold
   if (options.excludeResultId) payload.exclude_result_id = options.excludeResultId
   if (options.excludeIncidentId) payload.exclude_incident_id = options.excludeIncidentId
+  // Поля для исключения повторных анализов того же инцидента
+  if (options.incidentTitle) payload.incident_title = options.incidentTitle
+  if (options.incidentDescription) payload.incident_description = options.incidentDescription
   return req('POST', '/api/v1/incidents/similar', payload, { authRequired: true })
 }
 
@@ -401,7 +404,13 @@ export const api = {
   analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
   analyzeMulti: (payload) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true }),
   analyzeMultiStream: (payload, onEvent) => analyzeMultiStream(payload, onEvent),
-  compareResults: (incidentId) => req('GET', `/api/v1/results/compare?incident_id=${encodeURIComponent(incidentId)}`, undefined, { authRequired: true }),
+  compareResults: (incidentId, sessionId) => {
+    // Предпочитаем session_id; fallback на incident_id для обратной совместимости
+    if (sessionId) {
+      return req('GET', `/api/v1/results/compare?session_id=${encodeURIComponent(sessionId)}`, undefined, { authRequired: true })
+    }
+    return req('GET', `/api/v1/results/compare?incident_id=${encodeURIComponent(incidentId)}`, undefined, { authRequired: true })
+  },
   similarIncidents: (text, options = {}) => querySimilarIncidents(text, options),
   uploadReport: (file) => uploadFile('/api/v1/upload-report', file, { authRequired: true }),
   uploadReportStream: (file, onProgress) => uploadFileStream('/api/v1/upload-report-stream', file, onProgress, { authRequired: true }),
@@ -412,6 +421,11 @@ export const api = {
       req('GET', `/api/v1/results?limit=${limit}&offset=${offset}`, undefined, { authRequired: true }),
     get: (id) => req('GET', `/api/v1/results/${id}`, undefined, { authRequired: true }),
     delete: (id) => req('DELETE', `/api/v1/results/${id}`, undefined, { authRequired: true }),
+  },
+  sessions: {
+    list: (limit = 20, offset = 0) =>
+      req('GET', `/api/v1/sessions?limit=${limit}&offset=${offset}`, undefined, { authRequired: true }),
+    get: (id) => req('GET', `/api/v1/sessions/${id}`, undefined, { authRequired: true }),
   },
   admin: {
     listUsers: () => req('GET', '/api/v1/admin/users', undefined, { authRequired: true }),

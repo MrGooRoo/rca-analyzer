@@ -96,9 +96,10 @@ export default function App() {
         return
       }
       const incidentId = results[0].incident_id
+      const sessionId = results[0].session_id || null
       let comparisonData = null
       try {
-        comparisonData = await api.compareResults(incidentId)
+        comparisonData = await api.compareResults(incidentId, sessionId)
       } catch (compareErr) {
         console.warn('compareResults failed, showing raw results:', compareErr.message)
         comparisonData = {
@@ -216,7 +217,7 @@ export default function App() {
             />
             {error && <div className="alert alert-error"><strong>Ошибка:</strong> {error}</div>}
             {comparison && <CompareView comparison={comparison} />}
-            {!comparison && result && <ResultView result={result} />}
+            {!comparison && result && <ResultView result={result} onOpenResult={openResult} />}
           </>
         )}
 
@@ -237,7 +238,7 @@ export default function App() {
             >
               ← Назад в историю
             </button>
-            {viewMode.type === 'single' && <ResultView result={viewMode.result} />}
+            {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={openResult} />}
             {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}
           </div>
         )}

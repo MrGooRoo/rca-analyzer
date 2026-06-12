@@ -1,16 +1,11 @@
 import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
 import SimilarIncidentsPanel from './SimilarIncidentsPanel.jsx'
+import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
+import { Button } from './ui/Button.jsx'
+import { Badge } from './ui/Card.jsx'
 import { api } from '../api.js'
 import './ResultView.css'
-
-const METHODOLOGY_LABELS = {
-  ishikawa:     'Ishikawa',
-  five_why:     '5 Почему',
-  fta:          'FTA',
-  rca_systemic: 'RCA Системный',
-  bowtie:       'Bowtie',
-}
 
 const PRIORITY_COLORS = {
   high:   '#f76f6f',
@@ -18,7 +13,7 @@ const PRIORITY_COLORS = {
   low:    '#3ecf8e',
 }
 
-export default function ResultView({ result }) {
+export default function ResultView({ result, onOpenResult = null }) {
   const isBowtie = result.methodology === 'bowtie'
   const [tab, setTab]           = useState(isBowtie ? 'bowtie' : 'tree')
   const [exporting, setExporting] = useState(null) // null | 'docx' | 'pdf'
@@ -60,7 +55,7 @@ export default function ResultView({ result }) {
     <div className="result">
       <div className="result-header">
         <div className="result-title">
-          <span className="method-badge">{METHODOLOGY_LABELS[result.methodology] || result.methodology}</span>
+          <Badge tone={methodologyMeta(result.methodology).badgeTone}>{methodologyMeta(result.methodology).icon} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>
           <span className="result-id">#{result.result_id.slice(0, 8)}</span>
         </div>
         <div className="result-header-right">
@@ -70,30 +65,26 @@ export default function ResultView({ result }) {
             <Stat label="Модель" value={result.model_used.split('/')[1] || result.model_used} />
           </div>
           <div className="export-buttons">
-            <button
-              className={`btn-export ${exporting === 'docx' ? 'btn-export--loading' : ''}`}
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={exporting === 'docx'}
               onClick={() => handleExport('docx')}
               disabled={!!exporting}
-              title="Скачать отчёт в DOCX"
+              leftIcon="⬇️"
             >
-              {exporting === 'docx' ? (
-                <><span className="spinner spinner--sm" /> Скачиваю…</>
-              ) : (
-                '⬇️ DOCX'
-              )}
-            </button>
-            <button
-              className={`btn-export ${exporting === 'pdf' ? 'btn-export--loading' : ''}`}
+              DOCX
+            </Button>
+            <Button
+              variant="secondary"
+              size="sm"
+              loading={exporting === 'pdf'}
               onClick={() => handleExport('pdf')}
               disabled={!!exporting}
-              title="Скачать отчёт в PDF"
+              leftIcon="⬇️"
             >
-              {exporting === 'pdf' ? (
-                <><span className="spinner spinner--sm" /> Скачиваю…</>
-              ) : (
-                '⬇️ PDF'
-              )}
-            </button>
+              PDF
+            </Button>
           </div>
         </div>
       </div>
@@ -114,6 +105,7 @@ export default function ResultView({ result }) {
         excludeIncidentId={result.incident_id}
         auto
         title="Похожие инциденты в истории"
+        onOpenResult={onOpenResult}
       />
 
       <div className="tabs">
