@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { api } from '../api.js'
+import { api, setAuthLostHandler } from '../api.js'
 
 const AuthContext = createContext(undefined)
 
@@ -17,10 +17,19 @@ export function AuthProvider({ children }) {
   }, [])
 
   useEffect(() => {
+    // Регистрируем глобальный обработчик потери сессии: любой 401
+    // в других запросах (analyze, compareResults и т.д.) приведёт к
+    // сбросу user и переходу обратно на AuthPage.
+    setAuthLostHandler(() => {
+      setUser(null)
+    })
+
     ;(async () => {
       await refresh()
       setLoading(false)
     })()
+
+    return () => setAuthLostHandler(null)
   }, [refresh])
 
   const login = async (email, password) => {

@@ -4,7 +4,7 @@
 
 ## Статус: 🟢 Рабочая версия — analysis_session + embeddings + Apple-style
 
-**Дата обновления:** 2026-06-13
+**Дата обновления:** 2026-06-14
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
@@ -162,6 +162,20 @@
   - ✅ methodologies.js: метаданные методологий (иконки, описания, цвета)
   - ✅ AuthContext: чистая архитектура авторизации (login/register/logout/refresh)
   - ✅ main.jsx: обёрнуто в AuthProvider + ToastProvider
+- [x] **App.jsx мигрирован на UI-kit** (14.06.2026)
+  - ✅ `useAuth()` из AuthContext: убрана дублирующая auth-логика
+    (bootstrapSession, sessionReady, setAuth, clearAuth, setAuthLostHandler)
+  - ✅ `useToast()` вместо `<div className="alert alert-error">` — ошибки анализа всплывающим тостом
+  - ✅ Навигационные кнопки (Анализ / История / Пользователи) → `<Button variant="ghost">`
+    с классом `.app-nav-btn--active` для активной страницы
+  - ✅ Кнопка «Выйти» → `<Button variant="secondary" size="sm">`
+  - ✅ Кнопка «← Назад в историю» → `<Button variant="secondary" size="sm">`
+  - ✅ `AuthContext` теперь регистрирует `setAuthLostHandler` — при любом 401
+    (не только bootstrap) user сбрасывается в null, и `useEffect` в App.jsx
+    чистит транзиентное состояние (result, comparison, viewMode, page)
+  - ✅ `AuthPage.jsx`: убран проп `onAuth`, теперь напрямую `useAuth().login/register`
+  - ✅ `App.css` почищен: удалены `.nav-btn`, `.nav-btn--active`, `.btn-logout`,
+    `.btn-back`, `.alert-error` (заменены Button-вариантами и toast)
 
 ## Проверки
 - `python -m pytest tests/ -q` → **257 passed, 1 deselected (slow)**

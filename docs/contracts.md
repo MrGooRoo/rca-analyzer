@@ -4,7 +4,7 @@
 > Любой новый чат с AI-ассистентом должен получить этот файл как первый контекст.
 > Запрещено менять типы и названия полей без обновления этого документа.
 >
-> **Дата актуализации:** 2026-06-13 (сущность «исследование» analysis_session, см. разделы 10.5, 15; ранее — POST /incidents/similar (фикс 431) и приоритеты E/E2 по embeddings, разделы 14.1, 14.4).
+> **Дата актуализации:** 2026-06-14 (миграция App.jsx на useAuth + useToast, см. раздел 16; ранее — 13.06.2026, сущность «исследование» analysis_session, разделы 10.5, 15).
 
 ---
 
@@ -451,3 +451,88 @@ GET /api/v1/results/compare?incident_id=...     → ComparisonResult  # backward
 3. **POST /analyze-multi-stream** — аналогично: одна сессия на все методики
 4. **GET /sessions** — история по исследованиям (вместо плоской списка результатов)
 5. **GET /results/compare?session_id=...** — сравнение по сессии
+
+---
+
+## 16. Frontend: AuthContext + Toast + UI-kit (добавлено 14.06.2026)
+
+### 16.1. Глобальные провайдеры (`main.jsx`)
+
+Приложение обёрнуто в два провайдера:
+
+```jsx
+<AuthProvider>      // контекст авторизации (login/register/logout/refresh)
+  <ToastProvider>   // всплывающие уведомления (info/success/error/warning)
+    <App />
+  </ToastProvider>
+</AuthProvider>
+```
+
+Любой компонент может вызвать `useAuth()` или `useToast()` без проброса пропсов.
+
+### 16.2. AuthContext — контракт
+
+```ts
+const { user, loading, login, register, logout, refresh } = useAuth()
+```
+
+- `user: User | null` — текущий пользователь (`{id, email, display_name, role}`)
+  или `null`, если не залогинен.
+- `loading: boolean` — `true` пока выполняется начальный `api.auth.me()`.
+  Используется для экрана «Проверка сессии…».
+- `login(email, password)` / `register(email, name, password)` — мутируют `user`.
+- `logout()` — дёргает `api.auth.logout()`, ставит `user = null`.
+- `refresh()` — ручной рефреш (например, после смены роли админом).
+
+**Реакция на потерю сессии (любой 401):**
+
+`AuthProvider` в `useEffect` регистрирует глобальный обработчик
+`setAuthLostHandler` из `api.js`. Если любой запрос (analyze, compareResults,
+uploadReport и т.д.) возвращает 401 и refresh не помог —
+`AuthProvider` ставит `user = null`.
+
+`App.jsx` через `useEffect` следит за `user`:
+при переходе `user → null` сбрасывает транзиентное состояние
+(`result`, `comparison`, `viewMode`, `page`) — пользователь возвращается на
+`AuthPage` с чистым состоянием.
+
+### 16.3. Toast — контракт
+
+```ts
+const toast = useToast()
+toast.success(message, title?)
+toast.error(message, title?)
+toast.info(message, title?)
+toast.warning(message, title?)
+toast.push({ message, title?, tone: 'success' | 'error' | 'info' | 'warning' })
+```
+
+Тосты автоматически закрываются через 5 секунд. Позиция: фиксированная,
+top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.css`.
+
+### 16.4. UI-kit компоненты (`frontend/src/components/ui/`)
+
+| Компонент | Импорт | Назначение |
+|---|---|---|
+| `Button` | `./ui/Button.jsx` | Кнопки с `variant` (`primary`/`secondary`/`ghost`/`danger`/`outline`), `size` (`sm`/`md`/`lg`), `loading` (спиннер) |
+| `Card` + `CardHeader` + `CardBody` | `./ui/Card.jsx` | Контейнеры карточек |
+| `Badge` | `./ui/Card.jsx` | Тонированные метки (`slate`/`indigo`/`emerald`/`amber`/`rose`/`sky`/`violet`) |
+| `Input` + `Textarea` + `Select` + `FieldWrapper` | `./ui/Field.jsx` | Поля ввода с `label`/`hint`/`error` |
+| `ToastProvider` + `useToast` | `./ui/Toast.jsx` | Уведомления |
+| `AuthProvider` + `useAuth` | `./context/AuthContext.jsx` | Авторизация |
+| `methodologyMeta(id)` | `./lib/methodologies.js` | Метаданные методологии (иконка, цвет, описание) |
+| `cn(...classes)` | `./utils/cn.js` | clsx + tailwind-merge |
+
+### 16.5. App.jsx — обновлённое состояние (14.06.2026)
+
+До миграции App.jsx сам управлял `sessionReady`, `user`, дублировал auth-логику
+и показывал ошибки через `<div className="alert alert-error">`. После:
+
+- `user` и `authLoading` берутся из `useAuth()`.
+- Ошибки анализа уходят в `toast.error(message, 'Ошибка')` — больше нет
+  локального state `error` и нет красного блока.
+- Транзиентное состояние (`result`, `comparison`, `viewMode`, `page`)
+  сбрасывается через `useEffect` при `user → null`.
+- Навигация и кнопка «Выйти» используют `<Button>` из UI-kit.
+- `AuthPage.jsx` больше НЕ принимает `onAuth` prop — сам вызывает
+  `useAuth().login/register`.

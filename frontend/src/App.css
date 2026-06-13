@@ -50,31 +50,14 @@
   flex: 1;
 }
 
-.nav-btn {
-  padding: var(--space-sm) var(--space-md);
-  border: none;
-  border-radius: var(--radius-md);
-  background: transparent;
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: background var(--transition-fast), color var(--transition-fast);
-}
-
-.nav-btn:hover {
-  background: var(--surface-2);
-  color: var(--text);
-}
-
-.nav-btn--active {
+/* Активная кнопка в навигации (поверх Button variant="ghost") */
+.app-nav-btn--active {
   background: var(--primary);
   color: white;
 }
-
-/* Hover effect for active state */
-.nav-btn--active:hover {
+.app-nav-btn--active:hover {
   background: var(--primary-hover);
+  color: white;
 }
 
 .header-right {
@@ -112,24 +95,6 @@
   color: var(--primary);
 }
 
-.btn-logout {
-  padding: 6px 12px;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all var(--transition-fast);
-}
-
-.btn-logout:hover {
-  border-color: var(--error);
-  color: var(--error);
-  background: rgba(255, 69, 58, 0.1);
-}
-
 /* ---- Main ---- */
 .app-main {
   flex: 1;
@@ -139,7 +104,7 @@
   padding: var(--space-2xl) var(--space-lg);
 }
 
-/* ---- Alerts ---- */
+/* ---- Boot alert (used during session check) ---- */
 .alert {
   padding: var(--space-md);
   border-radius: var(--radius-md);
@@ -149,35 +114,7 @@
   margin-bottom: var(--space-lg);
 }
 
-.alert-error {
-  background: rgba(255, 69, 58, 0.1);
-  border-color: rgba(255, 69, 58, 0.3);
-  color: #ff9a96;
-}
-
-/* ---- Back button ---- */
-.btn-back {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-sm) var(--space-md);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--text-secondary);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  font-weight: 500;
-  transition: all var(--transition-fast);
-}
-
-.btn-back:hover {
-  border-color: var(--primary);
-  color: var(--primary);
-  background: rgba(10, 132, 255, 0.1);
-}
-
-/* ---- Loading spinner ---- */
+/* ---- Loading spinner (используется IncidentForm) ---- */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -213,7 +150,7 @@
   .app-main {
     padding: var(--space-lg) var(--space-md);
   }
-  
+
   .header-user {
     display: none;
   }
