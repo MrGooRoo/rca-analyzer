@@ -137,6 +137,92 @@
   text-decoration: none;
 }
 
+/* ========== Input source selector ========== */
+
+.input-source {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  padding: var(--space-lg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface-2);
+}
+
+.input-source__eyebrow {
+  color: var(--primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.input-source__title {
+  color: var(--text);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.input-source__options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-md);
+}
+
+.input-source-card {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-md);
+  width: 100%;
+  padding: var(--space-md);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.input-source-card:hover:not(:disabled) {
+  border-color: var(--text-tertiary);
+  background: var(--surface-3);
+}
+
+.input-source-card--active {
+  border-color: var(--primary);
+  background: rgba(10, 132, 255, 0.1);
+  box-shadow: var(--shadow-glow);
+}
+
+.input-source-card:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.input-source-card__icon {
+  font-size: 24px;
+  line-height: 1;
+}
+
+.input-source-card__body {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.input-source-card__title {
+  font-size: var(--text-base);
+  font-weight: 700;
+}
+
+.input-source-card__text {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: 1.45;
+}
+
 /* ========== Upload Zone ========== */
 
 .upload-zone {
@@ -536,6 +622,10 @@
   
   .mode-option {
     min-width: 100%;
+  }
+
+  .input-source__options {
+    grid-template-columns: 1fr;
   }
 }
 /* ---- Заблокированная форма (анализ / загрузка DOCX) ---- */

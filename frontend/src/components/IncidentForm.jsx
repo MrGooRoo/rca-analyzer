@@ -69,6 +69,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState(null)
   const [uploadedFile, setUploadedFile] = useState(null)
+  const [inputMode, setInputMode] = useState('manual') // 'manual' | 'docx'
   const [dragOver, setDragOver] = useState(false)
   const [expandedVictims, setExpandedVictims] = useState({})
   const fileInputRef = useRef(null)
@@ -135,6 +136,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     setUploadMessage('Начинаем загрузку...')
     setUploadError(null)
     setUploadedFile(file.name)
+    setInputMode('docx')
     try {
       const fields = await api.uploadReportStream(file, (evt) => {
         if (evt.status === 'reading') setUploadMessage('Извлечение текста из DOCX...')
@@ -180,7 +182,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
   function handleDrop(e) { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file) }
   function handleDragOver(e) { e.preventDefault(); setDragOver(true) }
   function handleDragLeave(e) { e.preventDefault(); setDragOver(false) }
-  function clearUpload() { setUploadedFile(null); setUploadError(null) }
+  function clearUpload() { setUploadedFile(null); setUploadError(null); setUploadMessage('') }
 
   function handleSubmit(e) {
     e.preventDefault()
@@ -249,30 +251,68 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     <form className="incident-form" onSubmit={handleSubmit}>
       <h2 className="form-title">Новый анализ инцидента</h2>
 
-      {/* Upload zone */}
-      <div className={`upload-zone ${dragOver ? 'upload-zone--dragover' : ''} ${uploading ? 'upload-zone--uploading' : ''} ${uploadedFile ? 'upload-zone--done' : ''}`}
-        onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
-        onClick={() => !busy && fileInputRef.current?.click()}>
-        <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileSelect} style={{ display: 'none' }} disabled={busy} />
-        {uploading ? (
-          <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">{uploadMessage}</span></div>
-        ) : uploadedFile ? (
-          <div className="upload-zone__content">
-            <span className="upload-zone__icon">✅</span>
-            <span className="upload-zone__text">Данные загружены из «{uploadedFile}»</span>
-            <span className="upload-zone__hint">Проверьте заполненные поля ниже. Если в файле не было части сведений, дозаполните их вручную перед запуском анализа.</span>
-            <Button type="button" variant="ghost" size="sm" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить файл</Button>
-          </div>
-        ) : (
-          <div className="upload-zone__content">
-            <span className="upload-zone__icon">📄</span>
-            <span className="upload-zone__text">Заполните вручную или загрузите отчёт DOCX</span>
-            <span className="upload-zone__hint">Можно начать с ручного ввода или загрузить файл. Найденные в DOCX поля подставятся в форму, а отсутствующие сведения останутся доступными для ручного дозаполнения.</span>
-          </div>
-        )}
+      {/* Source selector */}
+      <div className="input-source">
+        <div className="input-source__header">
+          <div className="input-source__eyebrow">Способ заполнения</div>
+          <div className="input-source__title">Выберите, с чего начать ввод исходных данных</div>
+        </div>
+        <div className="input-source__options" role="tablist" aria-label="Способ заполнения исходных данных">
+          <button
+            type="button"
+            className={`input-source-card ${inputMode === 'manual' ? 'input-source-card--active' : ''}`}
+            onClick={() => setInputMode('manual')}
+            disabled={busy}
+            aria-pressed={inputMode === 'manual'}
+          >
+            <span className="input-source-card__icon">⌨️</span>
+            <span className="input-source-card__body">
+              <span className="input-source-card__title">Вручную</span>
+              <span className="input-source-card__text">Сразу заполнить поля формы самостоятельно.</span>
+            </span>
+          </button>
+          <button
+            type="button"
+            className={`input-source-card ${inputMode === 'docx' ? 'input-source-card--active' : ''}`}
+            onClick={() => setInputMode('docx')}
+            disabled={busy}
+            aria-pressed={inputMode === 'docx'}
+          >
+            <span className="input-source-card__icon">📄</span>
+            <span className="input-source-card__body">
+              <span className="input-source-card__title">Из DOCX-отчёта</span>
+              <span className="input-source-card__text">Подставить найденные поля из файла и дозаполнить недостающее вручную.</span>
+            </span>
+          </button>
+        </div>
       </div>
 
-      {uploadError && <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>}
+      {/* Upload zone */}
+      {inputMode === 'docx' && (
+        <div className={`upload-zone ${dragOver ? 'upload-zone--dragover' : ''} ${uploading ? 'upload-zone--uploading' : ''} ${uploadedFile ? 'upload-zone--done' : ''}`}
+          onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
+          onClick={() => !busy && fileInputRef.current?.click()}>
+          <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileSelect} style={{ display: 'none' }} disabled={busy} />
+          {uploading ? (
+            <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">{uploadMessage}</span></div>
+          ) : uploadedFile ? (
+            <div className="upload-zone__content">
+              <span className="upload-zone__icon">✅</span>
+              <span className="upload-zone__text">Данные загружены из «{uploadedFile}»</span>
+              <span className="upload-zone__hint">Проверьте заполненные поля ниже. Если в файле не было части сведений, дозаполните их вручную перед запуском анализа.</span>
+              <Button type="button" variant="ghost" size="sm" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить файл</Button>
+            </div>
+          ) : (
+            <div className="upload-zone__content">
+              <span className="upload-zone__icon">📄</span>
+              <span className="upload-zone__text">Загрузите отчёт DOCX</span>
+              <span className="upload-zone__hint">Найденные в файле поля подставятся в форму. Если часть данных отсутствует, заполните их вручную ниже.</span>
+            </div>
+          )}
+        </div>
+      )}
+
+      {inputMode === 'docx' && uploadError && <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>}
       <div className="form-divider" />
 
       {/* Раздел 1: Обстоятельства */}
