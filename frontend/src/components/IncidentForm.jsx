@@ -320,13 +320,13 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} required minLength={5} disabled={busy} />
+          <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
         </div>
       </div>
 
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Textarea label="Описание" rows={4} value={form.description} onChange={e => set('description', e.target.value)} required minLength={20} disabled={busy} />
+          <Textarea label="Описание" rows={4} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Опишите обстоятельства: кто участвовал, что произошло, какие последствия и какие первичные меры были приняты" required minLength={20} disabled={busy} />
         </div>
       </div>
 
@@ -346,19 +346,19 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <Input label="Время инцидента" type="time" value={form.incident_time} onChange={e => set('incident_time', e.target.value)} disabled={busy} />
         </div>
         <div className="form-group">
-          <Input label="Местоположение" type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Цех №3, участок сборки" disabled={busy} />
+          <Input label="Местоположение" type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Укажите площадку, участок или зону происшествия" disabled={busy} />
         </div>
       </div>
 
       <div className="form-row">
         <div className="form-group">
-          <Input label="Предприятие" type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="ООО «ПромБезопасность»" disabled={busy} />
+          <Input label="Предприятие" type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="Укажите организацию или производственную площадку" disabled={busy} />
         </div>
         <div className="form-group">
-          <Input label="Подразделение" type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Производственный цех" disabled={busy} />
+          <Input label="Подразделение" type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Укажите подразделение, службу или подрядчика" disabled={busy} />
         </div>
         <div className="form-group">
-          <Input label="Детальное место" type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} disabled={busy} />
+          <Input label="Детальное место" type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} placeholder="Уточните место: помещение, отметка, оборудование или рабочая зона" disabled={busy} />
         </div>
       </div>
 
@@ -370,7 +370,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <Input label="Погибшие" type="number" min={0} value={form.fatalities_count} onChange={e => set('fatalities_count', e.target.value)} disabled={busy} />
         </div>
         <div className="form-group form-group--full">
-          <Input label="Краткое описание" type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} disabled={busy} />
+          <Input label="Краткое описание" type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} placeholder="Одно-два предложения для быстрого понимания события" disabled={busy} />
         </div>
       </div>
 
@@ -500,7 +500,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-subsection-label" style={{ marginTop: 8 }}>3.2. Описание места происшествия</div>
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} disabled={busy} />
+          <Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} />
         </div>
       </div>
 
@@ -508,7 +508,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-subsection-label">3.4. Характеристика оборудования / объекта</div>
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} disabled={busy} />
+          <Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} />
         </div>
       </div>
 
@@ -516,7 +516,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-subsection-label">3.5. Полное описание обстоятельств</div>
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} disabled={busy} />
+          <Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после происшествия" disabled={busy} />
         </div>
       </div>
 
@@ -524,7 +524,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-subsection-label">3.6. Установленные факты</div>
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} disabled={busy} />
+          <Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} />
         </div>
       </div>
 
