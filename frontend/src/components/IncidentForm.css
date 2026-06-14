@@ -510,6 +510,68 @@
   color: var(--text);
 }
 
+/* ========== Detail level selector ========== */
+
+.detail-selector {
+  display: flex;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
+}
+
+.detail-option {
+  flex: 1;
+  min-width: 120px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: var(--space-md) var(--space-md);
+  border: 2px solid var(--border);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  transition: all var(--transition-fast);
+  user-select: none;
+}
+
+.detail-option input[type="radio"] {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+}
+
+.detail-option:hover:not(.detail-option--disabled) {
+  border-color: var(--text-tertiary);
+  background: var(--surface-3);
+}
+
+.detail-option--active {
+  border-color: var(--primary);
+  background: rgba(10, 132, 255, 0.08);
+  box-shadow: var(--shadow-glow);
+}
+
+.detail-option--disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.detail-option__label {
+  font-size: var(--text-sm);
+  font-weight: 700;
+  color: var(--text);
+}
+
+.detail-option--active .detail-option__label {
+  color: var(--primary);
+}
+
+.detail-option__hint {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
 /* ========== Checkbox group ========== */
 
 .checkbox-group {
@@ -637,24 +699,28 @@
   .form-section {
     padding: var(--space-md);
   }
-  
+
   .form-title {
     font-size: var(--text-xl);
   }
-  
+
   .form-row {
     gap: var(--space-sm);
   }
-  
+
   .form-group {
     min-width: 100%;
   }
-  
+
   .form-group--sm {
     flex: 1 1 100%;
   }
-  
+
   .mode-option {
+    min-width: 100%;
+  }
+
+  .detail-option {
     min-width: 100%;
   }
 
