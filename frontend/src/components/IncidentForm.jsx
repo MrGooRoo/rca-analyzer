@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { api } from '../api.js'
 import SimilarIncidentsHint from './SimilarIncidentsHint.jsx'
 import { Button } from './ui/Button.jsx'
@@ -6,11 +6,11 @@ import { Input, Textarea, Select } from './ui/Field.jsx'
 import './IncidentForm.css'
 
 const METHODOLOGIES = [
-  { value: 'ishikawa',     label: 'Ishikawa (Рыбья кость)' },
-  { value: 'five_why',     label: '5 Почему' },
-  { value: 'fta',          label: 'FTA (Дерево отказов)' },
-  { value: 'rca_systemic', label: 'RCA Системный' },
-  { value: 'bowtie',       label: 'Bowtie (Бабочка)' },
+  { value: 'five_why',     label: '5 Почему (Five Whys)' },
+  { value: 'bowtie',       label: 'Галстук-бабочка (BowTie)' },
+  { value: 'ishikawa',     label: 'Диаграмма Исикавы (Ishikawa)' },
+  { value: 'fta',          label: 'Дерево отказов (FTA)' },
+  { value: 'rca_systemic', label: 'Системный RCA (Systemic RCA)' },
 ]
 
 const SEVERITIES = [
@@ -54,17 +54,29 @@ const EMPTY_VICTIM = {
 const DEFAULTS = {
   title: '', description: '', incident_date: '', location: '',
   incident_type: 'injury', severity: 'moderate', victims: 0,
-  methodology: 'bowtie', detail_level: 2,
+  methodology: 'five_why', detail_level: 2,
   incident_time: '', company: '', department: '', location_detailed: '',
   injured_count: 0, fatalities_count: 0, short_description: '',
   photo_urls: [], scene_description: '', equipment_description: '',
   full_circumstances: '', established_facts: '', victims_list: [],
   mode: 'single',           // 'single' | 'multi'
-  methodologies: ['bowtie'], // только для mode='multi'
+  methodologies: ['five_why'], // только для mode='multi'
+}
+
+const DRAFT_STORAGE_KEY = 'rca-analyzer.incident-form-draft.v1'
+
+function loadDraft() {
+  try {
+    const raw = window.sessionStorage.getItem(DRAFT_STORAGE_KEY)
+    if (!raw) return DEFAULTS
+    return { ...DEFAULTS, ...JSON.parse(raw) }
+  } catch {
+    return DEFAULTS
+  }
 }
 
 export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
-  const [form, setForm] = useState(DEFAULTS)
+  const [form, setForm] = useState(loadDraft)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState(null)
@@ -75,6 +87,14 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
   // Форма заблокирована: идёт анализ или загрузка DOCX
   const busy = loading || uploading
+
+  useEffect(() => {
+    try {
+      window.sessionStorage.setItem(DRAFT_STORAGE_KEY, JSON.stringify(form))
+    } catch {
+      // Если storage недоступен, форма просто работает без сохранения черновика.
+    }
+  }, [form])
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
@@ -260,7 +280,11 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <div className="upload-zone__content"><span className="upload-zone__icon">✅</span><span className="upload-zone__text">Поля заполнены из «{uploadedFile}»</span>
             <Button type="button" variant="ghost" size="sm" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить</Button></div>
         ) : (
-          <div className="upload-zone__content"><span className="upload-zone__icon">📄</span><span className="upload-zone__text">Загрузите отчёт об инциденте</span></div>
+          <div className="upload-zone__content">
+            <span className="upload-zone__icon">📄</span>
+            <span className="upload-zone__text">Заполните вручную или загрузите отчёт DOCX</span>
+            <span className="upload-zone__hint">Если в файле будут не все данные, найденные поля подставятся автоматически, а остальное можно дозаполнить вручную.</span>
+          </div>
         )}
       </div>
 
@@ -272,13 +296,13 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} required minLength={5} disabled={busy} />
+          <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко: что произошло и где" required minLength={5} disabled={busy} />
         </div>
       </div>
 
       <div className="form-row">
         <div className="form-group form-group--full">
-          <Textarea label="Описание" rows={4} value={form.description} onChange={e => set('description', e.target.value)} required minLength={20} disabled={busy} />
+          <Textarea label="Описание" rows={4} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Опишите обстоятельства: кто участвовал, что произошло, какие последствия и что было сделано сразу после события" required minLength={20} disabled={busy} />
         </div>
       </div>
 
@@ -298,19 +322,19 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <Input label="Время инцидента" type="time" value={form.incident_time} onChange={e => set('incident_time', e.target.value)} disabled={busy} />
         </div>
         <div className="form-group">
-          <Input label="Местоположение" type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Цех №3, участок сборки" disabled={busy} />
+          <Input label="Местоположение" type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Укажите площадку, участок или зону происшествия" disabled={busy} />
         </div>
       </div>
 
       <div className="form-row">
         <div className="form-group">
-          <Input label="Предприятие" type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="ООО «ПромБезопасность»" disabled={busy} />
+          <Input label="Предприятие" type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="Укажите организацию или производственную площадку" disabled={busy} />
         </div>
         <div className="form-group">
-          <Input label="Подразделение" type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Производственный цех" disabled={busy} />
+          <Input label="Подразделение" type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Укажите подразделение, службу или подрядчика" disabled={busy} />
         </div>
         <div className="form-group">
-          <Input label="Детальное место" type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} disabled={busy} />
+          <Input label="Детальное место" type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} placeholder="Уточните место: отметка, оборудование, помещение, рабочая зона" disabled={busy} />
         </div>
       </div>
 
@@ -322,7 +346,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <Input label="Погибшие" type="number" min={0} value={form.fatalities_count} onChange={e => set('fatalities_count', e.target.value)} disabled={busy} />
         </div>
         <div className="form-group form-group--full">
-          <Input label="Краткое описание" type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} disabled={busy} />
+          <Input label="Краткое описание" type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} placeholder="Одно-два предложения для быстрого понимания события" disabled={busy} />
         </div>
       </div>
 
@@ -353,7 +377,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-divider" />
 
       {/* Раздел 3: Установленные факты */}
-      <div className="form-section-label">3. Установленные факты</div>
+      <div className="form-section-label">3. Установленные факты и детали происшествия</div>
 
       {/* 3.1 Пострадавшие */}
       <div className="victims-section">
@@ -456,24 +480,24 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
-      {/* 3.4 Характеристика оборудования */}
-      <div className="form-subsection-label">3.4. Характеристика оборудования / объекта</div>
+      {/* 3.3 Характеристика оборудования */}
+      <div className="form-subsection-label">3.3. Характеристика оборудования / объекта</div>
       <div className="form-row">
         <div className="form-group form-group--full">
           <Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} disabled={busy} />
         </div>
       </div>
 
-      {/* 3.5 Полное описание */}
-      <div className="form-subsection-label">3.5. Полное описание обстоятельств</div>
+      {/* 3.4 Полное описание */}
+      <div className="form-subsection-label">3.4. Полное описание обстоятельств</div>
       <div className="form-row">
         <div className="form-group form-group--full">
           <Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} disabled={busy} />
         </div>
       </div>
 
-      {/* 3.6 Установленные факты */}
-      <div className="form-subsection-label">3.6. Установленные факты</div>
+      {/* 3.5 Установленные факты */}
+      <div className="form-subsection-label">3.5. Установленные факты</div>
       <div className="form-row">
         <div className="form-group form-group--full">
           <Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} disabled={busy} />
@@ -567,9 +591,11 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
             </div>
           </div>
 
-          {form.methodologies.length < 2 && (
-            <div className="multi-hint">⚠️ Выберите минимум 2 методики для сравнения</div>
-          )}
+          <div className={`multi-hint ${form.methodologies.length >= 2 ? 'multi-hint--ok' : ''}`}>
+            {form.methodologies.length < 2
+              ? '⚠️ Выберите минимум 2 методики для сравнения'
+              : `✅ Выбрано ${form.methodologies.length} методик. Можно запускать сравнение.`}
+          </div>
         </>
       )}
 

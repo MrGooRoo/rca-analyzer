@@ -18,6 +18,8 @@ export default function CompareView({ comparison }) {
 
   const activeResult = comparison.results.find(r => r.result_id === activeTab)
   const isBowtie = activeResult?.methodology === 'bowtie'
+  const differingEntries = Object.entries(comparison.differing_causes || {})
+    .filter(([, causes]) => Array.isArray(causes) && causes.length > 0)
 
   return (
     <div className="compare-view">
@@ -61,11 +63,11 @@ export default function CompareView({ comparison }) {
       )}
 
       {/* Различающиеся причины */}
-      {comparison.differing_causes && Object.keys(comparison.differing_causes).length > 0 && (
+      {differingEntries.length > 0 && (
         <div className="compare-section">
           <div className="compare-section-title">⚡ Различающиеся выводы</div>
-          <div className="differing-grid">
-            {Object.entries(comparison.differing_causes).map(([methodology, causes]) => (
+          <div className="differing-grid" style={{ '--differing-count': Math.min(differingEntries.length, 5) }}>
+            {differingEntries.map(([methodology, causes]) => (
               <div key={methodology} className="differing-card">
                 <div className="differing-card-header">
                   <Badge tone={methodologyMeta(methodology).badgeTone}>{methodologyMeta(methodology).icon} {METHODOLOGY_LABELS[methodology] || methodology}</Badge>

@@ -186,8 +186,8 @@
 /* Гибкий контейнер - карточки занимают всё пространство */
 .differing-grid {
   display: grid;
-  /* Автоматически распределяет карточки: 1-5 штук в ряд */
-  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  /* Карточки заполняют ширину по фактическому количеству методик, без пустых колонок. */
+  grid-template-columns: repeat(var(--differing-count, 1), minmax(0, 1fr));
   gap: var(--space-md);
   align-items: start;
 }
