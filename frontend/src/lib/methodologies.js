@@ -1,6 +1,6 @@
 /**
- * Метаданные методологий анализа — для карточек выбора, бейджей, описаний.
- * Единый источник правды вместо разбросанных METHODOLOGY_LABELS.
+ * Метаданные методологий анализа — единый источник правды.
+ * Используется в форме выбора, бейджах, заголовках результатов.
  */
 
 export const METHODOLOGIES = [
@@ -14,9 +14,18 @@ export const METHODOLOGIES = [
     badgeTone: 'sky',
   },
   {
+    id: 'bowtie',
+    name: 'Bowtie',
+    short: 'Галстук-бабочка',
+    description: 'Угрозы → барьеры → топ-событие → барьеры → последствия. Визуализирует риски и эффективность контролей.',
+    icon: '🎀',
+    color: 'from-rose-500 to-pink-600',
+    badgeTone: 'rose',
+  },
+  {
     id: 'ishikawa',
     name: 'Ishikawa',
-    short: 'Диаграмма Исикавы',
+    short: 'Рыбья кость',
     description: 'Категоризация причин по 6M: люди, методы, машины, материалы, измерения, среда. Подходит для системного разбора.',
     icon: '🐟',
     color: 'from-emerald-500 to-teal-600',
@@ -25,7 +34,7 @@ export const METHODOLOGIES = [
   {
     id: 'fta',
     name: 'FTA',
-    short: 'Fault Tree Analysis',
+    short: 'Дерево отказов',
     description: 'Дедуктивный анализ: от верхнего нежелательного события вниз через логические связки к базовым причинам.',
     icon: '🌳',
     color: 'from-amber-500 to-orange-600',
@@ -34,20 +43,11 @@ export const METHODOLOGIES = [
   {
     id: 'rca_systemic',
     name: 'RCA Системный',
-    short: 'Системный RCA',
+    short: 'Системный анализ',
     description: 'Глубокий анализ организационных, технических и человеческих факторов с учётом взаимосвязей в системе.',
     icon: '⚙️',
     color: 'from-violet-500 to-purple-600',
     badgeTone: 'violet',
-  },
-  {
-    id: 'bowtie',
-    name: 'Bowtie',
-    short: 'Диаграмма «Галстук-бабочка»',
-    description: 'Угрозы → барьеры → топ-событие → барьеры → последствия. Визуализирует риски и эффективность контролей.',
-    icon: '🎀',
-    color: 'from-rose-500 to-pink-600',
-    badgeTone: 'rose',
   },
 ]
 

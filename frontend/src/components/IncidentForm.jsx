@@ -3,15 +3,8 @@ import { api } from '../api.js'
 import SimilarIncidentsHint from './SimilarIncidentsHint.jsx'
 import { Button } from './ui/Button.jsx'
 import { Input, Textarea, Select } from './ui/Field.jsx'
+import { METHODOLOGIES } from '../lib/methodologies.js'
 import './IncidentForm.css'
-
-const METHODOLOGIES = [
-  { value: 'five_why',     label: '5 Почему' },
-  { value: 'bowtie',       label: 'Bowtie (Бабочка)' },
-  { value: 'ishikawa',     label: 'Ishikawa (Рыбья кость)' },
-  { value: 'fta',          label: 'FTA (Дерево отказов)' },
-  { value: 'rca_systemic', label: 'RCA Системный' },
-]
 
 const SEVERITIES = [
   { value: 'critical',  label: 'Критический', hint: 'Смерть / тяжёлый вред',       color: 'critical' },
@@ -417,7 +410,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           Классификация инцидента
         </div>
 
-        {/* Тип инцидента — Select (8 вариантов, карточки были бы громоздки) */}
         <div className="form-row">
           <div className="form-group">
             <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>
@@ -426,7 +418,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           </div>
         </div>
 
-        {/* Тяжесть — radio-карточки с цветом */}
         <div className="form-subsection-label" style={{ marginTop: 4 }}>Тяжесть инцидента</div>
         <div className="severity-selector">
           {SEVERITIES.map(s => (
@@ -454,7 +445,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
-      {/* Секция: Параметры анализа — шаг 2 степпера */}
+      {/* Секция: Параметры анализа */}
       <div className="form-section" id="step-method">
         <div className="form-section-label form-section-label--step">
           <span className="form-section-label__num">2</span>
@@ -476,7 +467,11 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <div className="form-row">
             <div className="form-group">
               <Select label="Методология" value={form.methodology} onChange={e => set('methodology', e.target.value)} disabled={busy}>
-                {METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+                {METHODOLOGIES.map(m => (
+                  <option key={m.id} value={m.id}>
+                    {m.icon} {m.name}{m.short !== m.name ? ` — ${m.short}` : ''}
+                  </option>
+                ))}
               </Select>
             </div>
           </div>
@@ -485,10 +480,10 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         {isMulti() && (
           <div className="checkbox-group">
             {METHODOLOGIES.map(m => (
-              <label key={m.value} className={`checkbox-card ${form.methodologies.includes(m.value) ? 'checkbox-card--checked' : ''}`}>
-                <input type="checkbox" checked={form.methodologies.includes(m.value)} onChange={() => toggleMethodology(m.value)} className="checkbox-card__input" disabled={busy} />
-                <span className="checkbox-card__check">{form.methodologies.includes(m.value) ? '✓' : ''}</span>
-                <span className="checkbox-card__label">{m.label}</span>
+              <label key={m.id} className={`checkbox-card ${form.methodologies.includes(m.id) ? 'checkbox-card--checked' : ''}`}>
+                <input type="checkbox" checked={form.methodologies.includes(m.id)} onChange={() => toggleMethodology(m.id)} className="checkbox-card__input" disabled={busy} />
+                <span className="checkbox-card__check">{form.methodologies.includes(m.id) ? '✓' : ''}</span>
+                <span className="checkbox-card__label">{m.icon} {m.name}{m.short !== m.name ? ` — ${m.short}` : ''}</span>
               </label>
             ))}
           </div>
