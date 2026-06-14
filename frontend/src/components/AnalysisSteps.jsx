@@ -8,12 +8,14 @@ const STEPS = [
 ]
 
 export default function AnalysisSteps({ current = 1, onNavigate }) {
+  // DEBUG: убрать после диагностики
+  console.log('[AnalysisSteps] current =', current)
+
   function go(step) {
     const targetId = STEPS.find(s => s.id === step)?.target
     if (targetId) {
       const el = document.getElementById(targetId)
       if (el) {
-        // отступ 52px (хедер) + 52px (sticky степпер) чтобы якорь не уехал под панель
         const y = el.getBoundingClientRect().top + window.scrollY - 120
         window.scrollTo({ top: y, behavior: 'smooth' })
       }
@@ -29,7 +31,6 @@ export default function AnalysisSteps({ current = 1, onNavigate }) {
           const state =
             step.id < current ? 'done' :
             step.id === current ? 'active' : 'pending'
-          // шаги 1 и 2 кликабельны пока не показан результат (current < 3)
           const clickable = step.id <= 2 && current < 3
 
           return (
@@ -43,7 +44,7 @@ export default function AnalysisSteps({ current = 1, onNavigate }) {
                 title={clickable ? `Перейти к: ${step.label}` : undefined}
               >
                 <span className="analysis-step__num">
-                  {state === 'done' ? '✓' : step.id}
+                  {state === 'done' ? '\u2713' : step.id}
                 </span>
                 <span className="analysis-step__body">
                   <span className="analysis-step__label">{step.label}</span>
