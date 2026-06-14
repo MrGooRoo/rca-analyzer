@@ -59,8 +59,8 @@ const DEFAULTS = {
   injured_count: 0, fatalities_count: 0, short_description: '',
   photo_urls: [], scene_description: '', equipment_description: '',
   full_circumstances: '', established_facts: '', victims_list: [],
-  mode: 'single',           // 'single' | 'multi'
-  methodologies: ['bowtie'], // только для mode='multi'
+  mode: 'single',
+  methodologies: ['bowtie'],
 }
 
 export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
@@ -69,19 +69,17 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState(null)
   const [uploadedFile, setUploadedFile] = useState(null)
-  const [inputMode, setInputMode] = useState('manual') // 'manual' | 'docx'
+  const [inputMode, setInputMode] = useState('manual')
   const [dragOver, setDragOver] = useState(false)
   const [expandedVictims, setExpandedVictims] = useState({})
   const fileInputRef = useRef(null)
 
-  // Форма заблокирована: идёт анализ или загрузка DOCX
   const busy = loading || uploading
 
   function set(field, value) {
     setForm(f => ({ ...f, [field]: value }))
   }
 
-  // --- Mode helpers ---
   function isMulti() { return form.mode === 'multi' }
 
   function toggleMethodology(method) {
@@ -93,7 +91,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     })
   }
 
-  // --- Victims list helpers ---
   function addVictim() {
     const newList = [...form.victims_list, { ...EMPTY_VICTIM }]
     setForm(f => ({ ...f, victims_list: newList }))
@@ -121,7 +118,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     setExpandedVictims(e => ({ ...e, [idx]: !e[idx] }))
   }
 
-  // --- File upload ---
   async function processFile(file) {
     if (!file) return
     if (!file.name.toLowerCase().endsWith('.docx')) {
@@ -219,7 +215,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     }
 
     if (isMulti()) {
-      // Multi-analysis
       onSubmitMulti({
         methodologies: form.methodologies,
         language: 'ru',
@@ -227,7 +222,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         incident: incidentPayload,
       })
     } else {
-      // Single analysis
       onSubmit({
         methodology: form.methodology,
         language: 'ru',
@@ -289,9 +283,11 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
       {/* Upload zone */}
       {inputMode === 'docx' && (
-        <div className={`upload-zone ${dragOver ? 'upload-zone--dragover' : ''} ${uploading ? 'upload-zone--uploading' : ''} ${uploadedFile ? 'upload-zone--done' : ''}`}
+        <div
+          className={`upload-zone ${dragOver ? 'upload-zone--dragover' : ''} ${uploading ? 'upload-zone--uploading' : ''} ${uploadedFile ? 'upload-zone--done' : ''}`}
           onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
-          onClick={() => !busy && fileInputRef.current?.click()}>
+          onClick={() => !busy && fileInputRef.current?.click()}
+        >
           <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileSelect} style={{ display: 'none' }} disabled={busy} />
           {uploading ? (
             <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">{uploadMessage}</span></div>
@@ -312,317 +308,323 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       )}
 
-      {inputMode === 'docx' && uploadError && <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>}
-      <div className="form-divider" />
-
-      {/* Раздел 1: Обстоятельства */}
-      <div className="form-section-label" id="step-data">1. Описание обстоятельств происшествия</div>
-
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
-        </div>
-      </div>
-
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Textarea label="Описание" rows={4} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Опишите обстоятельства: кто участвовал, что произошло, какие последствия и какие первичные меры были приняты" required minLength={20} disabled={busy} />
-        </div>
-      </div>
-
-      {similarQueryText.length >= 20 && !busy && (
-        <SimilarIncidentsHint
-          queryText={similarQueryText}
-          incidentTitle={form.title}
-          incidentDescription={form.description}
-        />
+      {inputMode === 'docx' && uploadError && (
+        <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>
       )}
 
-      <div className="form-row">
-        <div className="form-group">
-          <Input label="Дата инцидента" type="date" value={form.incident_date} onChange={e => set('incident_date', e.target.value)} disabled={busy} />
+      {/* Раздел 1: Описание обстоятельств */}
+      <div className="form-section" id="step-data">
+        <div className="form-section-label">
+          <span className="form-section-label__num">1</span>
+          Описание обстоятельств происшествия
         </div>
-        <div className="form-group">
-          <Input label="Время инцидента" type="time" value={form.incident_time} onChange={e => set('incident_time', e.target.value)} disabled={busy} />
-        </div>
-        <div className="form-group">
-          <Input label="Местоположение" type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Укажите площадку, участок или зону происшествия" disabled={busy} />
-        </div>
-      </div>
 
-      <div className="form-row">
-        <div className="form-group">
-          <Input label="Предприятие" type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="Укажите организацию или производственную площадку" disabled={busy} />
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
+          </div>
         </div>
-        <div className="form-group">
-          <Input label="Подразделение" type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Укажите подразделение, службу или подрядчика" disabled={busy} />
-        </div>
-        <div className="form-group">
-          <Input label="Детальное место" type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} placeholder="Уточните место: помещение, отметка, оборудование или рабочая зона" disabled={busy} />
-        </div>
-      </div>
 
-      <div className="form-row">
-        <div className="form-group form-group--sm">
-          <Input label="Пострадавшие" type="number" min={0} value={form.injured_count} onChange={e => set('injured_count', e.target.value)} disabled={busy} />
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Textarea label="Описание" rows={4} value={form.description} onChange={e => set('description', e.target.value)} placeholder="Опишите обстоятельства: кто участвовал, что произошло, какие последствия и какие первичные меры были приняты" required minLength={20} disabled={busy} />
+          </div>
         </div>
-        <div className="form-group form-group--sm">
-          <Input label="Погибшие" type="number" min={0} value={form.fatalities_count} onChange={e => set('fatalities_count', e.target.value)} disabled={busy} />
-        </div>
-        <div className="form-group form-group--full">
-          <Input label="Краткое описание" type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} placeholder="Одно-два предложения для быстрого понимания события" disabled={busy} />
-        </div>
-      </div>
 
-      <div className="form-divider" />
-
-      {/* Раздел 2: Фото */}
-      <div className="form-section-label">2. Фото с места происшествия</div>
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Textarea
-            label="Ссылки на фото (по одной на строку)"
-            rows={3}
-            placeholder="https://..."
-            value={form.photo_urls.join('\n')}
-            onChange={e => set('photo_urls', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
-            disabled={busy}
+        {similarQueryText.length >= 20 && !busy && (
+          <SimilarIncidentsHint
+            queryText={similarQueryText}
+            incidentTitle={form.title}
+            incidentDescription={form.description}
           />
-          {form.photo_urls.length > 0 && (
-            <div className="photo-previews">
-              {form.photo_urls.map((url, i) => (
-                <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="photo-link">📷 Фото {i + 1}</a>
-              ))}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="form-divider" />
-
-      {/* Раздел 3: Установленные факты */}
-      <div className="form-section-label">3. Установленные факты</div>
-
-      {/* 3.1 Пострадавшие */}
-      <div className="victims-section">
-        <div className="victims-header">
-          <span className="form-subsection-label">3.1. Сведения о пострадавших</span>
-          <Button type="button" variant="secondary" size="sm" className="btn-add-victim" onClick={addVictim} disabled={busy}>+ Добавить пострадавшего</Button>
-        </div>
-
-        {form.victims_list.length === 0 && (
-          <div className="victims-empty">Нет добавленных пострадавших — заполните вручную или загрузите .docx</div>
         )}
 
-        {form.victims_list.map((v, idx) => (
-          <div key={idx} className="victim-card">
-            <div className="victim-card__header" onClick={() => toggleVictim(idx)} disabled={busy}>
-              <span className="victim-card__title">
-                {v.full_name ? v.full_name : `Пострадавший ${idx + 1}`}
-              </span>
-              <div className="victim-card__actions">
-                <span className="victim-card__toggle">{expandedVictims[idx] ? '▲' : '▼'}</span>
-                <Button type="button" variant="ghost" size="sm" className="victim-card__remove" onClick={e => { e.stopPropagation(); removeVictim(idx) }} disabled={busy}>✕</Button>
-              </div>
-            </div>
+        <div className="form-row">
+          <div className="form-group">
+            <Input label="Дата инцидента" type="date" value={form.incident_date} onChange={e => set('incident_date', e.target.value)} disabled={busy} />
+          </div>
+          <div className="form-group">
+            <Input label="Время инцидента" type="time" value={form.incident_time} onChange={e => set('incident_time', e.target.value)} disabled={busy} />
+          </div>
+          <div className="form-group">
+            <Input label="Местоположение" type="text" value={form.location} onChange={e => set('location', e.target.value)} placeholder="Укажите площадку, участок или зону происшествия" disabled={busy} />
+          </div>
+        </div>
 
-            {expandedVictims[idx] && (
-              <div className="victim-card__body">
-                <div className="form-row">
-                  <div className="form-group form-group--full">
-                    <Input label="ФИО" type="text" value={v.full_name} onChange={e => setVictim(idx, 'full_name', e.target.value)} placeholder="Иванов Иван Иванович" disabled={busy} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <Input label="Дата рождения" type="date" value={v.birth_date} onChange={e => setVictim(idx, 'birth_date', e.target.value)} disabled={busy} />
-                  </div>
-                  <div className="form-group form-group--sm">
-                    <Input label="Возраст" type="number" min={14} max={99} value={v.age} onChange={e => setVictim(idx, 'age', e.target.value)} disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Семейное положение" type="text" value={v.family_status} onChange={e => setVictim(idx, 'family_status', e.target.value)} placeholder="Женат / Замужем / …" disabled={busy} />
-                  </div>
-                  <div className="form-group form-group--sm">
-                    <Input label="Детей до 21 г." type="number" min={0} value={v.children_under_21} onChange={e => setVictim(idx, 'children_under_21', e.target.value)} disabled={busy} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <Input label="Профессия / должность" type="text" value={v.profession} onChange={e => setVictim(idx, 'profession', e.target.value)} disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Место работы" type="text" value={v.workplace} onChange={e => setVictim(idx, 'workplace', e.target.value)} disabled={busy} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <Input label="Общий стаж" type="text" value={v.total_experience} onChange={e => setVictim(idx, 'total_experience', e.target.value)} placeholder="5 лет 3 мес." disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Стаж в организации" type="text" value={v.experience_in_organization} onChange={e => setVictim(idx, 'experience_in_organization', e.target.value)} placeholder="2 года" disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Квалификационное удостоверение" type="text" value={v.qualification_certificate} onChange={e => setVictim(idx, 'qualification_certificate', e.target.value)} disabled={busy} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <Input label="Вводный инструктаж" type="text" value={v.introductory_briefing} onChange={e => setVictim(idx, 'introductory_briefing', e.target.value)} placeholder="дд.мм.гггг / не проводился" disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Первичный / повторный инструктаж" type="text" value={v.workplace_briefing} onChange={e => setVictim(idx, 'workplace_briefing', e.target.value)} placeholder="дд.мм.гггг / не проводился" disabled={busy} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group">
-                    <Input label="Стажировка / допуск к работе" type="text" value={v.internship} onChange={e => setVictim(idx, 'internship', e.target.value)} placeholder="дд.мм.гггг / не проводилась" disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Проверка знаний по ОТ" type="text" value={v.safety_knowledge_test} onChange={e => setVictim(idx, 'safety_knowledge_test', e.target.value)} placeholder="дд.мм.гггг / не проводилась" disabled={busy} />
-                  </div>
-                  <div className="form-group">
-                    <Input label="Медицинский осмотр" type="text" value={v.medical_examination} onChange={e => setVictim(idx, 'medical_examination', e.target.value)} placeholder="дд.мм.гггг / не проходил" disabled={busy} />
-                  </div>
-                </div>
-                <div className="form-row">
-                  <div className="form-group form-group--full">
-                    <Input label="Диагноз / степень тяжести" type="text" value={v.diagnosis_severity} onChange={e => setVictim(idx, 'diagnosis_severity', e.target.value)} placeholder="Перелом, лёгкая степень…" disabled={busy} />
-                  </div>
-                </div>
+        <div className="form-row">
+          <div className="form-group">
+            <Input label="Предприятие" type="text" value={form.company} onChange={e => set('company', e.target.value)} placeholder="Укажите организацию или производственную площадку" disabled={busy} />
+          </div>
+          <div className="form-group">
+            <Input label="Подразделение" type="text" value={form.department} onChange={e => set('department', e.target.value)} placeholder="Укажите подразделение, службу или подрядчика" disabled={busy} />
+          </div>
+          <div className="form-group">
+            <Input label="Детальное место" type="text" value={form.location_detailed} onChange={e => set('location_detailed', e.target.value)} placeholder="Уточните место: помещение, отметка, оборудование или рабочая зона" disabled={busy} />
+          </div>
+        </div>
+
+        <div className="form-row">
+          <div className="form-group form-group--sm">
+            <Input label="Пострадавшие" type="number" min={0} value={form.injured_count} onChange={e => set('injured_count', e.target.value)} disabled={busy} />
+          </div>
+          <div className="form-group form-group--sm">
+            <Input label="Погибшие" type="number" min={0} value={form.fatalities_count} onChange={e => set('fatalities_count', e.target.value)} disabled={busy} />
+          </div>
+          <div className="form-group form-group--full">
+            <Input label="Краткое описание" type="text" value={form.short_description} onChange={e => set('short_description', e.target.value)} placeholder="Одно-два предложения для быстрого понимания события" disabled={busy} />
+          </div>
+        </div>
+      </div>
+
+      {/* Раздел 2: Фото */}
+      <div className="form-section">
+        <div className="form-section-label">
+          <span className="form-section-label__num">2</span>
+          Фото с места происшествия
+        </div>
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Textarea
+              label="Ссылки на фото (по одной на строку)"
+              rows={3}
+              placeholder="https://..."
+              value={form.photo_urls.join('\n')}
+              onChange={e => set('photo_urls', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))}
+              disabled={busy}
+            />
+            {form.photo_urls.length > 0 && (
+              <div className="photo-previews">
+                {form.photo_urls.map((url, i) => (
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="photo-link">📷 Фото {i + 1}</a>
+                ))}
               </div>
             )}
           </div>
-        ))}
-      </div>
-
-      {/* 3.2 Описание места */}
-      <div className="form-subsection-label" style={{ marginTop: 8 }}>3.2. Описание места происшествия</div>
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} />
         </div>
       </div>
 
-      {/* 3.3 Характеристика оборудования (было 3.4) */}
-      <div className="form-subsection-label">3.3. Характеристика оборудования / объекта</div>
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} />
+      {/* Раздел 3: Установленные факты */}
+      <div className="form-section">
+        <div className="form-section-label">
+          <span className="form-section-label__num">3</span>
+          Установленные факты
+        </div>
+
+        {/* 3.1 Пострадавшие */}
+        <div className="victims-section">
+          <div className="victims-header">
+            <span className="form-subsection-label">3.1. Сведения о пострадавших</span>
+            <Button type="button" variant="secondary" size="sm" className="btn-add-victim" onClick={addVictim} disabled={busy}>+ Добавить пострадавшего</Button>
+          </div>
+
+          {form.victims_list.length === 0 && (
+            <div className="victims-empty">Нет добавленных пострадавших — заполните вручную или загрузите .docx</div>
+          )}
+
+          {form.victims_list.map((v, idx) => (
+            <div key={idx} className="victim-card">
+              <div className="victim-card__header" onClick={() => toggleVictim(idx)} disabled={busy}>
+                <span className="victim-card__title">
+                  {v.full_name ? v.full_name : `Пострадавший ${idx + 1}`}
+                </span>
+                <div className="victim-card__actions">
+                  <span className="victim-card__toggle">{expandedVictims[idx] ? '▲' : '▼'}</span>
+                  <Button type="button" variant="ghost" size="sm" className="victim-card__remove" onClick={e => { e.stopPropagation(); removeVictim(idx) }} disabled={busy}>✕</Button>
+                </div>
+              </div>
+
+              {expandedVictims[idx] && (
+                <div className="victim-card__body">
+                  <div className="form-row">
+                    <div className="form-group form-group--full">
+                      <Input label="ФИО" type="text" value={v.full_name} onChange={e => setVictim(idx, 'full_name', e.target.value)} placeholder="Иванов Иван Иванович" disabled={busy} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Input label="Дата рождения" type="date" value={v.birth_date} onChange={e => setVictim(idx, 'birth_date', e.target.value)} disabled={busy} />
+                    </div>
+                    <div className="form-group form-group--sm">
+                      <Input label="Возраст" type="number" min={14} max={99} value={v.age} onChange={e => setVictim(idx, 'age', e.target.value)} disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Семейное положение" type="text" value={v.family_status} onChange={e => setVictim(idx, 'family_status', e.target.value)} placeholder="Женат / Замужем / …" disabled={busy} />
+                    </div>
+                    <div className="form-group form-group--sm">
+                      <Input label="Детей до 21 г." type="number" min={0} value={v.children_under_21} onChange={e => setVictim(idx, 'children_under_21', e.target.value)} disabled={busy} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Input label="Профессия / должность" type="text" value={v.profession} onChange={e => setVictim(idx, 'profession', e.target.value)} disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Место работы" type="text" value={v.workplace} onChange={e => setVictim(idx, 'workplace', e.target.value)} disabled={busy} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Input label="Общий стаж" type="text" value={v.total_experience} onChange={e => setVictim(idx, 'total_experience', e.target.value)} placeholder="5 лет 3 мес." disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Стаж в организации" type="text" value={v.experience_in_organization} onChange={e => setVictim(idx, 'experience_in_organization', e.target.value)} placeholder="2 года" disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Квалификационное удостоверение" type="text" value={v.qualification_certificate} onChange={e => setVictim(idx, 'qualification_certificate', e.target.value)} disabled={busy} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Input label="Вводный инструктаж" type="text" value={v.introductory_briefing} onChange={e => setVictim(idx, 'introductory_briefing', e.target.value)} placeholder="дд.мм.гггг / не проводился" disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Первичный / повторный инструктаж" type="text" value={v.workplace_briefing} onChange={e => setVictim(idx, 'workplace_briefing', e.target.value)} placeholder="дд.мм.гггг / не проводился" disabled={busy} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <Input label="Стажировка / допуск к работе" type="text" value={v.internship} onChange={e => setVictim(idx, 'internship', e.target.value)} placeholder="дд.мм.гггг / не проводилась" disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Проверка знаний по ОТ" type="text" value={v.safety_knowledge_test} onChange={e => setVictim(idx, 'safety_knowledge_test', e.target.value)} placeholder="дд.мм.гггг / не проводилась" disabled={busy} />
+                    </div>
+                    <div className="form-group">
+                      <Input label="Медицинский осмотр" type="text" value={v.medical_examination} onChange={e => setVictim(idx, 'medical_examination', e.target.value)} placeholder="дд.мм.гггг / не проходил" disabled={busy} />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group form-group--full">
+                      <Input label="Диагноз / степень тяжести" type="text" value={v.diagnosis_severity} onChange={e => setVictim(idx, 'diagnosis_severity', e.target.value)} placeholder="Перелом, лёгкая степень…" disabled={busy} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* 3.2 Описание места */}
+        <div className="form-subsection-label">3.2. Описание места происшествия</div>
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} />
+          </div>
+        </div>
+
+        {/* 3.3 Характеристика оборудования */}
+        <div className="form-subsection-label">3.3. Характеристика оборудования / объекта</div>
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} />
+          </div>
+        </div>
+
+        {/* 3.4 Полное описание обстоятельств */}
+        <div className="form-subsection-label">3.4. Полное описание обстоятельств</div>
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после происшествия" disabled={busy} />
+          </div>
+        </div>
+
+        {/* 3.5 Установленные факты */}
+        <div className="form-subsection-label">3.5. Установленные факты</div>
+        <div className="form-row">
+          <div className="form-group form-group--full">
+            <Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} />
+          </div>
         </div>
       </div>
 
-      {/* 3.4 Полное описание обстоятельств (было 3.5) */}
-      <div className="form-subsection-label">3.4. Полное описание обстоятельств</div>
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после происшествия" disabled={busy} />
+      {/* Раздел 4: Классификация */}
+      <div className="form-section">
+        <div className="form-section-label">
+          <span className="form-section-label__num">4</span>
+          Классификация инцидента
         </div>
-      </div>
-
-      {/* 3.5 Установленные факты (было 3.6) */}
-      <div className="form-subsection-label">3.5. Установленные факты</div>
-      <div className="form-row">
-        <div className="form-group form-group--full">
-          <Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} />
-        </div>
-      </div>
-
-      <div className="form-divider" />
-
-      {/* Раздел 4: Классификация инцидента */}
-      <div className="form-section-label">4. Классификация инцидента</div>
-      <div className="form-row">
-        <div className="form-group">
-          <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>{TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</Select>
-        </div>
-        <div className="form-group">
-          <Select label="Тяжесть" value={form.severity} onChange={e => set('severity', e.target.value)} disabled={busy}>{SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}</Select>
-        </div>
-      </div>
-
-      <div className="form-divider" />
-
-      {/* Раздел 5: Параметры анализа */}
-      <div className="form-section-label" id="step-method">5. Параметры анализа</div>
-
-      {/* === Режим анализа: одиночный или сравнение === */}
-      <div className="mode-selector">
-        <label className={`mode-option ${!isMulti() ? 'mode-option--active' : ''}`}>
-          <input
-            type="radio"
-            name="mode"
-            value="single"
-            checked={!isMulti()}
-            onChange={() => set('mode', 'single')}
-          disabled={busy} />
-          <span className="mode-option__content">
-            <span className="mode-option__icon">🎯</span>
-            <span className="mode-option__label">Одна методика</span>
-          </span>
-        </label>
-        <label className={`mode-option ${isMulti() ? 'mode-option--active' : ''}`}>
-          <input
-            type="radio"
-            name="mode"
-            value="multi"
-            checked={isMulti()}
-            onChange={() => set('mode', 'multi')}
-          disabled={busy} />
-          <span className="mode-option__content">
-            <span className="mode-option__icon">⚖️</span>
-            <span className="mode-option__label">Сравнить методики</span>
-          </span>
-        </label>
-      </div>
-
-      {/* === Одиночный режим: дропдаун === */}
-      {!isMulti() && (
         <div className="form-row">
           <div className="form-group">
-            <Select label="Методология" value={form.methodology} onChange={e => set('methodology', e.target.value)} disabled={busy}>
-              {METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+            <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>
+              {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </Select>
           </div>
-          <div className="form-group form-group--sm">
-            <Select label="Детализация" value={form.detail_level} onChange={e => set('detail_level', e.target.value)} disabled={busy}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></Select>
+          <div className="form-group">
+            <Select label="Тяжесть" value={form.severity} onChange={e => set('severity', e.target.value)} disabled={busy}>
+              {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
+            </Select>
           </div>
         </div>
-      )}
+      </div>
 
-      {/* === Мульти-режим: чекбоксы === */}
-      {isMulti() && (
-        <>
-          <div className="checkbox-group">
-            {METHODOLOGIES.map(m => (
-              <label key={m.value} className={`checkbox-card ${form.methodologies.includes(m.value) ? 'checkbox-card--checked' : ''}`}>
-                <input
-                  type="checkbox"
-                  checked={form.methodologies.includes(m.value)}
-                  onChange={() => toggleMethodology(m.value)}
-                  className="checkbox-card__input"
-                disabled={busy} />
-                <span className="checkbox-card__check">
-                  {form.methodologies.includes(m.value) ? '✓' : ''}
-                </span>
-                <span className="checkbox-card__label">{m.label}</span>
-              </label>
-            ))}
-          </div>
+      {/* Раздел 5: Параметры анализа */}
+      <div className="form-section" id="step-method">
+        <div className="form-section-label">
+          <span className="form-section-label__num">5</span>
+          Параметры анализа
+        </div>
 
+        <div className="mode-selector">
+          <label className={`mode-option ${!isMulti() ? 'mode-option--active' : ''}`}>
+            <input type="radio" name="mode" value="single" checked={!isMulti()} onChange={() => set('mode', 'single')} disabled={busy} />
+            <span className="mode-option__content">
+              <span className="mode-option__icon">🎯</span>
+              <span className="mode-option__label">Одна методика</span>
+            </span>
+          </label>
+          <label className={`mode-option ${isMulti() ? 'mode-option--active' : ''}`}>
+            <input type="radio" name="mode" value="multi" checked={isMulti()} onChange={() => set('mode', 'multi')} disabled={busy} />
+            <span className="mode-option__content">
+              <span className="mode-option__icon">⚖️</span>
+              <span className="mode-option__label">Сравнить методики</span>
+            </span>
+          </label>
+        </div>
+
+        {!isMulti() && (
           <div className="form-row">
+            <div className="form-group">
+              <Select label="Методология" value={form.methodology} onChange={e => set('methodology', e.target.value)} disabled={busy}>
+                {METHODOLOGIES.map(m => <option key={m.value} value={m.value}>{m.label}</option>)}
+              </Select>
+            </div>
             <div className="form-group form-group--sm">
-              <Select label="Детализация" value={form.detail_level} onChange={e => set('detail_level', e.target.value)} disabled={busy}><option value={1}>1 — кратко</option><option value={2}>2 — стандарт</option><option value={3}>3 — подробно</option></Select>
+              <Select label="Детализация" value={form.detail_level} onChange={e => set('detail_level', e.target.value)} disabled={busy}>
+                <option value={1}>1 — кратко</option>
+                <option value={2}>2 — стандарт</option>
+                <option value={3}>3 — подробно</option>
+              </Select>
             </div>
           </div>
+        )}
 
-          {form.methodologies.length < 2 && (
-            <div className="multi-hint">⚠️ Выберите минимум 2 методики для сравнения</div>
-          )}
-        </>
-      )}
+        {isMulti() && (
+          <>
+            <div className="checkbox-group">
+              {METHODOLOGIES.map(m => (
+                <label key={m.value} className={`checkbox-card ${form.methodologies.includes(m.value) ? 'checkbox-card--checked' : ''}`}>
+                  <input type="checkbox" checked={form.methodologies.includes(m.value)} onChange={() => toggleMethodology(m.value)} className="checkbox-card__input" disabled={busy} />
+                  <span className="checkbox-card__check">{form.methodologies.includes(m.value) ? '✓' : ''}</span>
+                  <span className="checkbox-card__label">{m.label}</span>
+                </label>
+              ))}
+            </div>
+            <div className="form-row">
+              <div className="form-group form-group--sm">
+                <Select label="Детализация" value={form.detail_level} onChange={e => set('detail_level', e.target.value)} disabled={busy}>
+                  <option value={1}>1 — кратко</option>
+                  <option value={2}>2 — стандарт</option>
+                  <option value={3}>3 — подробно</option>
+                </Select>
+              </div>
+            </div>
+            {form.methodologies.length < 2 && (
+              <div className="multi-hint">⚠️ Выберите минимум 2 методики для сравнения</div>
+            )}
+          </>
+        )}
+      </div>
 
-      {/* === Кнопка === */}
+      {/* Кнопка запуска */}
       <Button
         type="submit"
         variant="primary"

@@ -19,13 +19,42 @@
   letter-spacing: -0.02em;
 }
 
+/* ========== Section card ========== */
+
+.form-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg);
+}
+
 .form-section-label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 700;
   color: var(--primary);
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  margin-top: var(--space-sm);
+}
+
+.form-section-label__num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--primary);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+  letter-spacing: 0;
 }
 
 .form-subsection-label {
@@ -34,6 +63,7 @@
   color: var(--text-tertiary);
   text-transform: uppercase;
   letter-spacing: 0.06em;
+  margin-top: var(--space-xs);
 }
 
 .form-row {
@@ -70,7 +100,7 @@
 .form-group input,
 .form-group select,
 .form-group textarea {
-  background: var(--surface-2);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-md);
   padding: 10px 14px;
@@ -368,7 +398,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   overflow: hidden;
-  background: var(--surface-2);
+  background: var(--surface);
 }
 
 .victim-card__header {
@@ -383,7 +413,7 @@
 }
 
 .victim-card__header:hover {
-  background: var(--surface-2);
+  background: var(--surface-3);
 }
 
 .victim-card__title {
@@ -454,7 +484,7 @@
   padding: var(--space-md) var(--space-lg);
   border: 2px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  background: var(--surface);
   transition: all var(--transition-normal);
 }
 
@@ -495,7 +525,7 @@
   padding: 10px 16px;
   border: 2px solid var(--border);
   border-radius: var(--radius-lg);
-  background: var(--surface-2);
+  background: var(--surface);
   cursor: pointer;
   transition: all var(--transition-fast);
   user-select: none;
@@ -603,6 +633,10 @@
     padding: var(--space-lg);
     border-radius: var(--radius-lg);
   }
+
+  .form-section {
+    padding: var(--space-md);
+  }
   
   .form-title {
     font-size: var(--text-xl);
@@ -628,6 +662,7 @@
     grid-template-columns: 1fr;
   }
 }
+
 /* ---- Заблокированная форма (анализ / загрузка DOCX) ---- */
 .incident-form input:disabled,
 .incident-form textarea:disabled,
