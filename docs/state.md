@@ -218,7 +218,8 @@
   - ✅ Multi-analysis теперь идёт через `api.analyzeMultiStream()` / `POST /api/v1/analyze-multi-stream`
   - ✅ Во время сравнения форма остаётся видимой, но заблокированной через `loading`/`busy`, а под ней отображается прогресс по методикам
   - ✅ После SSE `done` результаты передаются в `compareResults(incidentId, sessionId)` и открывается `CompareView`
-  - ✅ `AnalysisProgress` переведён на Apple-style dark UI с `Card`/`Badge`, прогресс-баром и состояниями pending/running/done/error
+  - ✅ `AnalysisProgress` переведён на Apple-style dark UI с `Card`/`Badge`, прогресс-баром и состояниями running/done/error
+  - ✅ Прогресс отражает параллельный запуск: после события `started` все выбранные методики сразу получают статус «в работе», а затем независимо переходят в «готово» или «ошибка»
 
 ## В работе / следующий приоритет
 - [ ] P3: предупреждение при уходе со страницы во время анализа.

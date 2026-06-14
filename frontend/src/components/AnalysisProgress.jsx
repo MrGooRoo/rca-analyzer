@@ -15,24 +15,12 @@ const STATUS_RUNNING = 'running'
 const STATUS_DONE    = 'done'
 const STATUS_ERROR   = 'error'
 
-function markNextRunning(list) {
-  let activated = false
-  return list.map(item => {
-    if (!activated && item.state === 'pending') {
-      activated = true
-      return { ...item, state: 'running' }
-    }
-    return item
-  })
-}
-
 function updateItem(list, event, state, message = null) {
-  const updated = list.map(item =>
+  return list.map(item =>
     item.name === event.name || item.methodKey === event.methodology
       ? { ...item, state, message: message || item.message }
       : item,
   )
-  return state === 'done' || state === 'error' ? markNextRunning(updated) : updated
 }
 
 export default function AnalysisProgress({ payload, onDone, onError }) {
@@ -56,13 +44,15 @@ export default function AnalysisProgress({ payload, onDone, onError }) {
 
       if (event.status === 'started') {
         setTotal(event.total)
-        setItems(markNextRunning(
+        setItems(
           event.methodologies.map((name, i) => ({
             name,
             methodKey: payload.methodologies[i],
-            state: 'pending',
+            // Backend запускает все методики параллельно через asyncio.create_task,
+            // поэтому после started все выбранные методики считаются «в работе».
+            state: 'running',
           })),
-        ))
+        )
       }
 
       if (event.status === 'progress') {
