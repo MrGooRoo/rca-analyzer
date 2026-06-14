@@ -163,6 +163,34 @@
 }
 
 
+/* ---- Analyze running/cancel state ---- */
+.analysis-cancel-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-lg);
+  margin: 0 0 var(--space-lg);
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid rgba(255, 69, 58, 0.22);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(circle at top left, rgba(255, 69, 58, 0.14), transparent 36%),
+    var(--surface);
+}
+
+.analysis-cancel-toolbar__title {
+  color: var(--text);
+  font-size: var(--text-md);
+  font-weight: 700;
+  margin-bottom: 2px;
+}
+
+.analysis-cancel-toolbar__text {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  margin: 0;
+}
+
 /* ---- Analyze result state ---- */
 .analysis-result-toolbar {
   display: flex;
@@ -210,11 +238,13 @@
 }
 
 @media (max-width: 768px) {
+  .analysis-cancel-toolbar,
   .analysis-result-toolbar {
     align-items: stretch;
     flex-direction: column;
   }
 
+  .analysis-cancel-toolbar .ui-btn,
   .analysis-result-toolbar .ui-btn {
     width: 100%;
   }

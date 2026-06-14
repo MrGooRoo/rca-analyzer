@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { api } from './api.js'
 import { useAuth } from './context/AuthContext.jsx'
 import { useToast } from './components/ui/Toast.jsx'
@@ -24,38 +24,99 @@ export default function App() {
   const [viewMode, setViewMode]         = useState(null)
   const [loading, setLoading]           = useState(false)
   const [multiProgressPayload, setMultiProgressPayload] = useState(null)
+  const [analysisSignal, setAnalysisSignal] = useState(null)
+  const analysisRunRef = useRef(0)
+  const abortControllerRef = useRef(null)
 
   const isAdmin = user?.role === 'admin'
 
   // При потере сессии (user стал null) сбрасываем всё транзиентное состояние
   useEffect(() => {
     if (user === null) {
+      analysisRunRef.current += 1
       setResult(null)
       setComparison(null)
+      abortControllerRef.current?.abort()
+      abortControllerRef.current = null
       setViewMode(null)
+      setLoading(false)
       setMultiProgressPayload(null)
+      setAnalysisSignal(null)
       setPage('analyze')
     }
   }, [user])
 
+  // Предупреждаем, если пользователь закрывает/обновляет вкладку во время анализа.
+  useEffect(() => {
+    if (!loading) return undefined
+
+    function handleBeforeUnload(event) {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [loading])
+
+  function cancelCurrentAnalysis({ notify = true } = {}) {
+    // AbortController отменяет текущий HTTP-запрос на frontend. Если backend уже
+    // успел отправить запрос в LLM, фактическая остановка может быть не мгновенной.
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
+    analysisRunRef.current += 1
+    setLoading(false)
+    setMultiProgressPayload(null)
+    setAnalysisSignal(null)
+    if (notify) {
+      toast.info('Текущий запрос остановлен на стороне браузера.', 'Анализ отменён')
+    }
+  }
+
+  function canLeaveAnalysis() {
+    if (!loading) return true
+    return window.confirm(
+      'Анализ ещё идёт. Если перейти сейчас, текущий запрос будет отменён. Перейти?',
+    )
+  }
+
+  function leaveAnalysisIfAllowed() {
+    if (!canLeaveAnalysis()) return false
+    if (loading) cancelCurrentAnalysis({ notify: false })
+    return true
+  }
+
   // === Single analysis ===
   async function handleSubmit(payload) {
+    const controller = new AbortController()
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = controller
+
+    const runId = analysisRunRef.current + 1
+    analysisRunRef.current = runId
+    setAnalysisSignal(controller.signal)
     setLoading(true)
     setMultiProgressPayload(null)
     setResult(null)
     setComparison(null)
     try {
-      const data = await api.analyze(payload)
+      const data = await api.analyze(payload, { signal: controller.signal })
+      if (analysisRunRef.current !== runId) return
       setResult(data)
       setPage('analyze')
     } catch (e) {
+      if (analysisRunRef.current !== runId || e.name === 'AbortError') return
       toast.error(e.message, 'Ошибка анализа')
     } finally {
-      setLoading(false)
+      if (analysisRunRef.current === runId) {
+        abortControllerRef.current = null
+        setAnalysisSignal(null)
+        setLoading(false)
+      }
     }
   }
 
-  async function showMultiResults(results) {
+  async function showMultiResults(results, expectedRunId = null) {
     if (!results || results.length === 0) {
       toast.error('Не получено результатов анализа', 'Пустой ответ')
       return
@@ -76,12 +137,19 @@ export default function App() {
         summary: '',
       }
     }
+    if (expectedRunId !== null && analysisRunRef.current !== expectedRunId) return
     setComparison(comparisonData)
     setPage('analyze')
   }
 
   // === Multi analysis ===
   async function handleSubmitMulti(payload) {
+    const controller = new AbortController()
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = controller
+
+    analysisRunRef.current += 1
+    setAnalysisSignal(controller.signal)
     setLoading(true)
     setResult(null)
     setComparison(null)
@@ -89,18 +157,29 @@ export default function App() {
   }
 
   async function handleMultiProgressDone(results) {
+    const runId = analysisRunRef.current
     try {
-      await showMultiResults(results)
+      await showMultiResults(results, runId)
     } catch (e) {
-      toast.error(e.message || 'Не удалось собрать сравнение методик', 'Ошибка анализа')
+      if (analysisRunRef.current === runId && e.name !== 'AbortError') {
+        toast.error(e.message || 'Не удалось собрать сравнение методик', 'Ошибка анализа')
+      }
     } finally {
-      setLoading(false)
-      setMultiProgressPayload(null)
+      if (analysisRunRef.current === runId) {
+        abortControllerRef.current = null
+        setAnalysisSignal(null)
+        setLoading(false)
+        setMultiProgressPayload(null)
+      }
     }
   }
 
-  function handleMultiProgressError(message) {
-    toast.error(message || 'Не удалось выполнить сравнение методик', 'Ошибка анализа')
+  function handleMultiProgressError(message, error) {
+    if (error?.name !== 'AbortError') {
+      toast.error(message || 'Не удалось выполнить сравнение методик', 'Ошибка анализа')
+    }
+    abortControllerRef.current = null
+    setAnalysisSignal(null)
     setLoading(false)
     setMultiProgressPayload(null)
   }
@@ -118,25 +197,37 @@ export default function App() {
   }
 
   function goToHistory() {
+    if (!leaveAnalysisIfAllowed()) return
     setViewMode(null)
     setPage('history')
   }
 
   function goToAnalyze() {
+    if (page !== 'analyze' && !leaveAnalysisIfAllowed()) return
     setViewMode(null)
     setPage('analyze')
   }
 
+  function goToAdmin() {
+    if (!leaveAnalysisIfAllowed()) return
+    setViewMode(null)
+    setPage('admin')
+  }
 
   function startNewAnalysis() {
+    abortControllerRef.current?.abort()
+    abortControllerRef.current = null
     setResult(null)
     setComparison(null)
     setViewMode(null)
+    setLoading(false)
     setMultiProgressPayload(null)
+    setAnalysisSignal(null)
     setPage('analyze')
   }
 
   async function logout() {
+    if (!leaveAnalysisIfAllowed()) return
     try {
       await authLogout()
     } catch (e) {
@@ -187,7 +278,7 @@ export default function App() {
               variant="ghost"
               size="sm"
               className={page === 'admin' ? 'app-nav-btn--active' : ''}
-              onClick={() => setPage('admin')}
+              onClick={goToAdmin}
             >👥 Пользователи</Button>
           )}
         </nav>
@@ -210,9 +301,23 @@ export default function App() {
                   onSubmitMulti={handleSubmitMulti}
                   loading={loading}
                 />
+                {loading && (
+                  <div className="analysis-cancel-toolbar">
+                    <div>
+                      <div className="analysis-cancel-toolbar__title">Анализ выполняется</div>
+                      <p className="analysis-cancel-toolbar__text">
+                        Можно отменить текущий запрос и вернуться к редактированию формы.
+                      </p>
+                    </div>
+                    <Button variant="danger" onClick={() => cancelCurrentAnalysis()}>
+                      ⏹ Отменить анализ
+                    </Button>
+                  </div>
+                )}
                 {multiProgressPayload && (
                   <AnalysisProgress
                     payload={multiProgressPayload}
+                    signal={analysisSignal}
                     onDone={handleMultiProgressDone}
                     onError={handleMultiProgressError}
                   />

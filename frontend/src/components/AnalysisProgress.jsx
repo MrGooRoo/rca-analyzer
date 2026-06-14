@@ -23,7 +23,7 @@ function updateItem(list, event, state, message = null) {
   )
 }
 
-export default function AnalysisProgress({ payload, onDone, onError }) {
+export default function AnalysisProgress({ payload, signal, onDone, onError }) {
   const [phase, setPhase]           = useState(STATUS_IDLE)
   const [total, setTotal]           = useState(0)
   // items: { name, methodKey, state: 'pending'|'running'|'done'|'error', message? }
@@ -62,7 +62,7 @@ export default function AnalysisProgress({ payload, onDone, onError }) {
       if (event.status === 'error_one') {
         setItems(prev => updateItem(prev, event, 'error', event.message))
       }
-    })
+    }, { signal })
       .then((results) => {
         if (abortRef.current) return
         setPhase(STATUS_DONE)
@@ -70,17 +70,21 @@ export default function AnalysisProgress({ payload, onDone, onError }) {
       })
       .catch((err) => {
         if (abortRef.current) return
+        if (err.name === 'AbortError') {
+          onError?.('Анализ отменён', err)
+          return
+        }
         const msg = err.message || 'Ошибка анализа'
         setPhase(STATUS_ERROR)
         setFatalError(msg)
-        onError?.(msg)
+        onError?.(msg, err)
       })
 
     return () => {
       abortRef.current = true
     }
     // Важно: поток должен стартовать только при смене payload.
-    // onDone/onError в App.jsx пересоздаются на рендере, их не добавляем в deps.
+    // signal создаётся вместе с payload; onDone/onError в App.jsx пересоздаются на рендере, их не добавляем в deps.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [payload])
 

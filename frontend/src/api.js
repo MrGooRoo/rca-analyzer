@@ -130,6 +130,7 @@ async function req(method, path, body, options = {}) {
     parseAs = 'json',
     authRequired = false,
     retryOn401 = true,
+    signal,
   } = options
 
   const response = await fetch(path, {
@@ -137,6 +138,7 @@ async function req(method, path, body, options = {}) {
     headers: withCsrf(defaultHeaders(body), method),
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: 'include',
+    signal,
   })
 
   if (response.status === 401 && canAutoRefresh(path, authRequired, retryOn401)) {
@@ -331,7 +333,12 @@ function querySimilarIncidents(text, options = {}) {
   return req('POST', '/api/v1/incidents/similar', payload, { authRequired: true })
 }
 
-async function analyzeMultiStream(payload, onEvent, retryOn401 = true) {
+async function analyzeMultiStream(payload, onEvent, options = {}) {
+  const {
+    retryOn401 = true,
+    signal,
+  } = options
+
   const csrfToken = readCsrfToken()
   const headers = { 'Content-Type': 'application/json' }
   if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
@@ -341,11 +348,12 @@ async function analyzeMultiStream(payload, onEvent, retryOn401 = true) {
     headers,
     body: JSON.stringify(payload),
     credentials: 'include',
+    signal,
   })
 
   if (response.status === 401 && retryOn401) {
     const refreshed = await tryRefresh()
-    if (refreshed) return analyzeMultiStream(payload, onEvent, false)
+    if (refreshed) return analyzeMultiStream(payload, onEvent, { retryOn401: false, signal })
     notifyAuthLost()
     throw new Error('Сессия истекла. Войдите заново.')
   }
@@ -401,9 +409,9 @@ export const api = {
     refresh: () => req('POST', '/api/v1/auth/refresh', undefined, { retryOn401: false }),
     logout: () => req('POST', '/api/v1/auth/logout', undefined, { retryOn401: false }),
   },
-  analyze: (payload) => req('POST', '/api/v1/analyze', payload, { authRequired: true }),
-  analyzeMulti: (payload) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true }),
-  analyzeMultiStream: (payload, onEvent) => analyzeMultiStream(payload, onEvent),
+  analyze: (payload, options = {}) => req('POST', '/api/v1/analyze', payload, { authRequired: true, ...options }),
+  analyzeMulti: (payload, options = {}) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true, ...options }),
+  analyzeMultiStream: (payload, onEvent, options = {}) => analyzeMultiStream(payload, onEvent, options),
   compareResults: (incidentId, sessionId) => {
     // Предпочитаем session_id; fallback на incident_id для обратной совместимости
     if (sessionId) {
