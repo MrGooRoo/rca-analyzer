@@ -316,7 +316,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-divider" />
 
       {/* Раздел 1: Обстоятельства */}
-      <div className="form-section-label">1. Описание обстоятельств происшествия</div>
+      <div className="form-section-label" id="step-data">1. Описание обстоятельств происшествия</div>
 
       <div className="form-row">
         <div className="form-group form-group--full">
@@ -543,7 +543,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-divider" />
 
       {/* Параметры анализа */}
-      <div className="form-section-label">Параметры анализа</div>
+      <div className="form-section-label" id="step-method">Параметры анализа</div>
 
       {/* === Режим анализа: одиночный или сравнение === */}
       <div className="mode-selector">

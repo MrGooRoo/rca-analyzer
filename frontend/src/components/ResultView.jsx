@@ -52,7 +52,7 @@ export default function ResultView({ result, onOpenResult = null }) {
   ].filter(Boolean).join('\n')
 
   return (
-    <div className="result">
+    <div className="result" id="step-result">
       <div className="result-header">
         <div className="result-title">
           <Badge tone={methodologyMeta(result.methodology).badgeTone}>{methodologyMeta(result.methodology).icon} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>

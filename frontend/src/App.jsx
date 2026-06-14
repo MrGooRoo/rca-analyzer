@@ -10,6 +10,7 @@ import ResultView from './components/ResultView.jsx'
 import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
 import AdminPage from './components/AdminPage.jsx'
+import AnalysisSteps from './components/AnalysisSteps.jsx'
 import './App.css'
 
 export default function App() {
@@ -235,6 +236,9 @@ export default function App() {
     }
   }
 
+  // Этап анализа для степпера: 1 — ввод данных, 2 — анализ, 3 — результат
+  const analysisStep = comparison || result ? 3 : loading ? 2 : 1
+
   if (authLoading) {
     return (
       <div className="app">
@@ -294,6 +298,7 @@ export default function App() {
       <main className="app-main">
         {page === 'analyze' && (
           <>
+            <AnalysisSteps current={analysisStep} />
             {!result && !comparison && (
               <>
                 <IncidentForm

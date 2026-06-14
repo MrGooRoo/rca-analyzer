@@ -20,7 +20,7 @@ export default function CompareView({ comparison }) {
   const isBowtie = activeResult?.methodology === 'bowtie'
 
   return (
-    <div className="compare-view">
+    <div className="compare-view" id="step-result">
       {/* Заголовок */}
       <div className="compare-header">
         <h2 className="compare-title">
