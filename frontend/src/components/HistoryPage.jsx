@@ -17,53 +17,53 @@ const SEVERITY_COLORS = {
 const PAGE_SIZE = 20
 
 /**
- * Группирует записи по session_id (приоритет) или incident_id (fallback).
+ * Преобразует AnalysisSession[] из /sessions в элементы истории.
  *
- * Результаты multi-анализа (сравнения методик) — это ОДНО исследование:
- * у них общий session_id/incident_id и одинаковые входные данные,
- * отличается только методика. Поэтому в истории они отображаются
- * одной карточкой-группой.
+ * История теперь пагинируется по исследованиям (analysis_sessions), а не по
+ * плоскому списку RCAResult. Это не даёт разорвать сравнение методик между
+ * разными страницами истории.
  *
- * Возвращает массив элементов:
- *   { isCompare: false, result }                     — одиночный анализ
- *   { isCompare: true, sessionId, incidentId, results[] }  — сравнение (>= 2 результатов)
- * Порядок — по дате самого нового результата в группе.
+ * Возвращает массив:
+ *   { isCompare: false, result, session }                  — одиночный анализ
+ *   { isCompare: true, sessionId, incidentId, results[], session } — сравнение
  */
-function groupByIncident(items) {
-  const byGroup = new Map()
-  for (const r of items) {
-    // Предпочитаем session_id; fallback на incident_id для старых данных
-    const key = r.session_id || r.incident_id || r.result_id
-    if (!byGroup.has(key)) byGroup.set(key, [])
-    byGroup.get(key).push(r)
-  }
+function sessionsToHistoryGroups(sessions) {
+  return (sessions || [])
+    .map(session => {
+      const results = [...(session.results || [])]
+        .sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
+        .map(r => ({
+          ...r,
+          session_id: r.session_id || session.id,
+          user_id: r.user_id || session.user_id,
+          user_display_name: r.user_display_name || session.user_display_name,
+          user_email: r.user_email || session.user_email,
+          incident: r.incident || {
+            title: session.incident_title,
+            description: session.incident_description,
+            date: session.incident_date,
+            location: session.incident_location,
+            severity: session.incident_severity,
+            type: session.incident_type,
+          },
+        }))
 
-  const groups = []
-  for (const [groupId, results] of byGroup) {
-    // Сортируем результаты внутри группы по дате (стабильный порядок методик)
-    results.sort((a, b) => new Date(a.created_at) - new Date(b.created_at))
-    // Определяем incident_id и session_id из первого результата
-    const first = results[0]
-    const sessionId = first.session_id || null
-    const incidentId = first.incident_id || groupId
-    if (results.length > 1) {
-      groups.push({ isCompare: true, sessionId, incidentId, results })
-    } else {
-      groups.push({ isCompare: false, result: results[0] })
-    }
-  }
+      if (results.length === 0) return null
 
-  groups.sort((a, b) => {
-    const lastA = a.isCompare ? a.results[a.results.length - 1] : a.result
-    const lastB = b.isCompare ? b.results[b.results.length - 1] : b.result
-    return new Date(lastB.created_at) - new Date(lastA.created_at)
-  })
-  return groups
+      const first = results[0]
+      const incidentId = first.incident_id || session.id
+      if (results.length > 1) {
+        return { isCompare: true, sessionId: session.id, incidentId, results, session }
+      }
+      return { isCompare: false, result: results[0], session }
+    })
+    .filter(Boolean)
 }
+
 
 export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
   const isAdmin = currentUser?.role === 'admin'
-  const [items, setItems]       = useState([])
+  const [sessions, setSessions] = useState([])
   const [offset, setOffset]     = useState(0)
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
@@ -78,8 +78,8 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
     setLoading(true)
     setError(null)
     try {
-      const data = await api.results.list(PAGE_SIZE, off)
-      setItems(data)
+      const data = await api.sessions.list(PAGE_SIZE, off)
+      setSessions(data)
     } catch (e) {
       setError(e.message)
     } finally {
@@ -99,7 +99,7 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
     setFilterType('')
   }
 
-  const groups = useMemo(() => groupByIncident(items), [items])
+  const groups = useMemo(() => sessionsToHistoryGroups(sessions), [sessions])
 
   const filtered = useMemo(() => {
     let result = groups
@@ -248,7 +248,7 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
       </div>
 
       {/* ===== Пагинация ===== */}
-      {items.length === PAGE_SIZE && (
+      {sessions.length === PAGE_SIZE && (
         <div className="history-pagination">
           <Button type="button" variant="secondary" size="sm" className="btn-page" onClick={prev} disabled={offset === 0}>← Назад</Button>
           <span className="page-info">Стр. {Math.floor(offset / PAGE_SIZE) + 1}</span>

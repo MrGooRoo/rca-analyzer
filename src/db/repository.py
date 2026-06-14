@@ -598,6 +598,8 @@ class RCARepository:
             .options(
                 selectinload(AnalysisSessionORM.user),
                 selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.user),
+                selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.causal_nodes),
+                selectinload(AnalysisSessionORM.results).selectinload(RCAResultORM.recommendations),
             )
             .order_by(AnalysisSessionORM.created_at.desc())
             .limit(limit)

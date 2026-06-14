@@ -192,6 +192,13 @@
   - ✅ Кнопки обновления, сброса фильтров, пагинации и чипы методик используют `Button`
   - ✅ `Card`/`CardHeader`/`CardBody` теперь пробрасывают DOM props (`onClick`, `title` и др.), чтобы UI-kit карточки можно было использовать интерактивно
   - ✅ Счётчики по коду `HistoryPage.jsx`: `<Card>` 2, `<Button>` 5, `<Input>` 1, `<Select>` 3; нативные `<button>/<input>/<select>` отсутствуют
+- [x] **HistoryPage.jsx — загрузка через `/sessions` API** (14.06.2026)
+  - ✅ История загружается через `api.sessions.list(PAGE_SIZE, offset)` вместо `api.results.list(...)`
+  - ✅ Пагинация теперь идёт по исследованиям (`analysis_sessions`), а не по плоскому списку RCAResult
+  - ✅ Сравнение методик не разрывается между страницами истории
+  - ✅ `sessionsToHistoryGroups()` преобразует `AnalysisSession[]` в одиночные карточки или группы сравнения
+  - ✅ Для карточек формируется fallback `incident` из данных сессии (`incident_title`, `incident_severity`, и т.д.)
+  - ✅ `RCARepository.list_sessions()` eager-load'ит user, causal_nodes и recommendations результатов, чтобы `/sessions` отдавал полноценные RCAResult для истории
 
 ## Проверки
 - `python -m pytest tests/ -q` → **257 passed, 1 deselected (slow)**
@@ -200,8 +207,8 @@
 - `npm run build` во frontend → **успешно**
 
 ## В работе / следующий приоритет
-- [ ] Перевести историю на `/sessions` API (загрузка по исследованиям, а не плоский список результатов).
 - [ ] SimilarIncidentsPanel.jsx: перевести кнопки/фильтры/карточки на UI-kit.
+- [ ] Подключить `AnalysisProgress.jsx` / SSE-прогресс для multi-analysis.
 - [ ] Убрать оставшиеся `httpx` deprecation warnings в CSRF-тестах.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 
