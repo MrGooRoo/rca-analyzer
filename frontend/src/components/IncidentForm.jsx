@@ -161,7 +161,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         equipment_description: fields.equipment_description || prev.equipment_description,
         full_circumstances: fields.full_circumstances || prev.full_circumstances,
         established_facts: fields.established_facts || prev.established_facts,
-        victims_list: fields.victims_list || prev.victims_list,
+        victims_list: fields.victims_list?.length > 0 ? fields.victims_list : prev.victims_list,
       }))
     } catch (e) {
       setUploadError(e.message)
@@ -257,10 +257,18 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         {uploading ? (
           <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">{uploadMessage}</span></div>
         ) : uploadedFile ? (
-          <div className="upload-zone__content"><span className="upload-zone__icon">✅</span><span className="upload-zone__text">Поля заполнены из «{uploadedFile}»</span>
-            <Button type="button" variant="ghost" size="sm" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить</Button></div>
+          <div className="upload-zone__content">
+            <span className="upload-zone__icon">✅</span>
+            <span className="upload-zone__text">Данные загружены из «{uploadedFile}»</span>
+            <span className="upload-zone__hint">Проверьте заполненные поля ниже. Если в файле не было части сведений, дозаполните их вручную перед запуском анализа.</span>
+            <Button type="button" variant="ghost" size="sm" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить файл</Button>
+          </div>
         ) : (
-          <div className="upload-zone__content"><span className="upload-zone__icon">📄</span><span className="upload-zone__text">Загрузите отчёт об инциденте</span></div>
+          <div className="upload-zone__content">
+            <span className="upload-zone__icon">📄</span>
+            <span className="upload-zone__text">Заполните вручную или загрузите отчёт DOCX</span>
+            <span className="upload-zone__hint">Можно начать с ручного ввода или загрузить файл. Найденные в DOCX поля подставятся в форму, а отсутствующие сведения останутся доступными для ручного дозаполнения.</span>
+          </div>
         )}
       </div>
 
