@@ -289,7 +289,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
       {/* Раздел 1 */}
       <div className="form-section" id="step-data">
-        <div className="form-section-label"><span className="form-section-label__num">1</span>Описание обстоятельств происшествия</div>
+        <div className="form-section-label"><span className="form-section-label__num">1</span>Описание обстоятельств проишествия</div>
         <div className="form-row">
           <div className="form-group form-group--full">
             <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
@@ -444,19 +444,27 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         )}
 
         {isMulti() && (
-          <>
-            <div className="checkbox-group">
-              {METHODOLOGIES.map(m => (
-                <label key={m.value} className={`checkbox-card ${form.methodologies.includes(m.value) ? 'checkbox-card--checked' : ''}`}>
-                  <input type="checkbox" checked={form.methodologies.includes(m.value)} onChange={() => toggleMethodology(m.value)} className="checkbox-card__input" disabled={busy} />
-                  <span className="checkbox-card__check">{form.methodologies.includes(m.value) ? '✓' : ''}</span>
-                  <span className="checkbox-card__label">{m.label}</span>
-                </label>
-              ))}
-            </div>
-            {form.methodologies.length < 2 && <div className="multi-hint">⚠️ Выберите минимум 2 методики для сравнения</div>}
-          </>
+          <div className="checkbox-group">
+            {METHODOLOGIES.map(m => (
+              <label key={m.value} className={`checkbox-card ${form.methodologies.includes(m.value) ? 'checkbox-card--checked' : ''}`}>
+                <input type="checkbox" checked={form.methodologies.includes(m.value)} onChange={() => toggleMethodology(m.value)} className="checkbox-card__input" disabled={busy} />
+                <span className="checkbox-card__check">{form.methodologies.includes(m.value) ? '✓' : ''}</span>
+                <span className="checkbox-card__label">{m.label}</span>
+              </label>
+            ))}
+          </div>
         )}
+
+        {/* Подсказка "минимум 2" — зарезервированная высота, чтобы не было рывка страницы */}
+        <div
+          className="multi-hint"
+          aria-live="polite"
+          style={{
+            visibility: isMulti() && form.methodologies.length < 2 ? 'visible' : 'hidden',
+          }}
+        >
+          ⚠️ Выберите минимум 2 методики для сравнения
+        </div>
 
         {/* Детализация — radio-карточки */}
         <div className="form-subsection-label" style={{ marginTop: 4 }}>Уровень детализации</div>
