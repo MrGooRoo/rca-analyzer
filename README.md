@@ -1,334 +1,291 @@
 # RCA Analyzer
 
 Веб-приложение для анализа корневых причин (RCA) производственных инцидентов.
-Поддерживает 5 методологий, cookie-авторизацию с refresh-rotation, роли admin/user с изоляцией истории результатов по пользователям, загрузку DOCX-отчёта для автозаполнения формы и экспорт результатов в DOCX и PDF.
+
+Проект помогает собрать данные об инциденте, запустить анализ по одной или нескольким
+RCA-методикам, сравнить выводы, сохранить историю, найти похожие прошлые случаи и
+экспортировать результат в DOCX/PDF.
+
+---
+
+## Возможности
+
+- **5 RCA-методик:** `five_why`, `ishikawa`, `fta`, `rca_systemic`, `bowtie`.
+- **Одиночный анализ** по выбранной методике.
+- **Сравнение методик** по одному инциденту: несколько результатов группируются как одно исследование.
+- **История анализов** с группировкой сравнений, фильтрами и просмотром результатов.
+- **Похожие инциденты** через embeddings + pgvector:
+  - локальный deterministic provider `local/hash-ngrams-v2`;
+  - HuggingFace local model `cointegrated/rubert-tiny2`;
+  - OpenRouter embeddings provider.
+- **Дедуп похожих случаев** через `incident_hash` от заголовка и описания инцидента.
+- **DOCX upload**: загрузка отчёта и автозаполнение формы через LLM.
+- **Экспорт DOCX/PDF** из результата анализа.
+- **Авторизация:** cookie-based auth, refresh-token rotation, CSRF, роли `admin/user`.
+- **UI-kit:** Button, Field/Input/Textarea/Select, Card/Badge, Toast, AuthContext.
 
 ---
 
 ## Стек
 
-| Слой | Технология |
+| Слой | Технологии |
 |---|---|
-| Backend | FastAPI (Python 3.11) |
-| База данных | PostgreSQL + SQLAlchemy + Alembic |
-| LLM | OpenRouter → `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст; есть fallback-цепочка) |
-| Frontend | React (Vite) |
+| Backend | Python, FastAPI, Pydantic v2 |
+| База данных | PostgreSQL 16 + pgvector, SQLAlchemy, Alembic |
+| LLM | OpenRouter, default `nvidia/nemotron-3-super-120b-a12b:free` |
+| Embeddings | local / HuggingFace / OpenRouter |
+| Frontend | React 18 + Vite |
+| UI | CSS + UI-kit компоненты проекта, Tailwind utilities |
+| Auth | JWT access + refresh-token в httpOnly cookie, CSRF |
+| Export | python-docx, fpdf2 |
 | Контейнеризация | Docker Compose |
-| Авторизация | JWT access + refresh-token в httpOnly cookie, bcrypt |
-| Экспорт | python-docx → DOCX-файл |
 
 ---
 
 ## Быстрый старт
 
-```bash
-cd C:\Users\Mr_GooRoo\rca-analyzer
-git pull origin main
-docker-compose down && docker-compose up -d --build
-docker-compose exec api alembic upgrade head
+### 1. Подготовить `.env`
+
+Создайте `.env` в корне проекта на основе `.env.example` и укажите минимум:
+
+```env
+OPENROUTER_API_KEY=...
+JWT_SECRET=change-me-long-random-secret
+DATABASE_URL=postgresql+asyncpg://rca:secret@db:5432/rca_analyzer
+CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:3000
+AUTH_COOKIE_SECURE=false
+AUTH_COOKIE_SAMESITE=lax
 ```
 
-Swagger UI: [http://localhost:8000/docs](http://localhost:8000/docs)
-Frontend: [http://localhost:5173](http://localhost:5173)
+### 2. Запустить backend + PostgreSQL
 
----
+```bash
+docker compose up -d --build
+```
 
-## Методологии
+### 3. Применить миграции
 
-| Методология | Статус | ~Токены |
-|---|---|---|
-| `five_why` | ✅ работает | ~951 |
-| `ishikawa` | ✅ работает | ~2267 |
-| `rca_systemic` | ✅ работает | ~1504 |
-| `fta` | ✅ работает | ~1446 |
-| `bowtie` | ✅ работает | ~3138 |
+```bash
+docker compose exec api alembic upgrade head
+```
 
-Все 5 методологий прошли полный smoke-test (UI → анализ → экспорт DOCX/PDF) и покрыты E2E-тестами.
+### 4. Запустить frontend dev-server
 
----
+В отдельном терминале:
 
-## API
+```bash
+cd frontend
+npm install
+npm run dev -- --host 0.0.0.0
+```
 
-### Авторизация
+### 5. Открыть приложение
 
-| Метод | Эндпойнт | Описание |
-|---|---|---|
-| POST | `/api/v1/auth/register` | Регистрация → устанавливает access/refresh cookie |
-| POST | `/api/v1/auth/login` | Вход → устанавливает access/refresh cookie |
-| POST | `/api/v1/auth/refresh` | Обновить сессию по refresh cookie (rotation) |
-| POST | `/api/v1/auth/logout` | Отозвать текущий refresh-токен и очистить cookie |
-| GET | `/api/v1/auth/me` | Профиль текущего пользователя |
-
-### CSRF-защита (cookie-based auth)
-
-Поскольку access/refresh-токены живут в `httpOnly` cookie, которые браузер
-отправляет автоматически, приложение защищено от CSRF по схеме
-**signed double-submit cookie** (defense-in-depth поверх `SameSite`).
-
-**Как это работает:**
-
-1. На `register` / `login` / `refresh` сервер ставит **не-httpOnly** cookie
-   `csrf_token` со значением `<random>.<hmac_sha256(random, secret)>`.
-2. Frontend читает значение из `document.cookie` и отправляет его в заголовке
-   `X-CSRF-Token` при каждом **небезопасном** запросе (POST/PUT/PATCH/DELETE).
-3. `CSRFMiddleware` проверяет, что cookie присутствует, подпись валидна, а
-   значения cookie и заголовка совпадают. Иначе — `403`.
-
-**Что освобождено от проверки (не сломает интеграции):**
-
-| Случай | Почему exempt |
+| Что | Адрес |
 |---|---|
-| GET / HEAD / OPTIONS | safe-методы, не меняют состояние |
-| `login` / `register` / `refresh` | bootstrap: у клиента ещё нет csrf-cookie |
-| `Authorization: Bearer ...` без access-cookie | не подвержен ССРФ → Swagger «Аутхоризе» и `curl` работают как раньше |
-| анонимные запросы (нет access-cookie) | нечего защищать |
+| Frontend | http://localhost:5173/ |
+| API / Swagger | http://localhost:8000/docs |
+| Healthcheck | http://localhost:8000/health |
 
-**Поведение управляется** переменными `CSRF_PROTECTION_ENABLED`,
-`CSRF_EXEMPT_PATHS`, `CSRF_SECRET` (см. раздел «Переменные окружения»).
-Серверного хранилища CSRF-токенов нет — stateless, без новой таблицы/миграции.
+> `http://localhost:8000/` может вернуть `{"detail":"Not Found"}` — это нормально:
+> корень FastAPI не является страницей приложения. Для API используйте `/docs`,
+> для интерфейса — порт `5173`.
 
-### Анализ (требует auth-cookie или Bearer-токен)
+---
 
-| Метод | Эндпойнт | Описание |
+## Docker Compose
+
+`docker-compose.yml` поднимает:
+
+- `db` — `pgvector/pgvector:pg16`;
+- `api` — FastAPI на `http://localhost:8000`.
+
+Frontend в текущей dev-схеме запускается отдельно через Vite (`npm run dev`).
+
+Полезные команды:
+
+```bash
+# пересобрать backend и БД-сервис
+docker compose down
+docker compose up -d --build
+
+# логи API
+docker compose logs -f api
+
+# миграции
+docker compose exec api alembic upgrade head
+```
+
+---
+
+## Основные сценарии
+
+### Одиночный анализ
+
+1. Открыть `http://localhost:5173/`.
+2. Войти или зарегистрироваться.
+3. Заполнить форму инцидента или загрузить DOCX.
+4. Выбрать режим «Одна методика».
+5. Запустить анализ.
+6. После результата форма скрывается, появляется панель результата и кнопка «Новый анализ».
+
+### Сравнение методик
+
+1. В форме выбрать режим «Сравнить методики».
+2. Выбрать минимум 2 методики.
+3. Запустить сравнение.
+4. Результаты сохраняются в одну `analysis_session` и отображаются в истории как одно исследование.
+
+### Похожие инциденты
+
+- В форме отображается лёгкий индикатор похожих случаев.
+- В результате анализа показывается полный блок похожих инцидентов.
+- Повторные анализы того же инцидента исключаются через `incident_hash`.
+
+---
+
+## API endpoints
+
+### Auth
+
+| Метод | Endpoint | Описание |
 |---|---|---|
-| POST | `/api/v1/analyze` | Запуск RCA-анализа |
-| GET | `/api/v1/results` | История результатов текущего пользователя |
-| GET | `/api/v1/results/{id}` | Результат по ID |
-| GET | `/api/v1/results/{id}/export` | Скачать DOCX-отчёт |
-| POST | `/api/v1/upload-report` | Загрузить DOCX → автозаполнить форму через LLM |
+| GET | `/api/v1/auth/csrf` | Получить CSRF cookie для login/register |
+| POST | `/api/v1/auth/register` | Регистрация |
+| POST | `/api/v1/auth/login` | Вход |
+| POST | `/api/v1/auth/refresh` | Refresh-token rotation |
+| POST | `/api/v1/auth/logout` | Выход |
+| GET | `/api/v1/auth/me` | Текущий пользователь |
+
+### Анализ и история
+
+| Метод | Endpoint | Описание |
+|---|---|---|
+| POST | `/api/v1/analyze` | Одиночный RCA-анализ |
+| POST | `/api/v1/analyze-multi` | Анализ несколькими методиками |
+| POST | `/api/v1/analyze-multi-stream` | Streaming multi-analysis events |
+| GET | `/api/v1/results` | История результатов |
+| GET | `/api/v1/results/{result_id}` | Полный результат |
+| GET | `/api/v1/results/compare?session_id=...` | Сравнение результатов сессии |
+| GET | `/api/v1/sessions` | Список исследований |
+| GET | `/api/v1/sessions/{session_id}` | Исследование по ID |
+
+### Upload / export / similar
+
+| Метод | Endpoint | Описание |
+|---|---|---|
+| POST | `/api/v1/upload-report` | Загрузить DOCX и извлечь поля |
+| POST | `/api/v1/upload-report-stream` | Streaming upload progress |
+| GET | `/api/v1/results/{result_id}/export?format=docx|pdf` | Экспорт результата |
+| POST | `/api/v1/incidents/similar` | Поиск похожих инцидентов |
+
+### Admin
+
+| Метод | Endpoint | Описание |
+|---|---|---|
+| GET | `/api/v1/admin/users` | Список пользователей, admin only |
+| PUT | `/api/v1/admin/users/{user_id}/role` | Изменить роль пользователя |
 
 ---
 
-## Загрузка DOCX-отчёта
+## Embeddings
 
-Эндпойнт: `POST /api/v1/upload-report` (multipart/form-data, файл `file`)
+Выбор провайдера через `.env`:
 
-**Что происходит:**
-1. `DocxExtractor` извлекает текст из DOCX (абзацы + таблицы)
-2. Текст обрезается стратегией **head + tail + section-aware** (см. ниже)
-3. LLM извлекает до 20 полей (заголовок, описание, дата, место, установленные факты, пострадавшие и др.)
-4. Форма в UI заполняется извлечёнными данными
+```env
+EMBEDDINGS_PROVIDER=local        # local | huggingface | openrouter
+```
 
-**Стратегия обрезки текста (`docx_fields_service._trim_text`):**
-- Документы ≤ `HEAD_CHUNK + TAIL_CHUNK` (16 000 сим.) передаются целиком.
-- Для длинных документов берём:
-  - **head** — первые `8 000` сим. (обзор, даты, пострадавшие);
-  - **tail** — последние `8 000` сим. (часто заключение);
-  - **section slices** — целевые срезы (`SECTION_WINDOW = 6 000`) вокруг ключевых
-    разделов (`Установленные факты`, `Обстоятельства`, `Причины` и др.),
-    найденных **в любом месте** документа.
-- Это решает проблему пустого `established_facts`: раздел гарантированно попадает
-  в срез, даже если он в «мёртвой зоне» между head и tail (тестовый документ
-  `165 066` сим. — раздел на позиции ~48 895, успешно захватывается).
-- Между сохранёнными фрагментами вставляется метка `...[пропущено N символов]...`.
+| Provider | Модель / поведение | Рекомендуемый threshold |
+|---|---|---|
+| `local` | `local/hash-ngrams-v2`, deterministic feature hashing, 384 dim | `0.15` |
+| `huggingface` | `cointegrated/rubert-tiny2`, CPU, кэш в `HF_HOME` | `0.55–0.6` |
+| `openrouter` | OpenAI-compatible embeddings endpoint через OpenRouter | `0.55–0.6` |
 
-**LLM клиент (upload):**
-- `required_keys={"title"}` — не проверяет `summary`/`recommendations` (они нужны только RCA-методологиям)
-- `max_tokens=4096` — достаточно для крупных JSON с `victims_list`
-
-**Проверка / тесты:**
-- `pytest tests/unit/test_docx_fields_service.py` — 13 тестов на `_trim_text`
-- `python scripts/verify_established_facts.py [path.docx]` — e2e-проверка без LLM
+Векторы разных моделей не смешиваются: поиск фильтрует по `model_name`.
+При ошибке внешнего провайдера выполняется fallback на `local/hash-ngrams-v2`.
 
 ---
 
-## Экспорт DOCX / PDF
+## Проверки для разработки
 
-Эндпойнт: `GET /api/v1/results/{result_id}/export?format=docx|pdf`
-(требует auth-cookie или Bearer-токен; `format` по умолчанию `docx`)
+```bash
+# backend tests
+python -m pytest tests/ -q
 
-Документ (одинаковая структура для DOCX и PDF) содержит:
+# lint
+ruff check
 
-1. Заголовок — методология, ID, дата, модель, токены, уверенность
-2. Резюме
-3. Причины (для bowtie: Hazard, Топ-событие, Угрозы, Барьеры предотвращения, Последствия, Барьеры смягчения; деградированные барьеры помечены ⚠)
-4. Рекомендации — таблица с приоритетом, категорией, ответственным
-5. Техническая информация
+# frontend build
+npm --prefix frontend run build
+```
 
-Имя файла: `rca_{methodology}_{result_id[:8]}.{docx|pdf}`
+Текущий ожидаемый результат:
 
-- **DOCX** — `export_service.py` через `python-docx`.
-- **PDF** — `pdf_export_service.py` через `fpdf2`; кириллица обеспечивается
-  встроенными TTF-шрифтами `src/services/fonts/DejaVuSans*.ttf` (работает в Docker
-  без системных шрифтов). Палитра и секции идентичны DOCX.
-
-В UI: кнопки **⬇️ DOCX** и **⬇️ PDF** в шапке каждого результата (`ResultView.jsx`).
+```text
+257 passed, 1 deselected
+ruff: All checks passed
+frontend: build successful
+```
 
 ---
 
 ## Структура проекта
 
-```
+```text
 rca-analyzer/
 ├── src/
-│   ├── auth/                   # Access JWT, refresh-token rotation, cookies, bcrypt
-│   ├── api/
-│   │   ├── app.py              # CORS + credentials, роутеры
-│   │   └── routes/
-│   │       ├── analyze.py      # Защищён cookie/Bearer auth, пишет user_id
-│   │       ├── export.py       # GET /results/{id}/export → DOCX
-│   │       └── upload.py       # POST /upload-report → извлечение полей через LLM
-│   ├── db/
-│   │   ├── orm_models.py       # UserORM, RefreshTokenORM, IncidentORM, RCAResultORM
-│   │   └── repository.py       # CRUD
-│   ├── domain/
-│   │   ├── models.py           # RCAResult, CauseNode, Recommendation
-│   │   └── methodologies/      # five_why, ishikawa, rca_systemic, fta, bowtie
-│   ├── integrations/llm/
-│   │   └── openrouter.py       # AsyncClient; required_keys param; retry x3
-│   └── services/
-│       ├── analysis_service.py # Оркестратор, реестр _RUNNERS (все 5)
-│       ├── export_service.py   # Генерация DOCX (все 5 методологий)
-│       ├── pdf_export_service.py    # Генерация PDF (fpdf2 + DejaVu-шрифты)
-│       ├── fonts/              # DejaVuSans*.ttf для PDF (кириллица)
-│       ├── docx_extractor.py   # Извлечение текста из DOCX
-│       └── docx_fields_service.py  # LLM-парсинг полей из текста отчёта
+│   ├── api/                    # FastAPI app, middleware, routes
+│   ├── auth/                   # auth, cookies, CSRF, roles
+│   ├── db/                     # ORM models, repository
+│   ├── domain/                 # Pydantic models, RCA methodologies
+│   ├── integrations/           # OpenRouter, embeddings integrations
+│   └── services/               # analysis, DOCX/PDF export, upload parsing, embeddings
 ├── frontend/
 │   └── src/
-│       ├── api.js              # Централизованный fetch; exportDocx() скачивает blob; uploadReport()
-│       ├── App.jsx             # Login-gate, навигация, logout, обработка 401
-│       └── components/
-│           ├── AuthPage.jsx        # вход / регистрация
-│           ├── HistoryPage.jsx     # история через api.js
-│           ├── IncidentForm.jsx    # форма, drag-and-drop загрузка .docx
-│           ├── ResultView.jsx      # кнопка ⬇️ DOCX, без прямых HTTP-запросов
-│           ├── BowtieDiagram.jsx   # диаграмма (v6), интегрирована в ResultView
-│           └── BowtieDiagram.css
-├── configs/prompts/            # Jinja2-шаблоны: five_why, ishikawa, fta, rca_systemic, bowtie
-├── alembic/versions/
-│   ├── 001_initial.py
-│   ├── 002_fix_varchar_lengths.py
-│   ├── 003_add_users.py        # users + user_id в incidents/rca_results
-│   └── 004_add_refresh_tokens.py
+│       ├── App.jsx
+│       ├── api.js
+│       ├── components/
+│       ├── components/ui/      # Button, Card, Field, Toast
+│       ├── context/            # AuthContext
+│       └── lib/                # methodologies metadata
+├── alembic/versions/           # DB migrations
+├── configs/prompts/            # Jinja2 prompts for RCA methodologies
+├── docs/
+│   ├── contracts.md            # data/API contracts
+│   ├── state.md                # current implementation status
+│   └── ui-state-analysis.md    # UI state decisions/issues
 ├── Dockerfile
 ├── docker-compose.yml
-├── pyproject.toml              # зависимости проекта
-└── .env                        # Создаётся вручную (не в git)
+└── pyproject.toml
 ```
 
 ---
 
-## Переменные окружения (`.env`)
+## Документация статуса
 
-```env
-DATABASE_URL=postgresql+asyncpg://...
-OPENROUTER_API_KEY=...
-JWT_SECRET=...                # секрет для HS256
-ACCESS_TOKEN_TTL_MINUTES=15
-REFRESH_TOKEN_TTL_DAYS=30
-AUTH_COOKIE_SECURE=false       # prod: true (cookie только по HTTPS)
-AUTH_COOKIE_SAMESITE=lax       # cross-domain prod: none (+ AUTH_COOKIE_SECURE=true)
-CORS_ALLOW_ORIGINS=http://localhost:5173,http://localhost:3000
+Актуальный технический статус проекта ведётся в:
 
-# CSRF (signed double-submit cookie)
-CSRF_PROTECTION_ENABLED=true   # выключатель защиты (dev можно false)
-# CSRF_SECRET=                 # секрет подписи; если пусто — используется JWT_SECRET
-# CSRF_EXEMPT_PATHS=           # доп. exempt-пути через запятую (точное совпадение)
-# CSRF_COOKIE_NAME=csrf_token
-# CSRF_HEADER_NAME=X-CSRF-Token
-```
+- [`docs/state.md`](docs/state.md)
+- [`docs/contracts.md`](docs/contracts.md)
+- [`docs/ui-state-analysis.md`](docs/ui-state-analysis.md)
+
+README — краткая точка входа. Детальные контракты и принятые решения находятся в `docs/`.
 
 ---
 
-## Миграции
+## Production hardening checklist
 
-```bash
-docker-compose exec api alembic upgrade head      # применить все
- docker-compose exec api alembic revision --autogenerate -m "name"  # новая
-```
-
----
-
-## Ключевые архитектурные решения
-
-- **bcrypt напрямую** (без passlib) — обход бага совместимости с `bcrypt ≥ 4.x`
-- **Access/refresh в httpOnly cookie** — frontend не хранит токены ни в памяти, ни в `localStorage`
-- **Refresh-token rotation** — при `POST /api/v1/auth/refresh` старый refresh-токен помечается revoked, клиент получает новую пару cookie
-- **user_id** сохраняется в `incidents` и `rca_results`; `GET /api/v1/results` возвращает только записи текущего пользователя
-- **OpenRouterClient** создаётся на каждый запрос (`async with`) — предотвращает повторное использование закрытого `httpx.AsyncClient`
-- **`required_keys` param** в `OpenRouterClient.complete()` — upload передаёт `{"title"}`, RCA-раннеры ничего не меняют (дефолт `{"summary", "recommendations"}`)
-- **Frontend HTTP** — вся сетевая логика централизована в `api.js`; `401` вызывает авто-refresh и один retry
-- **BowtieDiagram** интегрирован в `ResultView` — автоматически отображается для `methodology === 'bowtie'`
-- **CSRF: signed double-submit cookie** — stateless, без таблицы; Bearer/Swagger/curl освобождены
-- **Export DOCX** — `export_service.py` через `python-docx`; отдельные секции для каждой методологии
+- [ ] Задать длинный случайный `JWT_SECRET`.
+- [ ] Включить `AUTH_COOKIE_SECURE=true` под HTTPS.
+- [ ] Настроить `AUTH_COOKIE_SAMESITE` под схему доменов.
+- [ ] Ограничить `CORS_ALLOW_ORIGINS` конкретными доменами.
+- [ ] Задать отдельный `CSRF_SECRET` или использовать надёжный `JWT_SECRET`.
+- [ ] Выполнить `alembic upgrade head` на production DB.
+- [ ] Для HuggingFace embeddings подключить persistent volume для `HF_HOME`.
 
 ---
 
-## Production hardening (чеклист перед деплоем)
+## Лицензия
 
-- [ ] **`JWT_SECRET`** — задать длинный случайный секрет (`openssl rand -hex 32`)
-- [ ] **`AUTH_COOKIE_SECURE=true`** — cookie только по HTTPS
-- [ ] **`CSRF_PROTECTION_ENABLED=true`** — оставить включённым
-- [ ] **`SameSite`**: один домен → `lax`; разные домены → `none` + `SECURE=true`
-- [ ] **`CORS_ALLOW_ORIGINS`** — только реальные домены (no `*`)
-
----
-
-## Тесты
-
-```bash
-# Все тесты (в окружении проекта / Docker, где заданы env-переменные)
-pytest
-
-# Только E2E всех 5 методологий (полный конвейер, без сети)
-pytest tests/integration/test_methodologies_e2e.py
-
-# Роли admin/user
-pytest tests/api/test_roles.py tests/api/test_admin.py
-
-# Извлечение полей из DOCX
-pytest tests/unit/test_docx_fields_service.py
-
-# PDF-экспорт всех методологий
-pytest tests/unit/test_pdf_export_service.py
-```
-
-- `tests/integration/test_methodologies_e2e.py` — 21 тест: для каждой методики
-  прогоняется `AnalysisRequest → PromptRenderer → (fake LLM) → Runner → RCAResult`.
-  Мокается только сетевой вызов LLM; промпты и парсеры — настоящие.
-- `tests/unit/` — модульные тесты runner'ов, обрезки текста, OpenRouter-клиента.
-- `tests/api/` — HTTP-слой: analyze-роутер, CSRF, роли.
-
----
-
-## Roadmap
-
-### ✅ Реализовано
-- [x] Все 5 методологий (five_why, ishikawa, rca_systemic, fta, bowtie)
-- [x] Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
-- [x] CSRF protection (signed double-submit cookie + `X-CSRF-Token`)
-- [x] Роли `admin` / `user` — admin видит/редактирует/удаляет любые результаты, user только свои
-- [x] BowtieDiagram в UI
-- [x] `POST /api/v1/upload-report` — автозаполнение формы из DOCX-отчёта через LLM
-- [x] Извлечение `established_facts` из длинных документов (head + tail + section-aware)
-- [x] Экспорт **DOCX** и **PDF** (`?format=docx|pdf`, кнопки ⬇️ DOCX / ⬇️ PDF в UI)
-- [x] E2E-тесты `pytest` для всех 5 методологий + unit-тесты сервисов и роутеров
-
-### 🟡 В работе / следующее
-- [ ] _нет активных задач — основной функционал реализован_
-
-### 🟢 Идеи на будущее (backlog)
-- [ ] Дополнительные форматы экспорта (XLSX / CSV выгрузка рекомендаций)
-- [ ] Дашборд статистики по инцидентам (методики, тяжесть, динамика)
-- [ ] Сравнение результатов нескольких методик по одному инциденту
-- [ ] Прикрепление фото/файлов к инциденту и их учёт в анализе
-- [ ] Уведомления / экспорт по расписанию
-
----
-
-## Статус на 07.06.2026
-
-**Реализован полный целевой функционал.** Активных задач в работе нет —
-дальнейшие пункты вынесены в backlog «Идеи на будущее».
-
-- ✅ Инфраструктура: Docker Compose (API + PostgreSQL)
-- ✅ API: все 5 методологий, register/login/refresh/logout, upload-report, export (DOCX/PDF)
-- ✅ Авторизация: access JWT + refresh-token rotation в httpOnly cookie, bcrypt
-- ✅ Роли: `admin` / `user` (изоляция результатов, admin-роутер `/api/v1/admin/users`)
-- ✅ CSRF protection: signed double-submit cookie + `X-CSRF-Token`
-- ✅ Миграции: 5 версий (001 → 005, включая `005_add_user_role`)
-- ✅ Frontend: восстановление сессии, авто-refresh при 401, drag-and-drop загрузка .docx
-- ✅ Export: `GET /api/v1/results/{id}/export?format=docx|pdf` + кнопки ⬇️ DOCX / ⬇️ PDF в ResultView.jsx
-- ✅ Upload DOCX: `POST /api/v1/upload-report` — автозаполнение формы через LLM (20 полей + victims_list)
-- ✅ `established_facts` корректно извлекается из длинных документов — head + tail + section-aware в `docx_fields_service._trim_text`, `max_tokens=4096`
-- ✅ Тесты: E2E всех методологий, PDF-экспорт, извлечение полей DOCX, роли, CSRF
+Проект разрабатывается в репозитории `MrGooRoo/rca-analyzer`.
