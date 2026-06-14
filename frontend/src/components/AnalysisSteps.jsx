@@ -8,9 +8,6 @@ const STEPS = [
 ]
 
 export default function AnalysisSteps({ current = 1, onNavigate }) {
-  // DEBUG: убрать после диагностики
-  console.log('[AnalysisSteps] current =', current)
-
   function go(step) {
     const targetId = STEPS.find(s => s.id === step)?.target
     if (targetId) {
@@ -23,14 +20,20 @@ export default function AnalysisSteps({ current = 1, onNavigate }) {
     if (onNavigate) onNavigate(step)
   }
 
+  // Когда результат готов (current === 3) — все шаги завершены, показываем все зелёными
+  const allDone = current === 3
+
   return (
     <div className="analysis-steps-sticky">
       <div className="analysis-steps" role="navigation" aria-label="Этапы анализа">
         <div className="analysis-steps__track" aria-hidden="true" />
         {STEPS.map((step, idx) => {
-          const state =
-            step.id < current ? 'done' :
-            step.id === current ? 'active' : 'pending'
+          const state = allDone
+            ? 'done'
+            : step.id < current ? 'done'
+            : step.id === current ? 'active'
+            : 'pending'
+
           const clickable = step.id <= 2 && current < 3
 
           return (
@@ -40,7 +43,7 @@ export default function AnalysisSteps({ current = 1, onNavigate }) {
                 className="analysis-step__btn"
                 onClick={() => clickable && go(step.id)}
                 disabled={!clickable}
-                aria-current={state === 'active' ? 'step' : undefined}
+                aria-current={!allDone && state === 'active' ? 'step' : undefined}
                 title={clickable ? `Перейти к: ${step.label}` : undefined}
               >
                 <span className="analysis-step__num">
