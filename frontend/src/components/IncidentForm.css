@@ -31,6 +31,7 @@
   padding: var(--space-lg);
 }
 
+/* --- Base section label (icon variant, used for all data sections) --- */
 .form-section-label {
   display: flex;
   align-items: center;
@@ -42,6 +43,21 @@
   letter-spacing: 0.08em;
 }
 
+/* Icon badge — replaces numbered circle for data sections */
+.form-section-label__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius-md);
+  background: rgba(10, 132, 255, 0.12);
+  font-size: 13px;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+/* Numbered circle — kept only for the "Parameters" step-2 section */
 .form-section-label__num {
   display: inline-flex;
   align-items: center;
@@ -57,6 +73,16 @@
   letter-spacing: 0;
 }
 
+/* Step-2 variant: slightly bolder border to visually stand out as a wizard step */
+.form-section-label--step {
+  color: var(--primary);
+}
+.form-section-label--step .form-section-label__num {
+  background: var(--primary);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.18);
+}
+
+/* Subsection labels — plain text, no numbering */
 .form-subsection-label {
   font-size: var(--text-xs);
   font-weight: 600;

@@ -287,9 +287,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>
       )}
 
-      {/* Раздел 1 */}
+      {/* Секция: Описание обстоятельств */}
       <div className="form-section" id="step-data">
-        <div className="form-section-label"><span className="form-section-label__num">1</span>Описание обстоятельств проишествия</div>
+        <div className="form-section-label">
+          <span className="form-section-label__icon">📝</span>
+          Описание обстоятельств проишествия
+        </div>
         <div className="form-row">
           <div className="form-group form-group--full">
             <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
@@ -320,9 +323,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
-      {/* Раздел 2 */}
+      {/* Секция: Фото */}
       <div className="form-section">
-        <div className="form-section-label"><span className="form-section-label__num">2</span>Фото с места проишествия</div>
+        <div className="form-section-label">
+          <span className="form-section-label__icon">📷</span>
+          Фото с места проишествия
+        </div>
         <div className="form-row">
           <div className="form-group form-group--full">
             <Textarea label="Ссылки на фото (по одной на строку)" rows={3} placeholder="https://..." value={form.photo_urls.join('\n')} onChange={e => set('photo_urls', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))} disabled={busy} />
@@ -335,13 +341,16 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
-      {/* Раздел 3 */}
+      {/* Секция: Установленные факты */}
       <div className="form-section">
-        <div className="form-section-label"><span className="form-section-label__num">3</span>Установленные факты</div>
+        <div className="form-section-label">
+          <span className="form-section-label__icon">🔍</span>
+          Установленные факты
+        </div>
 
         <div className="victims-section">
           <div className="victims-header">
-            <span className="form-subsection-label">3.1. Сведения о пострадавших</span>
+            <span className="form-subsection-label">Сведения о пострадавших</span>
             <Button type="button" variant="secondary" size="sm" className="btn-add-victim" onClick={addVictim} disabled={busy}>+ Добавить пострадавшего</Button>
           </div>
           {form.victims_list.length === 0 && <div className="victims-empty">Нет добавленных пострадавших — заполните вручную или загрузите .docx</div>}
@@ -388,22 +397,25 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           ))}
         </div>
 
-        <div className="form-subsection-label">3.2. Описание места происшествия</div>
-        <div className="form-row"><div className="form-group form-group--full"><Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} /></div></div>
+        <div className="form-subsection-label">Описание места проишествия</div>
+        <div className="form-row"><div className="form-group form-group--full"><Textarea label="Описание места происхождения" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} /></div></div>
 
-        <div className="form-subsection-label">3.3. Характеристика оборудования / объекта</div>
+        <div className="form-subsection-label">Характеристика оборудования / объекта</div>
         <div className="form-row"><div className="form-group form-group--full"><Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} /></div></div>
 
-        <div className="form-subsection-label">3.4. Полное описание обстоятельств</div>
+        <div className="form-subsection-label">Полное описание обстоятельств</div>
         <div className="form-row"><div className="form-group form-group--full"><Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после проишествия" disabled={busy} /></div></div>
 
-        <div className="form-subsection-label">3.5. Установленные факты</div>
+        <div className="form-subsection-label">Установленные факты</div>
         <div className="form-row"><div className="form-group form-group--full"><Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} /></div></div>
       </div>
 
-      {/* Раздел 4 */}
+      {/* Секция: Классификация */}
       <div className="form-section">
-        <div className="form-section-label"><span className="form-section-label__num">4</span>Классификация инцидента</div>
+        <div className="form-section-label">
+          <span className="form-section-label__icon">🏷️</span>
+          Классификация инцидента
+        </div>
         <div className="form-row">
           <div className="form-group">
             <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>
@@ -418,9 +430,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
-      {/* Раздел 5 */}
+      {/* Секция: Параметры анализа — шаг 2 степпера */}
       <div className="form-section" id="step-method">
-        <div className="form-section-label"><span className="form-section-label__num">5</span>Параметры анализа</div>
+        <div className="form-section-label form-section-label--step">
+          <span className="form-section-label__num">2</span>
+          Параметры анализа
+        </div>
 
         <div className="mode-selector">
           <label className={`mode-option ${!isMulti() ? 'mode-option--active' : ''}`}>
@@ -455,18 +470,14 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           </div>
         )}
 
-        {/* Подсказка "минимум 2" — зарезервированная высота, чтобы не было рывка страницы */}
         <div
           className="multi-hint"
           aria-live="polite"
-          style={{
-            visibility: isMulti() && form.methodologies.length < 2 ? 'visible' : 'hidden',
-          }}
+          style={{ visibility: isMulti() && form.methodologies.length < 2 ? 'visible' : 'hidden' }}
         >
           ⚠️ Выберите минимум 2 методики для сравнения
         </div>
 
-        {/* Детализация — radio-карточки */}
         <div className="form-subsection-label" style={{ marginTop: 4 }}>Уровень детализации</div>
         <div className="detail-selector">
           {DETAIL_LEVELS.map(lvl => (
