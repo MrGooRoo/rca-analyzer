@@ -504,24 +504,24 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
-      {/* 3.4 Характеристика оборудования */}
-      <div className="form-subsection-label">3.4. Характеристика оборудования / объекта</div>
+      {/* 3.3 Характеристика оборудования (было 3.4) */}
+      <div className="form-subsection-label">3.3. Характеристика оборудования / объекта</div>
       <div className="form-row">
         <div className="form-group form-group--full">
           <Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} />
         </div>
       </div>
 
-      {/* 3.5 Полное описание */}
-      <div className="form-subsection-label">3.5. Полное описание обстоятельств</div>
+      {/* 3.4 Полное описание обстоятельств (было 3.5) */}
+      <div className="form-subsection-label">3.4. Полное описание обстоятельств</div>
       <div className="form-row">
         <div className="form-group form-group--full">
           <Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после происшествия" disabled={busy} />
         </div>
       </div>
 
-      {/* 3.6 Установленные факты */}
-      <div className="form-subsection-label">3.6. Установленные факты</div>
+      {/* 3.5 Установленные факты (было 3.6) */}
+      <div className="form-subsection-label">3.5. Установленные факты</div>
       <div className="form-row">
         <div className="form-group form-group--full">
           <Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} />
@@ -530,7 +530,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
       <div className="form-divider" />
 
-      {/* Тип / тяжесть */}
+      {/* Раздел 4: Классификация инцидента */}
+      <div className="form-section-label">4. Классификация инцидента</div>
       <div className="form-row">
         <div className="form-group">
           <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>{TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}</Select>
@@ -542,8 +543,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
 
       <div className="form-divider" />
 
-      {/* Параметры анализа */}
-      <div className="form-section-label" id="step-method">Параметры анализа</div>
+      {/* Раздел 5: Параметры анализа */}
+      <div className="form-section-label" id="step-method">5. Параметры анализа</div>
 
       {/* === Режим анализа: одиночный или сравнение === */}
       <div className="mode-selector">
