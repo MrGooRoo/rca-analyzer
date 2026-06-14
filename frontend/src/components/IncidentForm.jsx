@@ -6,19 +6,19 @@ import { Input, Textarea, Select } from './ui/Field.jsx'
 import './IncidentForm.css'
 
 const METHODOLOGIES = [
-  { value: 'ishikawa',     label: 'Ishikawa (Рыбья кость)' },
   { value: 'five_why',     label: '5 Почему' },
+  { value: 'bowtie',       label: 'Bowtie (Бабочка)' },
+  { value: 'ishikawa',     label: 'Ishikawa (Рыбья кость)' },
   { value: 'fta',          label: 'FTA (Дерево отказов)' },
   { value: 'rca_systemic', label: 'RCA Системный' },
-  { value: 'bowtie',       label: 'Bowtie (Бабочка)' },
 ]
 
 const SEVERITIES = [
-  { value: 'critical',  label: 'Критический' },
-  { value: 'major',     label: 'Тяжёлый' },
-  { value: 'moderate',  label: 'Средний' },
-  { value: 'minor',     label: 'Лёгкий' },
-  { value: 'near_miss', label: 'Предпосылка' },
+  { value: 'critical',  label: 'Критический', hint: 'Смерть / тяжёлый вред',       color: 'critical' },
+  { value: 'major',     label: 'Тяжёлый',     hint: 'Госпитализация / крупный ущерб', color: 'major' },
+  { value: 'moderate',  label: 'Средний',      hint: 'Временная нетрудоспособность',  color: 'moderate' },
+  { value: 'minor',     label: 'Лёгкий',       hint: 'Первая помощь / малый ущерб',   color: 'minor' },
+  { value: 'near_miss', label: 'Предпосылка',  hint: 'Без пострадавших',              color: 'near_miss' },
 ]
 
 const TYPES = [
@@ -33,9 +33,9 @@ const TYPES = [
 ]
 
 const DETAIL_LEVELS = [
-  { value: 1, label: 'Кратко', hint: 'Ключевые причины и выводы' },
-  { value: 2, label: 'Стандарт', hint: 'Развёрнутый анализ с рекомендациями' },
-  { value: 3, label: 'Подробно', hint: 'Полный отчёт со всеми деталями' },
+  { value: 1, label: 'Кратко',    hint: 'Ключевые причины и выводы' },
+  { value: 2, label: 'Стандарт',  hint: 'Развёрнутый анализ с рекомендациями' },
+  { value: 3, label: 'Подробно',  hint: 'Полный отчёт со всеми деталями' },
 ]
 
 const EMPTY_VICTIM = {
@@ -60,13 +60,13 @@ const EMPTY_VICTIM = {
 const DEFAULTS = {
   title: '', description: '', incident_date: '', location: '',
   incident_type: 'injury', severity: 'moderate', victims: 0,
-  methodology: 'bowtie', detail_level: 2,
+  methodology: 'five_why', detail_level: 2,
   incident_time: '', company: '', department: '', location_detailed: '',
   injured_count: 0, fatalities_count: 0, short_description: '',
   photo_urls: [], scene_description: '', equipment_description: '',
   full_circumstances: '', established_facts: '', victims_list: [],
   mode: 'single',
-  methodologies: ['bowtie'],
+  methodologies: ['five_why'],
 }
 
 export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
@@ -291,7 +291,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-section" id="step-data">
         <div className="form-section-label">
           <span className="form-section-label__icon">📝</span>
-          Описание обстоятельств проишествия
+          Описание обстоятельств происшествия
         </div>
         <div className="form-row">
           <div className="form-group form-group--full">
@@ -327,7 +327,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="form-section">
         <div className="form-section-label">
           <span className="form-section-label__icon">📷</span>
-          Фото с места проишествия
+          Фото с места происшествия
         </div>
         <div className="form-row">
           <div className="form-group form-group--full">
@@ -397,14 +397,14 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           ))}
         </div>
 
-        <div className="form-subsection-label">Описание места проишествия</div>
-        <div className="form-row"><div className="form-group form-group--full"><Textarea label="Описание места происхождения" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} /></div></div>
+        <div className="form-subsection-label">Описание места происшествия</div>
+        <div className="form-row"><div className="form-group form-group--full"><Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} /></div></div>
 
         <div className="form-subsection-label">Характеристика оборудования / объекта</div>
         <div className="form-row"><div className="form-group form-group--full"><Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} /></div></div>
 
         <div className="form-subsection-label">Полное описание обстоятельств</div>
-        <div className="form-row"><div className="form-group form-group--full"><Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после проишествия" disabled={busy} /></div></div>
+        <div className="form-row"><div className="form-group form-group--full"><Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после происшествия" disabled={busy} /></div></div>
 
         <div className="form-subsection-label">Установленные факты</div>
         <div className="form-row"><div className="form-group form-group--full"><Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} /></div></div>
@@ -416,17 +416,41 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <span className="form-section-label__icon">🏷️</span>
           Классификация инцидента
         </div>
+
+        {/* Тип инцидента — Select (8 вариантов, карточки были бы громоздки) */}
         <div className="form-row">
           <div className="form-group">
             <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>
               {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </Select>
           </div>
-          <div className="form-group">
-            <Select label="Тяжесть" value={form.severity} onChange={e => set('severity', e.target.value)} disabled={busy}>
-              {SEVERITIES.map(s => <option key={s.value} value={s.value}>{s.label}</option>)}
-            </Select>
-          </div>
+        </div>
+
+        {/* Тяжесть — radio-карточки с цветом */}
+        <div className="form-subsection-label" style={{ marginTop: 4 }}>Тяжесть инцидента</div>
+        <div className="severity-selector">
+          {SEVERITIES.map(s => (
+            <label
+              key={s.value}
+              className={[
+                'severity-option',
+                `severity-option--${s.color}`,
+                form.severity === s.value ? 'severity-option--active' : '',
+                busy ? 'severity-option--disabled' : '',
+              ].filter(Boolean).join(' ')}
+            >
+              <input
+                type="radio"
+                name="severity"
+                value={s.value}
+                checked={form.severity === s.value}
+                onChange={() => set('severity', s.value)}
+                disabled={busy}
+              />
+              <span className="severity-option__label">{s.label}</span>
+              <span className="severity-option__hint">{s.hint}</span>
+            </label>
+          ))}
         </div>
       </div>
 
