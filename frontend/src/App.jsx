@@ -298,7 +298,17 @@ export default function App() {
       <main className="app-main">
         {page === 'analyze' && (
           <>
-            <AnalysisSteps current={analysisStep} />
+            <AnalysisSteps
+              current={analysisStep}
+              onNavigate={(step) => {
+                const ids = { 1: 'step-data', 2: 'step-method', 3: 'step-result' }
+                const el = document.getElementById(ids[step])
+                if (el) {
+                  const y = el.getBoundingClientRect().top + window.scrollY - 120
+                  window.scrollTo({ top: y, behavior: 'smooth' })
+                }
+              }}
+            />
             {!result && !comparison && (
               <>
                 <IncidentForm

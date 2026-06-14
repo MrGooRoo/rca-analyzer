@@ -1,16 +1,30 @@
 /* Analysis Steps - Apple style stepper */
 
+/* Sticky wrapper — прилипает под хедером (52px) при скролле */
+.analysis-steps-sticky {
+  position: sticky;
+  top: 52px;
+  z-index: 90;
+  /* Выезжаем за паддинг app-main чтобы степпер тянулся во всю ширину */
+  margin-left: calc(-1 * var(--space-lg));
+  margin-right: calc(-1 * var(--space-lg));
+  margin-bottom: var(--space-xl);
+  background: rgba(22, 22, 24, 0.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.18);
+}
+
 .analysis-steps {
   position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   align-items: stretch;
-  margin-bottom: var(--space-xl);
-  padding: 16px 18px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-xl);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 12px calc(var(--space-lg) + 8px);
 }
 
 .analysis-steps__track {
@@ -47,9 +61,9 @@
 }
 
 .analysis-step__num {
-  flex: 0 0 36px;
-  width: 36px;
-  height: 36px;
+  flex: 0 0 32px;
+  width: 32px;
+  height: 32px;
   border-radius: 50%;
   display: flex;
   align-items: center;
@@ -114,7 +128,7 @@
   opacity: 0.9;
 }
 
-/* connector line between steps (desktop) */
+/* connector line between steps */
 .analysis-step__connector {
   display: none;
 }
@@ -127,12 +141,14 @@
     margin: 0 8px;
     background: var(--border);
     border-radius: 1px;
+    transition: background 0.4s ease;
   }
-  .analysis-step__connector--done,
-  .analysis-step--active + .analysis-step .analysis-step__connector,
-  .analysis-step--done + .analysis-step .analysis-step__connector {
-    background: linear-gradient(90deg, var(--success), var(--border));
+
+  /* линия заполняется зелёным когда предыдущий шаг done */
+  .analysis-step--done .analysis-step__connector {
+    background: var(--success);
   }
+
   .analysis-step {
     gap: 0;
   }
@@ -146,9 +162,15 @@
   .analysis-steps {
     grid-template-columns: 1fr;
     gap: 8px;
-    padding: 12px;
   }
   .analysis-step__hint {
     white-space: normal;
+  }
+  .analysis-steps-sticky {
+    margin-left: calc(-1 * var(--space-md));
+    margin-right: calc(-1 * var(--space-md));
+  }
+  .analysis-steps {
+    padding: 10px var(--space-md);
   }
 }
