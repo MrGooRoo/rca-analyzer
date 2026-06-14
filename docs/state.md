@@ -241,6 +241,11 @@
   - ✅ `tests/api/test_csrf_e2e.py`: добавлен общий `_client()` через явный `ASGITransport`, повторяющиеся `AsyncClient(...)` заменены на helper.
   - ✅ CSRF-тесты больше не используют deprecated httpx shortcuts и проверяются с `-W error::DeprecationWarning`.
 
+- [x] **Документация — закрыты TODO-заглушки** (14.06.2026)
+  - ✅ `docs/architecture.md`: описаны слои, request flow одиночного и multi-analysis, sessions, embeddings, frontend architecture и правила расширения.
+  - ✅ `docs/conventions.md`: зафиксированы соглашения по стеку, неймингу, backend/frontend, auth/CSRF, sessions, embeddings, документации и проверкам.
+  - ✅ `docs/methodologies.md`: описаны 5 готовых RCA-методик, runner contract, применимость, multi-analysis и добавление новой методики.
+
 ## В работе / следующий приоритет
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 
