@@ -97,15 +97,18 @@ def client_with_mocked_backend():
     app.dependency_overrides.clear()
 
 
+def _client() -> AsyncClient:
+    """Реальный app через явный ASGITransport без deprecated httpx shortcuts."""
+    return AsyncClient(transport=ASGITransport(app=app), base_url="http://test")
+
+
 def _csrf_from_jar(client: AsyncClient) -> str | None:
     return client.cookies.get(CSRF_COOKIE_NAME)
 
 
 @pytest.mark.asyncio
 async def test_login_sets_all_cookies(client_with_mocked_backend):
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with _client() as client:
         # Phase 1: получить CSRF-cookie (safe GET, не требует токена)
         csrf_resp = await client.get("/api/v1/auth/csrf")
         assert csrf_resp.status_code == 200
@@ -128,9 +131,7 @@ async def test_login_sets_all_cookies(client_with_mocked_backend):
 
 @pytest.mark.asyncio
 async def test_protected_post_without_csrf_header_is_blocked(client_with_mocked_backend):
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with _client() as client:
         # Phase 1: получить CSRF-cookie
         csrf_resp = await client.get("/api/v1/auth/csrf")
         assert csrf_resp.status_code == 200
@@ -151,9 +152,7 @@ async def test_protected_post_without_csrf_header_is_blocked(client_with_mocked_
 
 @pytest.mark.asyncio
 async def test_full_cycle_login_then_protected_post(client_with_mocked_backend):
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with _client() as client:
         # Phase 1: получить CSRF-cookie
         csrf_resp = await client.get("/api/v1/auth/csrf")
         assert csrf_resp.status_code == 200
@@ -201,9 +200,7 @@ async def test_full_cycle_login_then_protected_post(client_with_mocked_backend):
 
 @pytest.mark.asyncio
 async def test_logout_clears_csrf_cookie(client_with_mocked_backend):
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://test"
-    ) as client:
+    async with _client() as client:
         # Phase 1: получить CSRF-cookie
         csrf_resp = await client.get("/api/v1/auth/csrf")
         assert csrf_resp.status_code == 200

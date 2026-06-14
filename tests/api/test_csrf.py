@@ -50,11 +50,19 @@ def app() -> FastAPI:
 
 
 def _client(app: FastAPI, cookies: dict | None = None) -> AsyncClient:
-    return AsyncClient(
+    """Создать httpx-клиент через явный ASGITransport.
+
+    Cookie кладём в jar после создания клиента, а не через shortcut-параметры
+    конструктора. Так тест остаётся совместимым с актуальным httpx API и не
+    зависит от deprecated app/cookie shortcuts.
+    """
+    client = AsyncClient(
         transport=ASGITransport(app=app),
         base_url="http://test",
-        cookies=cookies or {},
     )
+    for name, value in (cookies or {}).items():
+        client.cookies.set(name, value)
+    return client
 
 
 # --- unit: token helpers -----------------------------------------------------
@@ -212,10 +220,6 @@ async def test_disabled_middleware_passes_through() -> None:
     async def protected() -> dict:
         return {"ok": True}
 
-    async with AsyncClient(
-        transport=ASGITransport(app=application),
-        base_url="http://test",
-        cookies={ACCESS_COOKIE_NAME: "x"},
-    ) as c:
+    async with _client(application, cookies={ACCESS_COOKIE_NAME: "x"}) as c:
         r = await c.post("/api/v1/protected")
     assert r.status_code == 200
