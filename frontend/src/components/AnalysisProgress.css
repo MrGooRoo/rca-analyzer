@@ -1,117 +1,142 @@
-/* AnalysisProgress — прогресс анализа (SSE) */
+/* AnalysisProgress — Apple-style dark progress card */
 
 .ap-root {
-  background: #f8f9fa;
-  border: 1px solid #dee2e6;
-  border-radius: 8px;
-  padding: 16px 20px;
-  margin: 16px 0;
-  font-size: 14px;
-  max-width: 480px;
+  margin: var(--space-lg) 0;
+  padding: var(--space-lg);
+  border-color: rgba(10, 132, 255, 0.24);
+  background:
+    radial-gradient(circle at top left, rgba(10, 132, 255, 0.16), transparent 34%),
+    var(--surface);
+  box-shadow: var(--shadow-md);
 }
 
 .ap-header {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  margin-bottom: 10px;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.ap-eyebrow {
+  color: var(--primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-xs);
+  text-transform: uppercase;
 }
 
 .ap-title {
-  font-weight: 600;
-  font-size: 15px;
-  color: #212529;
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
-.ap-counter {
-  font-size: 13px;
-  color: #6c757d;
-  font-variant-numeric: tabular-nums;
-}
-
-/* Прогресс-бар */
 .ap-bar-track {
-  height: 6px;
-  background: #e9ecef;
-  border-radius: 3px;
+  height: 8px;
+  background: var(--surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
   overflow: hidden;
-  margin-bottom: 14px;
+  margin-bottom: var(--space-md);
 }
 
 .ap-bar-fill {
   height: 100%;
-  background: #0d6efd;
-  border-radius: 3px;
-  transition: width 0.4s ease;
+  background: linear-gradient(90deg, var(--primary), #30d158);
+  border-radius: 999px;
+  transition: width 0.35s ease;
 }
 
-/* Список методологий */
 .ap-list {
   list-style: none;
   padding: 0;
   margin: 0;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-xs);
 }
 
 .ap-item {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  padding: 4px 0;
-  border-bottom: 1px solid #f1f3f5;
-  transition: opacity 0.2s;
-}
-
-.ap-item:last-child {
-  border-bottom: none;
+  display: grid;
+  grid-template-columns: 24px minmax(120px, 1fr) auto;
+  align-items: center;
+  gap: var(--space-sm);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.025);
+  transition: opacity var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast);
 }
 
 .ap-item--pending {
-  opacity: 0.5;
+  opacity: 0.55;
 }
 
 .ap-item--running {
-  opacity: 1;
+  border-color: rgba(10, 132, 255, 0.42);
+  background: rgba(10, 132, 255, 0.08);
 }
 
 .ap-item--done {
-  opacity: 1;
+  border-color: rgba(48, 209, 88, 0.28);
 }
 
 .ap-item--error {
-  opacity: 1;
+  border-color: rgba(255, 69, 58, 0.36);
+  background: rgba(255, 69, 58, 0.07);
 }
 
 .ap-item-icon {
   font-size: 14px;
-  flex-shrink: 0;
-  width: 20px;
+  line-height: 1;
   text-align: center;
 }
 
 .ap-item-name {
-  font-weight: 500;
-  color: #343a40;
-  flex-shrink: 0;
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  min-width: 0;
+}
+
+.ap-item-state {
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  white-space: nowrap;
 }
 
 .ap-item-error {
-  font-size: 12px;
-  color: #dc3545;
+  grid-column: 2 / -1;
+  color: var(--error);
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* Фатальная ошибка */
 .ap-fatal {
-  margin-top: 12px;
-  padding: 8px 12px;
-  background: #fff5f5;
-  border: 1px solid #ffc9c9;
-  border-radius: 6px;
-  color: #c92a2a;
-  font-size: 13px;
+  margin-top: var(--space-md);
+  padding: var(--space-md);
+  background: rgba(255, 69, 58, 0.1);
+  border: 1px solid rgba(255, 69, 58, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--error);
+  font-size: var(--text-sm);
+}
+
+@media (max-width: 640px) {
+  .ap-header {
+    flex-direction: column;
+  }
+
+  .ap-item {
+    grid-template-columns: 24px 1fr;
+  }
+
+  .ap-item-state {
+    grid-column: 2;
+  }
 }

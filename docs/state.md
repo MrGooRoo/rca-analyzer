@@ -213,8 +213,16 @@
 - `ruff check` по изменённым файлам → **All checks passed!**
 - `npm run build` во frontend → **успешно**
 
+- [x] **AnalysisProgress.jsx — SSE-прогресс multi-analysis** (14.06.2026)
+  - ✅ `App.jsx` подключает `AnalysisProgress` при запуске режима «Сравнить методики»
+  - ✅ Multi-analysis теперь идёт через `api.analyzeMultiStream()` / `POST /api/v1/analyze-multi-stream`
+  - ✅ Во время сравнения форма остаётся видимой, но заблокированной через `loading`/`busy`, а под ней отображается прогресс по методикам
+  - ✅ После SSE `done` результаты передаются в `compareResults(incidentId, sessionId)` и открывается `CompareView`
+  - ✅ `AnalysisProgress` переведён на Apple-style dark UI с `Card`/`Badge`, прогресс-баром и состояниями pending/running/done/error
+
 ## В работе / следующий приоритет
-- [ ] Подключить `AnalysisProgress.jsx` / SSE-прогресс для multi-analysis.
+- [ ] P3: предупреждение при уходе со страницы во время анализа.
+- [ ] P4: отмена анализа через AbortController.
 - [ ] Убрать оставшиеся `httpx` deprecation warnings в CSRF-тестах.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 

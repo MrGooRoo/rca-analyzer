@@ -5,6 +5,7 @@ import { useToast } from './components/ui/Toast.jsx'
 import { Button } from './components/ui/Button.jsx'
 import AuthPage from './components/AuthPage.jsx'
 import IncidentForm from './components/IncidentForm.jsx'
+import AnalysisProgress from './components/AnalysisProgress.jsx'
 import ResultView from './components/ResultView.jsx'
 import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
@@ -22,6 +23,7 @@ export default function App() {
   // viewMode: { type: 'single', result } | { type: 'compare', comparison } | null
   const [viewMode, setViewMode]         = useState(null)
   const [loading, setLoading]           = useState(false)
+  const [multiProgressPayload, setMultiProgressPayload] = useState(null)
 
   const isAdmin = user?.role === 'admin'
 
@@ -31,6 +33,7 @@ export default function App() {
       setResult(null)
       setComparison(null)
       setViewMode(null)
+      setMultiProgressPayload(null)
       setPage('analyze')
     }
   }, [user])
@@ -38,6 +41,7 @@ export default function App() {
   // === Single analysis ===
   async function handleSubmit(payload) {
     setLoading(true)
+    setMultiProgressPayload(null)
     setResult(null)
     setComparison(null)
     try {
@@ -51,39 +55,54 @@ export default function App() {
     }
   }
 
+  async function showMultiResults(results) {
+    if (!results || results.length === 0) {
+      toast.error('Не получено результатов анализа', 'Пустой ответ')
+      return
+    }
+
+    const incidentId = results[0].incident_id
+    const sessionId = results[0].session_id || null
+    let comparisonData = null
+    try {
+      comparisonData = await api.compareResults(incidentId, sessionId)
+    } catch (compareErr) {
+      console.warn('compareResults failed, showing raw results:', compareErr.message)
+      comparisonData = {
+        incident_id: incidentId,
+        results: results,
+        common_recommendations: [],
+        differing_causes: {},
+        summary: '',
+      }
+    }
+    setComparison(comparisonData)
+    setPage('analyze')
+  }
+
   // === Multi analysis ===
   async function handleSubmitMulti(payload) {
     setLoading(true)
     setResult(null)
     setComparison(null)
+    setMultiProgressPayload(payload)
+  }
+
+  async function handleMultiProgressDone(results) {
     try {
-      const results = await api.analyzeMulti(payload)
-      if (!results || results.length === 0) {
-        toast.error('Не получено результатов анализа', 'Пустой ответ')
-        return
-      }
-      const incidentId = results[0].incident_id
-      const sessionId = results[0].session_id || null
-      let comparisonData = null
-      try {
-        comparisonData = await api.compareResults(incidentId, sessionId)
-      } catch (compareErr) {
-        console.warn('compareResults failed, showing raw results:', compareErr.message)
-        comparisonData = {
-          incident_id: incidentId,
-          results: results,
-          common_recommendations: [],
-          differing_causes: {},
-          summary: '',
-        }
-      }
-      setComparison(comparisonData)
-      setPage('analyze')
+      await showMultiResults(results)
     } catch (e) {
-      toast.error(e.message, 'Ошибка анализа')
+      toast.error(e.message || 'Не удалось собрать сравнение методик', 'Ошибка анализа')
     } finally {
       setLoading(false)
+      setMultiProgressPayload(null)
     }
+  }
+
+  function handleMultiProgressError(message) {
+    toast.error(message || 'Не удалось выполнить сравнение методик', 'Ошибка анализа')
+    setLoading(false)
+    setMultiProgressPayload(null)
   }
 
   // Открыть одиночный результат из истории — режим просмотра
@@ -113,6 +132,7 @@ export default function App() {
     setResult(null)
     setComparison(null)
     setViewMode(null)
+    setMultiProgressPayload(null)
     setPage('analyze')
   }
 
@@ -184,11 +204,20 @@ export default function App() {
         {page === 'analyze' && (
           <>
             {!result && !comparison && (
-              <IncidentForm
-                onSubmit={handleSubmit}
-                onSubmitMulti={handleSubmitMulti}
-                loading={loading}
-              />
+              <>
+                <IncidentForm
+                  onSubmit={handleSubmit}
+                  onSubmitMulti={handleSubmitMulti}
+                  loading={loading}
+                />
+                {multiProgressPayload && (
+                  <AnalysisProgress
+                    payload={multiProgressPayload}
+                    onDone={handleMultiProgressDone}
+                    onError={handleMultiProgressError}
+                  />
+                )}
+              </>
             )}
 
             {(result || comparison) && (
