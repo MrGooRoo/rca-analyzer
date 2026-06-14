@@ -108,6 +108,14 @@ export default function App() {
     setPage('analyze')
   }
 
+
+  function startNewAnalysis() {
+    setResult(null)
+    setComparison(null)
+    setViewMode(null)
+    setPage('analyze')
+  }
+
   async function logout() {
     try {
       await authLogout()
@@ -175,11 +183,29 @@ export default function App() {
       <main className="app-main">
         {page === 'analyze' && (
           <>
-            <IncidentForm
-              onSubmit={handleSubmit}
-              onSubmitMulti={handleSubmitMulti}
-              loading={loading}
-            />
+            {!result && !comparison && (
+              <IncidentForm
+                onSubmit={handleSubmit}
+                onSubmitMulti={handleSubmitMulti}
+                loading={loading}
+              />
+            )}
+
+            {(result || comparison) && (
+              <div className="analysis-result-toolbar">
+                <div>
+                  <div className="analysis-result-toolbar__eyebrow">Результат анализа</div>
+                  <h2 className="analysis-result-toolbar__title">
+                    {comparison ? 'Сравнение методик готово' : 'Анализ готов'}
+                  </h2>
+                  <p className="analysis-result-toolbar__text">
+                    Форма скрыта, чтобы результат не смешивался с вводом. Для нового случая нажмите «Новый анализ».
+                  </p>
+                </div>
+                <Button variant="primary" onClick={startNewAnalysis}>➕ Новый анализ</Button>
+              </div>
+            )}
+
             {comparison && <CompareView comparison={comparison} />}
             {!comparison && result && <ResultView result={result} onOpenResult={openResult} />}
           </>
@@ -195,14 +221,16 @@ export default function App() {
 
         {page === 'view' && viewMode && (
           <div>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={goToHistory}
-              style={{ marginBottom: '1rem' }}
-            >
-              ← Назад в историю
-            </Button>
+            <div className="view-actions">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={goToHistory}
+              >
+                ← Назад в историю
+              </Button>
+              <Button variant="primary" size="sm" onClick={startNewAnalysis}>➕ Новый анализ</Button>
+            </div>
             {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={openResult} />}
             {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}
           </div>
