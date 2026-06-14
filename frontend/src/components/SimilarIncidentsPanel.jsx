@@ -1,6 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
+import { Badge, Card } from './ui/Card.jsx'
+import { Button } from './ui/Button.jsx'
+import { Input, Select } from './ui/Field.jsx'
 import './SimilarIncidentsPanel.css'
 
 function normalizeQuery(text) {
@@ -52,7 +55,7 @@ export default function SimilarIncidentsPanel({
     } finally {
       setLoading(false)
     }
-  }, [canSearch, query, excludeResultId, excludeIncidentId])
+  }, [canSearch, query, excludeResultId, excludeIncidentId, incidentTitle, incidentDescription])
 
   useEffect(() => {
     if (auto && canSearch && !disabled) load()
@@ -111,7 +114,7 @@ export default function SimilarIncidentsPanel({
             <h3>{title}</h3>
             <p>Заполните описание — затем можно найти похожие случаи в истории.</p>
           </div>
-          <button type="button" className="similar-panel__btn" disabled>Найти</button>
+          <Button type="button" variant="outline" className="similar-panel__btn" disabled>Найти</Button>
         </div>
       </section>
     )
@@ -125,21 +128,23 @@ export default function SimilarIncidentsPanel({
           <p>Поиск идёт по summary, причинам и рекомендациям ранее сохранённых RCA-результатов.</p>
         </div>
         {!auto && (
-          <button
+          <Button
             type="button"
+            variant="outline"
             className="similar-panel__btn"
             onClick={load}
-            disabled={loading || !canSearch || disabled}
+            disabled={!canSearch || disabled}
+            loading={loading}
           >
-            {loading ? 'Ищу…' : 'Найти похожие'}
-          </button>
+            Найти похожие
+          </Button>
         )}
       </div>
 
       {/* Фильтры — показываем только после поиска */}
       {searched && items.length > 0 && (
         <div className="similar-panel__filters">
-          <select
+          <Select
             className="similar-panel__filter-select"
             value={filterMethod}
             onChange={e => setFilterMethod(e.target.value)}
@@ -148,28 +153,28 @@ export default function SimilarIncidentsPanel({
             {availableMethods.map(m => (
               <option key={m} value={m}>{METHODOLOGY_LABELS[m] || m}</option>
             ))}
-          </select>
+          </Select>
 
-          <input
+          <Input
             type="date"
             className="similar-panel__filter-date"
             value={filterDateFrom}
             onChange={e => setFilterDateFrom(e.target.value)}
-            placeholder="От"
+            aria-label="Дата от"
           />
           <span className="similar-panel__filter-sep">—</span>
-          <input
+          <Input
             type="date"
             className="similar-panel__filter-date"
             value={filterDateTo}
             onChange={e => setFilterDateTo(e.target.value)}
-            placeholder="До"
+            aria-label="Дата до"
           />
 
           {hasFilters && (
-            <button className="similar-panel__filter-reset" onClick={resetFilters}>
+            <Button type="button" variant="danger" size="sm" className="similar-panel__filter-reset" onClick={resetFilters}>
               ✕ Сбросить
-            </button>
+            </Button>
           )}
         </div>
       )}
@@ -204,6 +209,7 @@ function SimilarCard({ item, onOpen = null }) {
   })
   const percent = Math.round((item.similarity || 0) * 100)
   const author = item.user_display_name || item.user_email || null
+  const meta = methodologyMeta(item.methodology)
 
   // Дата инцидента (если есть — из сессии)
   const incidentDateStr = item.incident_date
@@ -212,25 +218,23 @@ function SimilarCard({ item, onOpen = null }) {
       })
     : null
 
-  // Цвет бейджа похожести
-  let scoreClass = 'similar-card__score'
-  if (percent >= 75) scoreClass += ' similar-card__score--high'
-  else if (percent >= 50) scoreClass += ' similar-card__score--med'
-  else scoreClass += ' similar-card__score--low'
-
-  // Есть ли описание инцидента для контекста
+  const scoreTone = percent >= 75 ? 'emerald' : percent >= 50 ? 'amber' : 'rose'
   const hasIncidentContext = item.incident_title || item.incident_description
 
   return (
-    <div className={`similar-card ${onOpen ? 'similar-card--clickable' : ''}`} onClick={onOpen}>
+    <Card className={`similar-card ${onOpen ? 'similar-card--clickable' : ''}`} onClick={onOpen}>
       <div className="similar-card__top">
-        <span className={scoreClass}>{percent}% похоже</span>
-        <span className="similar-card__method">
-          {METHODOLOGY_LABELS[item.methodology] || item.methodology}
-        </span>
-        <span className="similar-card__date">{date}</span>
-        {author && <span className="similar-card__author">👤 {author}</span>}
-        {onOpen && <span className="similar-card__open">Открыть →</span>}
+        <Badge tone={scoreTone} className="similar-card__score">{percent}% похоже</Badge>
+        <Badge tone={meta.badgeTone} className="similar-card__method">
+          {meta.icon} {METHODOLOGY_LABELS[item.methodology] || item.methodology}
+        </Badge>
+        <Badge tone="slate" className="similar-card__date">{date}</Badge>
+        {author && <Badge tone="slate" className="similar-card__author">👤 {author}</Badge>}
+        {onOpen && (
+          <Button type="button" variant="ghost" size="sm" className="similar-card__open">
+            Открыть →
+          </Button>
+        )}
       </div>
 
       {/* Описание инцидента — контекст для сравнения */}
@@ -272,6 +276,6 @@ function SimilarCard({ item, onOpen = null }) {
         <span>result #{item.result_id.slice(0, 8)}</span>
         <span>incident #{item.incident_id.slice(0, 8)}</span>
       </div>
-    </div>
+    </Card>
   )
 }

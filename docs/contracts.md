@@ -356,6 +356,9 @@ class SimilarIncidentsRequest(BaseModel):
                                        # (0.15 hashing / 0.55 нейросетевые)
     exclude_result_id: str | None = None
     exclude_incident_id: str | None = None
+    # Для дедупа повторных анализов из формы: SHA-256 от title+description
+    incident_title: str | None = None
+    incident_description: str | None = None
 ```
 
 Response model:
@@ -394,10 +397,18 @@ class SimilarIncident(BaseModel):
 - preview корневых причин и рекомендаций,
 - result/incident id.
 
+**UI-kit контракт (обновлено 14.06.2026):**
+
+- кнопки поиска, сброса фильтров и «Открыть →» используют `Button`;
+- фильтры по методике и датам используют `Select`/`Input`;
+- карточка похожего инцидента использует `Card`;
+- метки похожести, методики, даты и автора используют `Badge`;
+- `useCallback(load)` зависит от `incidentTitle` и `incidentDescription`, чтобы автопоиск корректно учитывал дедуп по `incident_hash`.
+
 Точки подключения:
 
-1. `IncidentForm.jsx` — ручной поиск похожих по введённому описанию до запуска анализа.
-2. `ResultView.jsx` — автоматический поиск похожих после анализа, с исключением текущего `result_id` и `incident_id`.
+1. `IncidentForm.jsx` — лёгкий `SimilarIncidentsHint` по введённому описанию до запуска анализа.
+2. `ResultView.jsx` — полный `SimilarIncidentsPanel`: автоматический поиск похожих после анализа, с исключением текущего `result_id`/`incident_id` и дедупом по `incident_hash`.
 
 ---
 

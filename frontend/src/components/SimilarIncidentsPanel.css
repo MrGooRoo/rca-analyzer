@@ -117,16 +117,8 @@
 }
 
 .similar-card__score {
-  color: white;
-  border-radius: 20px;
-  padding: 4px 12px;
   font-weight: 700;
-  font-size: var(--text-xs);
 }
-
-.similar-card__score--high { background: #30d158; }
-.similar-card__score--med  { background: #f7b955; }
-.similar-card__score--low  { background: #f76f6f; }
 
 .similar-card__open {
   margin-left: auto;
@@ -143,10 +135,6 @@
 .similar-card__method,
 .similar-card__date,
 .similar-card__author {
-  color: var(--text-secondary);
-  background: var(--surface-3);
-  border-radius: 20px;
-  padding: 4px 12px;
   font-size: var(--text-xs);
 }
 
@@ -245,6 +233,11 @@
   align-items: center;
   gap: var(--space-sm);
   flex-wrap: wrap;
+}
+
+.similar-panel__filters .ui-field {
+  flex: 1 1 140px;
+  min-width: 140px;
 }
 
 .similar-panel__filter-select,

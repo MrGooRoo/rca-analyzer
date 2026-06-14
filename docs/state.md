@@ -200,6 +200,13 @@
   - ✅ Для карточек формируется fallback `incident` из данных сессии (`incident_title`, `incident_severity`, и т.д.)
   - ✅ `RCARepository.list_sessions()` eager-load'ит user, causal_nodes и recommendations результатов, чтобы `/sessions` отдавал полноценные RCAResult для истории
 
+- [x] **SimilarIncidentsPanel.jsx — UI-kit миграция** (14.06.2026)
+  - ✅ Кнопки поиска/сброса фильтров и «Открыть →» используют `Button`
+  - ✅ Фильтры по методике и датам используют `Select`/`Input`
+  - ✅ Карточка похожего инцидента использует `Card`, метки похожести/методики/даты/автора — `Badge`
+  - ✅ Исправлены зависимости `useCallback(load)`: `incidentTitle` и `incidentDescription` участвуют в автопоиске/дедупе
+  - ✅ Счётчики по коду: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные `<button>/<input>/<select>` отсутствуют
+
 ## Проверки
 - `python -m pytest tests/ -q` → **257 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
@@ -207,7 +214,6 @@
 - `npm run build` во frontend → **успешно**
 
 ## В работе / следующий приоритет
-- [ ] SimilarIncidentsPanel.jsx: перевести кнопки/фильтры/карточки на UI-kit.
 - [ ] Подключить `AnalysisProgress.jsx` / SSE-прогресс для multi-analysis.
 - [ ] Убрать оставшиеся `httpx` deprecation warnings в CSRF-тестах.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
