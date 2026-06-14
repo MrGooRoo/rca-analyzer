@@ -502,21 +502,12 @@
 /* ========== Multi hint ========== */
 
 .multi-hint {
-  min-height: 40px;
-  display: flex;
-  align-items: center;
   font-size: var(--text-sm);
   color: var(--warning);
   background: rgba(255, 214, 10, 0.1);
   border: 1px solid rgba(255, 214, 10, 0.25);
   border-radius: var(--radius-md);
   padding: var(--space-sm) var(--space-md);
-}
-
-.multi-hint--ok {
-  color: var(--success);
-  background: rgba(48, 209, 88, 0.1);
-  border-color: rgba(48, 209, 88, 0.25);
 }
 
 /* ========== Responsive ========== */

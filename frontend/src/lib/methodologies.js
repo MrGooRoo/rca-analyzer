@@ -6,7 +6,7 @@
 export const METHODOLOGIES = [
   {
     id: 'five_why',
-    name: '5 Почему (Five Whys)',
+    name: '5 Почему',
     short: '5 Почему',
     description: 'Последовательный поиск корневой причины через цепочку вопросов «Почему?». Быстро и эффективно для простых инцидентов.',
     icon: '❓',
@@ -14,17 +14,8 @@ export const METHODOLOGIES = [
     badgeTone: 'sky',
   },
   {
-    id: 'bowtie',
-    name: 'Галстук-бабочка (BowTie)',
-    short: 'Галстук-бабочка',
-    description: 'Угрозы → барьеры → топ-событие → барьеры → последствия. Визуализирует риски и эффективность контролей.',
-    icon: '🎀',
-    color: 'from-rose-500 to-pink-600',
-    badgeTone: 'rose',
-  },
-  {
     id: 'ishikawa',
-    name: 'Диаграмма Исикавы (Ishikawa)',
+    name: 'Ishikawa',
     short: 'Диаграмма Исикавы',
     description: 'Категоризация причин по 6M: люди, методы, машины, материалы, измерения, среда. Подходит для системного разбора.',
     icon: '🐟',
@@ -33,8 +24,8 @@ export const METHODOLOGIES = [
   },
   {
     id: 'fta',
-    name: 'Дерево отказов (FTA)',
-    short: 'Дерево отказов',
+    name: 'FTA',
+    short: 'Fault Tree Analysis',
     description: 'Дедуктивный анализ: от верхнего нежелательного события вниз через логические связки к базовым причинам.',
     icon: '🌳',
     color: 'from-amber-500 to-orange-600',
@@ -42,12 +33,21 @@ export const METHODOLOGIES = [
   },
   {
     id: 'rca_systemic',
-    name: 'Системный RCA (Systemic RCA)',
+    name: 'RCA Системный',
     short: 'Системный RCA',
     description: 'Глубокий анализ организационных, технических и человеческих факторов с учётом взаимосвязей в системе.',
     icon: '⚙️',
     color: 'from-violet-500 to-purple-600',
     badgeTone: 'violet',
+  },
+  {
+    id: 'bowtie',
+    name: 'Bowtie',
+    short: 'Диаграмма «Галстук-бабочка»',
+    description: 'Угрозы → барьеры → топ-событие → барьеры → последствия. Визуализирует риски и эффективность контролей.',
+    icon: '🎀',
+    color: 'from-rose-500 to-pink-600',
+    badgeTone: 'rose',
   },
 ]
 
