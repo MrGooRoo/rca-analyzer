@@ -1,16 +1,16 @@
 import { cn } from '../../utils/cn'
 import './Card.css'
 
-export function Card({ children, className }) {
-  return <div className={cn('ui-card', className)}>{children}</div>
+export function Card({ children, className, ...rest }) {
+  return <div className={cn('ui-card', className)} {...rest}>{children}</div>
 }
 
-export function CardHeader({ children, className }) {
-  return <div className={cn('ui-card__header', className)}>{children}</div>
+export function CardHeader({ children, className, ...rest }) {
+  return <div className={cn('ui-card__header', className)} {...rest}>{children}</div>
 }
 
-export function CardBody({ children, className }) {
-  return <div className={cn('ui-card__body', className)}>{children}</div>
+export function CardBody({ children, className, ...rest }) {
+  return <div className={cn('ui-card__body', className)} {...rest}>{children}</div>
 }
 
 /**

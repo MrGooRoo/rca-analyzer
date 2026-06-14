@@ -50,6 +50,15 @@
   align-items: center;
 }
 
+.history-filters .ui-field {
+  flex: 1 1 180px;
+  min-width: 160px;
+}
+
+.history-filters .ui-field:first-child {
+  flex: 2 1 240px;
+}
+
 .history-search {
   flex: 1 1 200px;
   min-width: 160px;

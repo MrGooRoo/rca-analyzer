@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
-import { Badge } from './ui/Card.jsx'
+import { Badge, Card } from './ui/Card.jsx'
+import { Button } from './ui/Button.jsx'
+import { Input, Select } from './ui/Field.jsx'
 import './HistoryPage.css'
 
 const SEVERITY_COLORS = {
@@ -149,14 +151,21 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
       {/* ===== Толбар ===== */}
       <div className="history-toolbar">
         <h2 className="history-title">История анализов</h2>
-        <button className="btn-refresh" onClick={() => load(offset)} disabled={loading}>
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          className="btn-refresh"
+          onClick={() => load(offset)}
+          disabled={loading}
+        >
           {loading ? '…' : '↻'}
-        </button>
+        </Button>
       </div>
 
       {/* ===== Фильтры ===== */}
       <div className="history-filters">
-        <input
+        <Input
           className="history-search"
           type="text"
           placeholder="🔍 Поиск по содержанию…"
@@ -164,7 +173,7 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
           onChange={e => setSearch(e.target.value)}
         />
 
-        <select
+        <Select
           className="history-filter-select"
           value={filterMethod}
           onChange={e => setFilterMethod(e.target.value)}
@@ -173,9 +182,9 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
           {Object.entries(METHODOLOGY_LABELS).map(([k, v]) => (
             <option key={k} value={k}>{v}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           className="history-filter-select"
           value={filterSeverity}
           onChange={e => setFilterSeverity(e.target.value)}
@@ -184,9 +193,9 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
           {Object.entries(SEVERITY_COLORS).map(([k, v]) => (
             <option key={k} value={k}>{v.label}</option>
           ))}
-        </select>
+        </Select>
 
-        <select
+        <Select
           className="history-filter-select"
           value={filterType}
           onChange={e => setFilterType(e.target.value)}
@@ -194,12 +203,12 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
           <option value="">Все типы</option>
           <option value="single">Одиночные</option>
           <option value="compare">Сравнения</option>
-        </select>
+        </Select>
 
         {hasFilters && (
-          <button className="btn-reset-filters" onClick={resetFilters}>
+          <Button type="button" variant="danger" size="sm" className="btn-reset-filters" onClick={resetFilters}>
             ✕ Сбросить
-          </button>
+          </Button>
         )}
       </div>
 
@@ -241,9 +250,9 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
       {/* ===== Пагинация ===== */}
       {items.length === PAGE_SIZE && (
         <div className="history-pagination">
-          <button className="btn-page" onClick={prev} disabled={offset === 0}>← Назад</button>
+          <Button type="button" variant="secondary" size="sm" className="btn-page" onClick={prev} disabled={offset === 0}>← Назад</Button>
           <span className="page-info">Стр. {Math.floor(offset / PAGE_SIZE) + 1}</span>
-          <button className="btn-page" onClick={next}>Вперёд →</button>
+          <Button type="button" variant="secondary" size="sm" className="btn-page" onClick={next}>Вперёд →</Button>
         </div>
       )}
     </div>
@@ -260,7 +269,7 @@ function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
   const authorName = result.user_display_name || result.user_email || null
 
   return (
-    <div className="hcard" onClick={() => onOpen(result)}>
+    <Card className="hcard" onClick={() => onOpen(result)}>
       <div className="hcard-left">
         <div className="hcard-top">
 
@@ -296,7 +305,7 @@ function HistoryCard({ result, onOpen, isAdmin, currentUserId }) {
         </div>
       </div>
       <div className="hcard-arrow">›</div>
-    </div>
+    </Card>
   )
 }
 
@@ -327,7 +336,7 @@ function CompareGroupCard({ group, onOpenComparison, onOpenResult, isAdmin, curr
   }
 
   return (
-    <div className="hcard hcard--compare" onClick={onOpenComparison}>
+    <Card className="hcard hcard--compare" onClick={onOpenComparison}>
       <div className="hcard-left">
         <div className="hcard-top">
           <span className="hcard-compare-badge">
@@ -354,14 +363,17 @@ function CompareGroupCard({ group, onOpenComparison, onOpenResult, isAdmin, curr
         {/* Чипы методик: клик открывает конкретный результат */}
         <div className="hcard-method-chips">
           {results.map(r => (
-            <button
+            <Button
               key={r.result_id}
+              type="button"
+              variant="outline"
+              size="sm"
               className="hcard-method-chip"
               title={`Открыть результат ${METHODOLOGY_LABELS[r.methodology] || r.methodology}`}
               onClick={e => openSingle(e, r)}
             >
               {METHODOLOGY_LABELS[r.methodology] || r.methodology}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -373,6 +385,6 @@ function CompareGroupCard({ group, onOpenComparison, onOpenResult, isAdmin, curr
         </div>
       </div>
       <div className="hcard-arrow">›</div>
-    </div>
+    </Card>
   )
 }
