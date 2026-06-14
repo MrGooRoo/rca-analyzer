@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react'
 import { api } from '../api.js'
 import SimilarIncidentsHint from './SimilarIncidentsHint.jsx'
+import { Button } from './ui/Button.jsx'
 import './IncidentForm.css'
 
 const METHODOLOGIES = [
@@ -256,7 +257,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <div className="upload-zone__content"><span className="upload-spinner" /><span className="upload-zone__text">{uploadMessage}</span></div>
         ) : uploadedFile ? (
           <div className="upload-zone__content"><span className="upload-zone__icon">✅</span><span className="upload-zone__text">Поля заполнены из «{uploadedFile}»</span>
-            <button type="button" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить</button></div>
+            <Button type="button" variant="ghost" size="sm" className="upload-zone__clear" onClick={(e) => { e.stopPropagation(); clearUpload(); }} disabled={busy}>✕ Сбросить</Button></div>
         ) : (
           <div className="upload-zone__content"><span className="upload-zone__icon">📄</span><span className="upload-zone__text">Загрузите отчёт об инциденте</span></div>
         )}
@@ -345,7 +346,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       <div className="victims-section">
         <div className="victims-header">
           <span className="form-subsection-label">3.1. Сведения о пострадавших</span>
-          <button type="button" className="btn-add-victim" onClick={addVictim} disabled={busy}>+ Добавить пострадавшего</button>
+          <Button type="button" variant="secondary" size="sm" className="btn-add-victim" onClick={addVictim} disabled={busy}>+ Добавить пострадавшего</Button>
         </div>
 
         {form.victims_list.length === 0 && (
@@ -360,7 +361,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
               </span>
               <div className="victim-card__actions">
                 <span className="victim-card__toggle">{expandedVictims[idx] ? '▲' : '▼'}</span>
-                <button type="button" className="victim-card__remove" onClick={e => { e.stopPropagation(); removeVictim(idx) }}>✕</button>
+                <Button type="button" variant="ghost" size="sm" className="victim-card__remove" onClick={e => { e.stopPropagation(); removeVictim(idx) }} disabled={busy}>✕</Button>
               </div>
             </div>
 
@@ -541,19 +542,20 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
       )}
 
       {/* === Кнопка === */}
-      <button
+      <Button
         type="submit"
+        variant="primary"
+        size="lg"
         className={`btn-analyze ${isMulti() ? 'btn-analyze--multi' : ''}`}
-        disabled={loading || (isMulti() && form.methodologies.length < 2)}
+        disabled={busy || (isMulti() && form.methodologies.length < 2)}
+        loading={loading}
       >
-        {loading ? (
-          <><span className="spinner" /> Анализирую…</>
-        ) : isMulti() ? (
+        {loading ? 'Анализирую…' : isMulti() ? (
           `⚖️ Сравнить (${form.methodologies.length} методик)`
         ) : (
           '▶ Запустить анализ'
         )}
-      </button>
+      </Button>
     </form>
   )
 }

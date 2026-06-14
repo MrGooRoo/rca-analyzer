@@ -1,9 +1,13 @@
 import React, { useState } from 'react'
 import { useAuth } from '../context/AuthContext.jsx'
+import { Button } from './ui/Button.jsx'
+import { Input } from './ui/Field.jsx'
+import { useToast } from './ui/Toast.jsx'
 import './AuthPage.css'
 
 export default function AuthPage() {
   const { login, register } = useAuth()
+  const toast = useToast()
   const [mode, setMode]       = useState('login')
   const [email, setEmail]     = useState('')
   const [name, setName]       = useState('')
@@ -18,11 +22,15 @@ export default function AuthPage() {
     try {
       if (mode === 'login') {
         await login(email, pass)
+        toast.success('Вы вошли в систему', 'Добро пожаловать')
       } else {
         await register(email, name, pass)
+        toast.success('Учётная запись создана', 'Добро пожаловать')
       }
     } catch (err) {
-      setError(err.message)
+      const message = err.message || 'Не удалось выполнить вход'
+      setError(message)
+      toast.error(message, mode === 'login' ? 'Ошибка входа' : 'Ошибка регистрации')
     } finally {
       setLoading(false)
     }
@@ -44,61 +52,54 @@ export default function AuthPage() {
           <button
             className={`auth-tab ${mode === 'login' ? 'auth-tab--active' : ''}`}
             onClick={() => { setMode('login'); setError(null) }}
+            type="button"
           >Вход</button>
           <button
             className={`auth-tab ${mode === 'register' ? 'auth-tab--active' : ''}`}
             onClick={() => { setMode('register'); setError(null) }}
+            type="button"
           >Регистрация</button>
         </div>
 
         <form className="auth-form" onSubmit={submit}>
           {mode === 'register' && (
-            <label className="field">
-              <span className="field-label">Имя</span>
-              <input
-                className="field-input"
-                type="text"
-                placeholder="Иванов Иван"
-                value={name}
-                onChange={e => setName(e.target.value)}
-                required
-                minLength={1}
-              />
-            </label>
+            <Input
+              label="Имя"
+              type="text"
+              placeholder="Иванов Иван"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              minLength={1}
+            />
           )}
 
-          <label className="field">
-            <span className="field-label">Email</span>
-            <input
-              className="field-input"
-              type="email"
-              placeholder="user@example.com"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              autoComplete="email"
-            />
-          </label>
+          <Input
+            label="Email"
+            type="email"
+            placeholder="user@example.com"
+            value={email}
+            onChange={e => setEmail(e.target.value)}
+            required
+            autoComplete="email"
+          />
 
-          <label className="field">
-            <span className="field-label">Пароль</span>
-            <input
-              className="field-input"
-              type="password"
-              placeholder="Минимум 6 символов"
-              value={pass}
-              onChange={e => setPass(e.target.value)}
-              required
-              minLength={6}
-              autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-            />
-          </label>
+          <Input
+            label="Пароль"
+            type="password"
+            placeholder="Минимум 6 символов"
+            value={pass}
+            onChange={e => setPass(e.target.value)}
+            required
+            minLength={6}
+            autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
+          />
 
           {error && <div className="auth-error">{error}</div>}
 
-          <button className="auth-submit" type="submit" disabled={loading}>
-            {loading ? '…' : mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
-          </button>
+          <Button className="auth-submit" type="submit" loading={loading}>
+            {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
+          </Button>
         </form>
       </div>
     </div>

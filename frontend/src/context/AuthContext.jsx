@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react'
-import { api, setAuthLostHandler } from '../api.js'
+import { api, clearAuth, setAuth, setAuthLostHandler } from '../api.js'
 
 const AuthContext = createContext(undefined)
 
@@ -10,8 +10,10 @@ export function AuthProvider({ children }) {
   const refresh = useCallback(async () => {
     try {
       const u = await api.auth.me()
+      setAuth(u)
       setUser(u)
     } catch {
+      clearAuth()
       setUser(null)
     }
   }, [])
@@ -21,6 +23,7 @@ export function AuthProvider({ children }) {
     // в других запросах (analyze, compareResults и т.д.) приведёт к
     // сбросу user и переходу обратно на AuthPage.
     setAuthLostHandler(() => {
+      clearAuth()
       setUser(null)
     })
 
@@ -34,12 +37,14 @@ export function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     const u = await api.auth.login(email, password)
+    setAuth(u)
     setUser(u)
     return u
   }
 
   const register = async (email, name, password) => {
     const u = await api.auth.register(email, name, password)
+    setAuth(u)
     setUser(u)
     return u
   }
@@ -48,6 +53,7 @@ export function AuthProvider({ children }) {
     try {
       await api.auth.logout()
     } finally {
+      clearAuth()
       setUser(null)
     }
   }
