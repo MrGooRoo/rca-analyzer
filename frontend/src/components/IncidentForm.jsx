@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { api } from '../api.js'
 import SimilarIncidentsHint from './SimilarIncidentsHint.jsx'
 import { Button } from './ui/Button.jsx'
@@ -82,8 +82,8 @@ function SubLabel({ icon, children }) {
   )
 }
 
-export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
-  const [form, setForm] = useState(DEFAULTS)
+export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initialValues, onDraftChange }) {
+  const [form, setForm] = useState(() => initialValues ? { ...DEFAULTS, ...initialValues } : DEFAULTS)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
   const [uploadError, setUploadError] = useState(null)
@@ -92,6 +92,13 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
   const [dragOver, setDragOver] = useState(false)
   const [expandedVictims, setExpandedVictims] = useState({})
   const fileInputRef = useRef(null)
+
+  // Синхронизируем черновик наверх при каждом изменении формы
+  const onDraftChangeRef = useRef(onDraftChange)
+  useEffect(() => { onDraftChangeRef.current = onDraftChange }, [onDraftChange])
+  useEffect(() => {
+    onDraftChangeRef.current?.(form)
+  }, [form])
 
   const busy = loading || uploading
 

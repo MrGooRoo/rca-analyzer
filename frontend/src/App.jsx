@@ -26,6 +26,8 @@ export default function App() {
   const [loading, setLoading]           = useState(false)
   const [multiProgressPayload, setMultiProgressPayload] = useState(null)
   const [analysisSignal, setAnalysisSignal] = useState(null)
+  // Черновик формы — сохраняется при переходе в Историю и обратно
+  const [formDraft, setFormDraft]       = useState(null)
   const analysisRunRef = useRef(0)
   const abortControllerRef = useRef(null)
 
@@ -43,6 +45,7 @@ export default function App() {
       setLoading(false)
       setMultiProgressPayload(null)
       setAnalysisSignal(null)
+      setFormDraft(null)
       setPage('analyze')
     }
   }, [user])
@@ -61,8 +64,6 @@ export default function App() {
   }, [loading])
 
   function cancelCurrentAnalysis({ notify = true } = {}) {
-    // AbortController отменяет текущий HTTP-запрос на frontend. Если backend уже
-    // успел отправить запрос в LLM, фактическая остановка может быть не мгновенной.
     abortControllerRef.current?.abort()
     abortControllerRef.current = null
     analysisRunRef.current += 1
@@ -224,6 +225,7 @@ export default function App() {
     setLoading(false)
     setMultiProgressPayload(null)
     setAnalysisSignal(null)
+    setFormDraft(null)  // сброс черновика при явном «Новый анализ»
     setPage('analyze')
   }
 
@@ -315,6 +317,8 @@ export default function App() {
                   onSubmit={handleSubmit}
                   onSubmitMulti={handleSubmitMulti}
                   loading={loading}
+                  initialValues={formDraft}
+                  onDraftChange={setFormDraft}
                 />
                 {loading && (
                   <div className="analysis-cancel-toolbar">
