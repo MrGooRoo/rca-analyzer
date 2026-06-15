@@ -328,7 +328,7 @@ export default function App() {
                         Можно отменить текущий запрос и вернуться к редактированию формы.
                       </p>
                     </div>
-                    <Button variant="danger" onClick={() => cancelCurrentAnalysis()}>
+                    <Button variant="secondary" onClick={() => cancelCurrentAnalysis()}>
                       ⏹ Отменить анализ
                     </Button>
                   </div>
