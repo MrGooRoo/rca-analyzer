@@ -62,15 +62,22 @@ const DEFAULTS = {
   methodologies: ['five_why'],
 }
 
-function SectionHeader({ number, icon, children, numbered = false }) {
+/** Заголовок блока верхнего уровня (1 / 2) */
+function BlockHeader({ number, children }) {
   return (
-    <div className={`form-section-label ${numbered ? 'form-section-label--numbered' : ''}`}>
-      {numbered ? (
-        <span className="form-section-label__num">{number}</span>
-      ) : (
-        <span className="form-section-label__icon">{icon}</span>
-      )}
-      {children}
+    <div className="form-block-header">
+      <span className="form-block-header__num">{number}</span>
+      <span className="form-block-header__title">{children}</span>
+    </div>
+  )
+}
+
+/** Заголовок подраздела внутри секции */
+function SubLabel({ icon, children }) {
+  return (
+    <div className="form-sublabel">
+      {icon && <span className="form-sublabel__icon">{icon}</span>}
+      <span className="form-sublabel__text">{children}</span>
     </div>
   )
 }
@@ -241,9 +248,11 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
     <form className="incident-form" onSubmit={handleSubmit}>
       <h2 className="form-title">Новый анализ инцидента</h2>
 
+      {/* ══════════ БЛОК 1: Данные инцидента ══════════ */}
       <div className="form-block">
-        <SectionHeader number="1" numbered>Данные инцидента</SectionHeader>
+        <BlockHeader number="1">Данные инцидента</BlockHeader>
 
+        {/* Способ заполнения */}
         <div className="input-source">
           <div className="input-source__header">
             <div className="input-source__eyebrow">Способ заполнения</div>
@@ -295,8 +304,9 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           <div className="upload-error"><strong>Ошибка загрузки:</strong> {uploadError}</div>
         )}
 
+        {/* 1.1 Описание обстоятельств */}
         <div className="form-section" id="step-data">
-          <SectionHeader icon="📝">Описание обстоятельств происшествия</SectionHeader>
+          <SubLabel icon="📝">Описание обстоятельств происшествия</SubLabel>
           <div className="form-row">
             <div className="form-group form-group--full">
               <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
@@ -327,8 +337,9 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           </div>
         </div>
 
+        {/* 1.2 Фото */}
         <div className="form-section">
-          <SectionHeader icon="📷">Фото с места происшествия</SectionHeader>
+          <SubLabel icon="📷">Фото с места происшествия</SubLabel>
           <div className="form-row">
             <div className="form-group form-group--full">
               <Textarea label="Ссылки на фото (по одной на строку)" rows={3} placeholder="https://..." value={form.photo_urls.join('\n')} onChange={e => set('photo_urls', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))} disabled={busy} />
@@ -341,11 +352,13 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
           </div>
         </div>
 
+        {/* 1.3 Установленные факты */}
         <div className="form-section">
-          <SectionHeader icon="🔍">Установленные факты</SectionHeader>
+          <SubLabel icon="🔍">Установленные факты</SubLabel>
+
           <div className="victims-section">
             <div className="victims-header">
-              <span className="form-subsection-label">Сведения о пострадавших</span>
+              <SubLabel>Сведения о пострадавших</SubLabel>
               <Button type="button" variant="secondary" size="sm" className="btn-add-victim" onClick={addVictim} disabled={busy}>+ Добавить пострадавшего</Button>
             </div>
             {form.victims_list.length === 0 && <div className="victims-empty">Нет добавленных пострадавших — заполните вручную или загрузите .docx</div>}
@@ -392,21 +405,22 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
             ))}
           </div>
 
-          <div className="form-subsection-label">Описание места происшествия</div>
+          <SubLabel>Описание места происшествия</SubLabel>
           <div className="form-row"><div className="form-group form-group--full"><Textarea label="Описание места происшествия" rows={3} value={form.scene_description} onChange={e => set('scene_description', e.target.value)} placeholder="Опишите состояние места, доступ, освещение, ограждения, проходы, погодные или производственные условия" disabled={busy} /></div></div>
 
-          <div className="form-subsection-label">Характеристика оборудования / объекта</div>
+          <SubLabel>Характеристика оборудования / объекта</SubLabel>
           <div className="form-row"><div className="form-group form-group--full"><Textarea label="Характеристика оборудования / объекта" rows={3} value={form.equipment_description} onChange={e => set('equipment_description', e.target.value)} placeholder="Укажите оборудование, инструмент, объект работ, их состояние и особенности эксплуатации" disabled={busy} /></div></div>
 
-          <div className="form-subsection-label">Полное описание обстоятельств</div>
+          <SubLabel>Полное описание обстоятельств</SubLabel>
           <div className="form-row"><div className="form-group form-group--full"><Textarea label="Полное описание обстоятельств" rows={4} value={form.full_circumstances} onChange={e => set('full_circumstances', e.target.value)} placeholder="Опишите последовательность событий до, во время и после происшествия" disabled={busy} /></div></div>
 
-          <div className="form-subsection-label">Установленные факты</div>
+          <SubLabel>Установленные факты</SubLabel>
           <div className="form-row"><div className="form-group form-group--full"><Textarea label="Установленные факты" rows={4} value={form.established_facts} onChange={e => set('established_facts', e.target.value)} placeholder="Перечислите подтверждённые факты, выявленные нарушения, документы, показания или замеры" disabled={busy} /></div></div>
         </div>
 
+        {/* 1.4 Классификация */}
         <div className="form-section">
-          <SectionHeader icon="🏷️">Классификация инцидента</SectionHeader>
+          <SubLabel icon="🏷️">Классификация инцидента</SubLabel>
           <div className="form-row">
             <div className="form-group">
               <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>
@@ -415,7 +429,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
             </div>
           </div>
 
-          <div className="form-subsection-label" style={{ marginTop: 4 }}>Тяжесть инцидента</div>
+          <SubLabel>Тяжесть инцидента</SubLabel>
           <div className="severity-selector">
             {SEVERITIES.map(s => (
               <label
@@ -443,10 +457,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
         </div>
       </div>
 
+      {/* ══════════ БЛОК 2: Параметры анализа ══════════ */}
       <div className="form-block" id="step-method">
-        <SectionHeader number="2" numbered>Параметры анализа</SectionHeader>
+        <BlockHeader number="2">Параметры анализа</BlockHeader>
 
         <div className="form-section">
+          <SubLabel icon="⚙️">Методология</SubLabel>
           <div className="mode-selector">
             <label className={`mode-option ${!isMulti() ? 'mode-option--active' : ''}`}>
               <input type="radio" name="mode" value="single" checked={!isMulti()} onChange={() => set('mode', 'single')} disabled={busy} />
@@ -492,7 +508,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading }) {
             ⚠️ Выберите минимум 2 методики для сравнения
           </div>
 
-          <div className="form-subsection-label" style={{ marginTop: 4 }}>Уровень детализации</div>
+          <SubLabel>Уровень детализации</SubLabel>
           <div className="detail-selector">
             {DETAIL_LEVELS.map(lvl => (
               <label
