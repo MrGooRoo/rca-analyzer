@@ -322,12 +322,23 @@ export default function App() {
                 />
                 {loading && (
                   <div className="analysis-cancel-toolbar">
-                    <div>
-                      <div className="analysis-cancel-toolbar__title">Анализ выполняется</div>
-                      <p className="analysis-cancel-toolbar__text">
-                        Можно отменить текущий запрос и вернуться к редактированию формы.
-                      </p>
+                    <div className="analysis-cancel-toolbar__content">
+                      <div>
+                        <div className="analysis-cancel-toolbar__title">Анализ выполняется</div>
+                        <p className="analysis-cancel-toolbar__text">
+                          Можно отменить текущий запрос и вернуться к редактированию формы.
+                        </p>
+                      </div>
+
+                      {/* Простой индикатор прогресса для одиночного анализа */}
+                      <div className="analysis-progress-simple">
+                        <div className="analysis-progress-simple__bar">
+                          <div className="analysis-progress-simple__fill" />
+                        </div>
+                        <span className="analysis-progress-simple__percent">В процессе…</span>
+                      </div>
                     </div>
+
                     <Button variant="secondary" onClick={() => cancelCurrentAnalysis()}>
                       ⏹ Отменить анализ
                     </Button>
