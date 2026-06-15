@@ -13,6 +13,12 @@
   margin-bottom: 0;
 }
 
+.form-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
 /* ───── Source selector ───── */
 .input-source {
   background: var(--surface-2);
@@ -202,9 +208,9 @@
   font-size: 1.1rem;
 }
 
-/* Секция со степпером (номер вместо иконки) */
-.form-section-label--step {
+.form-section-label--numbered {
   color: var(--text);
+  margin-bottom: 0;
 }
 
 .form-section-label__num {
@@ -392,21 +398,18 @@
   pointer-events: none;
 }
 
-/* цвета по тяжести */
 .severity-option--critical .severity-option__label  { color: var(--error); }
 .severity-option--major .severity-option__label     { color: var(--warning); }
 .severity-option--moderate .severity-option__label  { color: var(--gold, #d19900); }
 .severity-option--minor .severity-option__label     { color: var(--success); }
 .severity-option--near_miss .severity-option__label { color: var(--text-secondary); }
 
-/* активное состояние */
 .severity-option--critical.severity-option--active  { border-color: var(--error);   background: rgba(255, 69, 58,  0.08); box-shadow: 0 0 0 3px rgba(255,69,58,0.10); }
 .severity-option--major.severity-option--active     { border-color: var(--warning); background: rgba(255,159, 10,  0.08); box-shadow: 0 0 0 3px rgba(255,159,10,0.10); }
 .severity-option--moderate.severity-option--active  { border-color: var(--gold, #d19900); background: rgba(209,153, 0, 0.08); box-shadow: 0 0 0 3px rgba(209,153,0,0.10); }
 .severity-option--minor.severity-option--active     { border-color: var(--success); background: rgba(48, 209, 88, 0.08); box-shadow: 0 0 0 3px rgba(48,209,88,0.10); }
 .severity-option--near_miss.severity-option--active { border-color: var(--text-secondary); background: rgba(128,128,128,0.08); box-shadow: 0 0 0 3px rgba(128,128,128,0.10); }
 
-/* hover (не-disabled) */
 .severity-option--critical:not(.severity-option--disabled):hover  { border-color: var(--error); }
 .severity-option--major:not(.severity-option--disabled):hover     { border-color: var(--warning); }
 .severity-option--moderate:not(.severity-option--disabled):hover  { border-color: var(--gold, #d19900); }
