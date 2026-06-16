@@ -1,133 +1,86 @@
-"""FastAPI application entry point."""
-
+"""
+FastAPI application factory.
+"""
 from __future__ import annotations
 
 import logging
 import os
+
 from contextlib import asynccontextmanager
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 
-from dotenv import load_dotenv
-
-load_dotenv()  # noqa: E402 - must load env vars before other imports
-
-from fastapi import FastAPI, Request  # noqa: E402
-from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
-from fastapi.responses import JSONResponse  # noqa: E402
-
-from src.api.middleware.csrf import CSRFMiddleware  # noqa: E402
-from src.api.routes.admin import router as admin_router  # noqa: E402
-from src.api.routes.analyze import router as analyze_router  # noqa: E402
-from src.api.routes.export import router as export_router  # noqa: E402
-from src.api.routes.upload import router as upload_router  # noqa: E402
-from src.auth.router import router as auth_router  # noqa: E402
-from src.auth.seed import ensure_admin_exists  # noqa: E402
-from src.db.base import AsyncSessionLocal  # noqa: E402
-from src.domain.models import LLMResponseValidationError, MethodologyNotSupportedError  # noqa: E402
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
-)
+from src.api.middleware.csrf import CSRFMiddleware
+from src.api.routes import analyze, auth, results, sessions, embeddings
+from src.db.base import engine
+from src.db.models import Base
 
 logger = logging.getLogger(__name__)
 
 
-def _parse_origins(raw: str | None) -> list[str]:
-    if raw:
-        return [origin.strip() for origin in raw.split(",") if origin.strip()]
-    return [
-        "http://localhost:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:3000",
-        "http://127.0.0.1:5173",
-    ]
-
-
 @asynccontextmanager
 async def lifespan(application: FastAPI):
-    """Startup / shutdown."""
-    # --- Startup: seed admin из ADMIN_EMAIL ---
-    try:
-        async with AsyncSessionLocal() as session:
-            await ensure_admin_exists(session)
-    except Exception:
-        logger.warning("[SEED] Не удалось выполнить admin-seed (БД недоступна?)", exc_info=True)
+    # --- Startup ---
+    async with engine.begin() as conn:
+        await conn.run_sync(Base.metadata.create_all)
 
-    # --- Startup: прогрев HF-модели эмбеддингов ---
-    embeddings_provider = os.environ.get("EMBEDDINGS_PROVIDER", "local")
+    embeddings_provider = os.getenv("EMBEDDINGS_PROVIDER", "local")
     if embeddings_provider in ("huggingface", "hf"):
         try:
-            from src.services.embedding_service import get_embedding_service  # noqa: E402
-            svc = get_embedding_service()
-            # Запускаем тестовый embedding — модель скачается и загрузится в память
-            import asyncio  # noqa: E402
-            result = svc.embed("прогрев модели")
-            if asyncio.iscoroutine(result):
-                await result
-            logger.info(
-                "[EMBEDDINGS] HF-модель %s загружена и готова (dimension=%d)",
-                svc.model_name, svc.dimension,
-            )
+            from src.integrations.embeddings.hf_local import HFLocalEmbeddingService
+            svc = HFLocalEmbeddingService()
+            await svc.warmup()
+            logger.info("[STARTUP] HF embedding model warmed up successfully")
         except Exception:
             logger.warning(
-                "[EMBEDDINGS] Не удалось прогреть HF-модель; "
-                "будет использован fallback на local при первом запросе.",
+                "[STARTUP] Could not warm up HF embedding model",
                 exc_info=True,
             )
 
+
     yield
     # --- Shutdown ---
+    try:
+        from src.integrations.llm.openrouter import OpenRouterClient  # noqa: E402
+        await OpenRouterClient.close_shared()
+    except Exception:
+        logger.warning("[SHUTDOWN] Не удалось закрыть общий OpenRouterClient", exc_info=True)
 
 
 app = FastAPI(
     title="RCA Analyzer API",
     version="0.4.0",
-    description="Root cause analysis for industrial incidents.",
-    docs_url="/docs",
-    redoc_url="/redoc",
     lifespan=lifespan,
 )
 
-# CSRF добавляется ПЕРВЫМ (внутренний слой), CORS — ПОСЛЕДНИМ (внешний слой).
-# Starlette выполняет middleware в обратном порядке регистрации, поэтому такой
-# порядок гарантирует, что даже на CSRF-ответ 403 навешиваются CORS-заголовки.
-app.add_middleware(CSRFMiddleware)
-
+# CORS
+origins = os.getenv("CORS_ORIGINS", "http://localhost:5173").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=_parse_origins(os.environ.get("CORS_ALLOW_ORIGINS")),
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# CSRF
+app.add_middleware(CSRFMiddleware)
 
-@app.exception_handler(MethodologyNotSupportedError)
-async def methodology_error_handler(
-    request: Request,
-    exc: MethodologyNotSupportedError,
-) -> JSONResponse:
-    return JSONResponse(status_code=400, content={"detail": str(exc)})
+# Routers
+app.include_router(auth.router,      prefix="/api/v1")
+app.include_router(analyze.router,   prefix="/api/v1")
+app.include_router(results.router,   prefix="/api/v1")
+app.include_router(sessions.router,  prefix="/api/v1")
+app.include_router(embeddings.router, prefix="/api/v1")
 
+# Static files (React build)
+_DIST = os.path.join(os.path.dirname(__file__), "..", "..", "frontend", "dist")
+if os.path.isdir(_DIST):
+    app.mount("/assets", StaticFiles(directory=os.path.join(_DIST, "assets")), name="assets")
 
-@app.exception_handler(LLMResponseValidationError)
-async def llm_error_handler(request: Request, exc: LLMResponseValidationError) -> JSONResponse:
-    return JSONResponse(status_code=502, content={"detail": "LLM returned invalid response."})
-
-
-@app.exception_handler(Exception)
-async def generic_error_handler(request: Request, exc: Exception) -> JSONResponse:
-    logging.getLogger(__name__).exception("Unhandled exception")
-    return JSONResponse(status_code=500, content={"detail": "Internal server error."})
-
-
-app.include_router(auth_router)
-app.include_router(analyze_router)
-app.include_router(export_router)
-app.include_router(upload_router)
-app.include_router(admin_router)
-
-
-@app.get("/health", tags=["infra"])
-async def health() -> dict:
-    return {"status": "ok"}
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def spa_fallback(full_path: str):
+        index = os.path.join(_DIST, "index.html")
+        return FileResponse(index)

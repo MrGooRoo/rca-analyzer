@@ -25,6 +25,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import os
@@ -78,7 +79,17 @@ class OpenRouterClient:
     Использование:
         async with OpenRouterClient() as client:
             result = await client.complete(system_prompt, user_prompt)
+
+    Оптимизация скорости (p.16):
+        Реальный httpx.AsyncClient создаётся один раз и переиспользуется между
+        всеми экземплярами OpenRouterClient в одном процессе (keep-alive / connection
+        reuse). Счётчик ссылок гарантирует, что клиент закрывается только когда
+        все активные context manager'ы завершены.
     """
+
+    _shared_http: httpx.AsyncClient | None = None
+    _shared_refs: int = 0
+    _shared_lock: asyncio.Lock | None = None
 
     def __init__(
         self,
@@ -107,23 +118,52 @@ class OpenRouterClient:
         self._http: httpx.AsyncClient | None = None
         self.current_model = self.primary_model
 
+    @classmethod
+    def _lock(cls) -> asyncio.Lock:
+        if cls._shared_lock is None:
+            cls._shared_lock = asyncio.Lock()
+        return cls._shared_lock
+
+    @classmethod
+    async def close_shared(cls) -> None:
+        """Принудительно закрыть общий httpx-клиент (например, при shutdown приложения)."""
+        client_to_close: httpx.AsyncClient | None = None
+        async with cls._lock():
+            client_to_close = cls._shared_http
+            cls._shared_http = None
+            cls._shared_refs = 0
+        if client_to_close is not None:
+            await client_to_close.aclose()
+
     async def __aenter__(self) -> OpenRouterClient:
-        self._http = httpx.AsyncClient(
-            base_url=OPENROUTER_BASE_URL,
-            headers={
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type":  "application/json",
-                "HTTP-Referer":  "https://github.com/MrGooRoo/rca-analyzer",
-                "X-Title":       "RCA Analyzer",
-            },
-            timeout=self.timeout,
-        )
+        async with self._lock():
+            if OpenRouterClient._shared_http is None:
+                OpenRouterClient._shared_http = httpx.AsyncClient(
+                    base_url=OPENROUTER_BASE_URL,
+                    headers={
+                        "Authorization": f"Bearer {self.api_key}",
+                        "Content-Type":  "application/json",
+                        "HTTP-Referer":  "https://github.com/MrGooRoo/rca-analyzer",
+                        "X-Title":       "RCA Analyzer",
+                    },
+                    timeout=self.timeout,
+                    limits=httpx.Limits(max_connections=20, max_keepalive_connections=10),
+                )
+            OpenRouterClient._shared_refs += 1
+        self._http = OpenRouterClient._shared_http
         return self
 
     async def __aexit__(self, *_: Any) -> None:
-        if self._http:
-            await self._http.aclose()
-            self._http = None
+        client_to_close: httpx.AsyncClient | None = None
+        async with self._lock():
+            OpenRouterClient._shared_refs -= 1
+            if OpenRouterClient._shared_refs <= 0:
+                client_to_close = OpenRouterClient._shared_http
+                OpenRouterClient._shared_http = None
+                OpenRouterClient._shared_refs = 0
+        if client_to_close is not None:
+            await client_to_close.aclose()
+        self._http = None
 
     @property
     def model_name(self) -> str:
@@ -318,7 +358,6 @@ class OpenRouterClient:
         try:
             parsed: dict = json.loads(content)
         except json.JSONDecodeError as exc:
-            # Логируем полный невалидный ответ до 2000 символов для диагностики
             logger.warning(
                 "[OpenRouter] Невалидный JSON от %s. Ошибка: %s. "
                 "Начало ответа: %.500s ... Конец ответа: %.500s",
