@@ -46,6 +46,32 @@ def _parse_origins(raw: str | None) -> list[str]:
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     """Startup / shutdown."""
+    # --- Startup: fail-fast на дефолтные секреты в production ---
+    jwt_secret = os.environ.get("JWT_SECRET", "")
+    if not jwt_secret or "change-me" in jwt_secret.lower():
+        if os.environ.get("RCA_ENV", "").lower() in ("production", "prod"):
+            raise RuntimeError(
+                "FAIL-FAST: JWT_SECRET не должен быть дефолтным ('change-me...') в production. "
+                "Установите длинный случайный секрет через переменную окружения JWT_SECRET."
+            )
+        logger.warning(
+            "[SECURITY] JWT_SECRET содержит значение по умолчанию ('change-me...'). "
+            "Установите длинный случайный секрет через переменную окружения JWT_SECRET."
+        )
+
+    cookie_secure = os.environ.get("AUTH_COOKIE_SECURE", "false")
+    if cookie_secure.lower() not in ("true", "1", "yes"):
+        if os.environ.get("RCA_ENV", "").lower() in ("production", "prod"):
+            raise RuntimeError(
+                "FAIL-FAST: AUTH_COOKIE_SECURE должен быть 'true' в production. "
+                "Установите AUTH_COOKIE_SECURE=true при работе по HTTPS."
+            )
+        logger.warning(
+            "[SECURITY] AUTH_COOKIE_SECURE=%s — cookie будут передаваться по HTTP. "
+            "В production установите AUTH_COOKIE_SECURE=true.",
+            cookie_secure,
+        )
+
     # --- Startup: seed admin из ADMIN_EMAIL ---
     try:
         async with AsyncSessionLocal() as session:

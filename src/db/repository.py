@@ -201,7 +201,6 @@ class RCARepository:
                     category=rec.category,
                     cause_id=rec.cause_id,
                     responsible=rec.responsible,
-                    status="open",
                 ),
             )
 

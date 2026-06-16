@@ -204,7 +204,6 @@ class RecommendationORM(Base):
     category: Mapped[str] = mapped_column(String(50))
     cause_id: Mapped[str] = mapped_column(String(36))
     responsible: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    status: Mapped[str] = mapped_column(String(20), default="open")
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")
 
