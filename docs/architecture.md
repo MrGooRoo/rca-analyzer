@@ -12,8 +12,10 @@ src/api/ FastAPI
 src/services/
     ↓ orchestration
 src/domain/                     src/db/
+  __init__.py                   __init__.py
   models.py                       repository.py
   methodologies/                  models.py
+    __init__.py                   base.py
     base.py                     PostgreSQL + pgvector
     five_why.py
     ishikawa.py
@@ -29,7 +31,18 @@ src/integrations/
 
 Главная идея: HTTP-слой не содержит RCA-логики, доменный слой не знает про FastAPI, а интеграции с внешним миром изолированы в отдельных модулях.
 
-## 2. Слои приложения
+## 2. Явные Python-пакеты
+
+Ключевые backend-пакеты имеют `__init__.py`:
+
+- `src/__init__.py`;
+- `src/domain/__init__.py`;
+- `src/domain/methodologies/__init__.py`;
+- `src/db/__init__.py`.
+
+Это делает структуру пакетов явной для `mypy` и предотвращает конфликт модулей верхнего уровня, например `src.domain.methodologies.base` и `src.db.base`.
+
+## 3. Слои приложения
 
 | Слой | Каталог | Ответственность |
 |---|---|---|
@@ -42,7 +55,7 @@ src/integrations/
 | Configs | `configs/` | YAML-конфиги и Jinja2 prompts |
 | Tests | `tests/` | Unit/API/contract тесты |
 
-## 3. Backend request flow
+## 4. Backend request flow
 
 ### Одиночный анализ
 
@@ -77,7 +90,7 @@ Frontend после `done` вызывает:
 GET /api/v1/results/compare?session_id=...
 ```
 
-## 4. Analysis sessions
+## 5. Analysis sessions
 
 `analysis_sessions` — логическая единица истории.
 
@@ -85,7 +98,7 @@ GET /api/v1/results/compare?session_id=...
 - сравнение методик: одна сессия + несколько результатов;
 - история frontend загружается через `/sessions`, чтобы пагинация шла по исследованиям, а не по отдельным RCAResult.
 
-## 5. Similar incidents / embeddings
+## 6. Similar incidents / embeddings
 
 ```text
 RCAResult
@@ -103,7 +116,7 @@ RCAResult
 
 Векторы разных моделей не смешиваются: поиск фильтрует по `model_name`.
 
-## 6. Frontend architecture
+## 7. Frontend architecture
 
 Ключевые компоненты:
 
@@ -121,7 +134,7 @@ RCAResult
 
 API-вызовы централизованы в `frontend/src/api.js`.
 
-## 7. Правила расширения
+## 8. Правила расширения
 
 ### Новая RCA-методика
 

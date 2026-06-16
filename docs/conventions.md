@@ -54,6 +54,7 @@ docs: update architecture and methodology docs
 - Методики RCA наследуют `MethodologyRunner`.
 - Prompts хранятся в `configs/prompts/*.j2`, не в Python-коде.
 - Фиксированные маршруты объявлять до параметризованных, например `/results/compare` до `/results/{result_id}`.
+- Ключевые backend-пакеты должны иметь явные `__init__.py`: `src`, `src/domain`, `src/domain/methodologies`, `src/db`. Это делает модули вроде `src.domain.methodologies.base` и `src.db.base` уникальными для `mypy`.
 
 ## 5. Frontend conventions
 
@@ -106,8 +107,11 @@ docs: update architecture and methodology docs
 
 ```bash
 ruff check
+mypy src
 python -m pytest tests/ -q
 npm --prefix frontend run build
 ```
+
+`mypy src` требует явных backend-пакетов через `__init__.py`, чтобы `src/domain/methodologies/base.py` и `src/db/base.py` не конфликтовали как модули `base`.
 
 Для docs-only изменений достаточно проверить, что патч применим и Markdown не ломает смысл, но если изменение затрагивает код — прогонять полный набор.
