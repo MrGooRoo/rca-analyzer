@@ -31,6 +31,7 @@ from src.domain.methodologies.rca_systemic import RcaSystemicRunner
 from src.domain.models import (
     AnalysisRequest,
     ComparisonResult,
+    LLMResponseValidationError,
     MethodologyNotSupportedError,
     MethodologyType,
     MultiAnalysisRequest,
@@ -41,6 +42,14 @@ from src.integrations.llm.openrouter import OpenRouterClient
 from src.services.prompt_renderer import PromptRenderer
 
 logger = logging.getLogger(__name__)
+
+METHODOLOGY_NAMES_RU = {
+    "five_why":     "5 Почему",
+    "ishikawa":     "Ishikawa",
+    "fta":          "FTA",
+    "rca_systemic": "RCA Системный",
+    "bowtie":       "BowTie",
+}
 
 _RUNNERS: dict[MethodologyType, MethodologyRunner] = {
     MethodologyType.FIVE_WHY:     FiveWhyRunner(),
@@ -91,6 +100,12 @@ class AnalysisService:
         self._llm_factory = (lambda: llm_client) if llm_client else OpenRouterClient
         self._prompts     = prompt_renderer or PromptRenderer()
 
+    _STAGE_LABELS: dict[str, str] = {
+        "preparing": "Подготовка промпта",
+        "llm":       "Ожидание ответа от модели",
+        "parsing":   "Обработка результата",
+    }
+
     async def analyze(self, request: AnalysisRequest) -> RCAResult:
         runner = self._get_runner(request.methodology)
 
@@ -121,6 +136,78 @@ class AnalysisService:
         )
 
         return result
+
+    async def analyze_stream(self, request: AnalysisRequest):
+        """
+        SSE-генератор одиночного анализа.
+
+        События:
+          {"status": "started", "methodology": "five_why", "name": "5 Почему"}
+          {"status": "stage", "stage": "preparing", "percent": 10, "message": "..."}
+          {"status": "stage", "stage": "llm",       "percent": 40, "message": "..."}
+          {"status": "stage", "stage": "parsing",   "percent": 80, "message": "..."}
+          {"status": "done", "result": <RCAResult>}
+          {"status": "error", "message": "...", "code": 400|502|500}
+        """
+        methodology_value = getattr(request.methodology, "value", request.methodology)
+        ru_name = METHODOLOGY_NAMES_RU.get(methodology_value, methodology_value)
+        yield {"status": "started", "methodology": methodology_value, "name": ru_name}
+
+        try:
+            runner = self._get_runner(request.methodology)
+            yield {
+                "status": "stage",
+                "stage": "preparing",
+                "percent": 10,
+                "message": self._STAGE_LABELS["preparing"],
+            }
+
+            system_prompt, user_prompt = self._prompts.render(
+                template_name=runner.get_prompt_template_name(),
+                request=request,
+            )
+
+            yield {
+                "status": "stage",
+                "stage": "llm",
+                "percent": 40,
+                "message": self._STAGE_LABELS["llm"],
+            }
+
+            async with self._llm_factory() as client:
+                raw = await client.complete(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+
+            yield {
+                "status": "stage",
+                "stage": "parsing",
+                "percent": 80,
+                "message": self._STAGE_LABELS["parsing"],
+            }
+
+            result = await runner.run(request, raw)
+            logger.info(
+                "[AnalysisService] analyze_stream готово | result_id=%s methodology=%s",
+                result.result_id,
+                methodology_value,
+            )
+            yield {"status": "done", "result": result}
+
+        except MethodologyNotSupportedError as exc:
+            logger.warning("[AnalysisService] analyze_stream unsupported: %s", exc)
+            yield {"status": "error", "message": str(exc), "code": 400}
+        except LLMResponseValidationError as exc:
+            logger.error("[AnalysisService] analyze_stream LLM error: %s", exc)
+            yield {
+                "status": "error",
+                "message": "LLM не вернул валидный ответ. Попробуйте ещё раз.",
+                "code": 502,
+            }
+        except Exception as exc:
+            logger.error("[AnalysisService] analyze_stream unexpected error: %s", exc)
+            yield {"status": "error", "message": "Внутренняя ошибка сервера", "code": 500}
 
     @staticmethod
     def _get_runner(methodology: MethodologyType) -> MethodologyRunner:

@@ -16,6 +16,7 @@ from src.domain.models import (
     IncidentInput,
     MethodologyNotSupportedError,
     MethodologyType,
+    RCAResult,
 )
 from src.services.analysis_service import AnalysisService
 
@@ -126,3 +127,60 @@ class TestAnalysisService:
 
         mock_llm.__aenter__.assert_called_once()
         mock_llm.__aexit__.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_analyze_stream_yields_stage_events_and_result(self, request_obj, valid_llm_payload):
+        service = AnalysisService(
+            llm_client=_mock_llm(valid_llm_payload),
+            prompt_renderer=_mock_renderer(),
+        )
+        events = []
+        async for event in service.analyze_stream(request_obj):
+            events.append(event)
+
+        assert events[0]["status"] == "started"
+        assert events[0]["methodology"] == "five_why"
+        assert events[0]["name"] == "5 Почему"
+
+        stages = [e for e in events if e["status"] == "stage"]
+        assert len(stages) == 3
+        assert stages[0]["stage"] == "preparing"
+        assert stages[1]["stage"] == "llm"
+        assert stages[2]["stage"] == "parsing"
+        assert stages[0]["percent"] < stages[1]["percent"] < stages[2]["percent"]
+
+        assert events[-1]["status"] == "done"
+        assert isinstance(events[-1]["result"], RCAResult)
+
+    @pytest.mark.asyncio
+    async def test_analyze_stream_error_event_for_unsupported_methodology(self, request_obj, valid_llm_payload):
+        request_obj.methodology = "nonexistent_methodology"  # type: ignore[assignment]
+        service = AnalysisService(
+            llm_client=_mock_llm(valid_llm_payload),
+            prompt_renderer=_mock_renderer(),
+        )
+        events = []
+        async for event in service.analyze_stream(request_obj):
+            events.append(event)
+
+        assert events[-1]["status"] == "error"
+        assert events[-1]["code"] == 400
+
+    @pytest.mark.asyncio
+    async def test_analyze_stream_error_event_for_llm_failure(self, request_obj):
+        failing_llm = MagicMock()
+        failing_llm.__aenter__ = AsyncMock(return_value=failing_llm)
+        failing_llm.__aexit__ = AsyncMock(return_value=False)
+        failing_llm.complete = AsyncMock(side_effect=Exception("LLM unavailable"))
+
+        service = AnalysisService(
+            llm_client=failing_llm,
+            prompt_renderer=_mock_renderer(),
+        )
+        events = []
+        async for event in service.analyze_stream(request_obj):
+            events.append(event)
+
+        assert events[-1]["status"] == "error"
+        assert events[-1]["code"] == 500
+

@@ -309,6 +309,74 @@ async function uploadFileStream(path, file, onProgress, options = {}) {
 }
 
 /**
+ * analyzeStream — SSE-поток прогресса одиночного анализа.
+ *
+ * onEvent(event) вызывается на каждое SSE-событие:
+ *   { status: 'started', methodology, name }
+ *   { status: 'stage',   stage, percent, message }
+ *   { status: 'done',    result }  ← возвращается из промиса
+ *   { status: 'error',   message }  ← бросается как Error
+ */
+async function analyzeStream(payload, onEvent, options = {}) {
+  const { retryOn401 = true, signal } = options
+
+  const csrfToken = readCsrfToken()
+  const headers = { 'Content-Type': 'application/json' }
+  if (csrfToken) headers[CSRF_HEADER_NAME] = csrfToken
+
+  const response = await fetch('/api/v1/analyze-stream', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify(payload),
+    credentials: 'include',
+    signal,
+  })
+
+  if (response.status === 401 && retryOn401) {
+    const refreshed = await tryRefresh()
+    if (refreshed) return analyzeStream(payload, onEvent, { retryOn401: false, signal })
+    notifyAuthLost()
+    throw new Error('Сессия истекла. Войдите заново.')
+  }
+
+  if (!response.ok) {
+    if (response.status === 401) notifyAuthLost()
+    throw new Error(await readError(response))
+  }
+
+  const reader = response.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+
+  while (true) {
+    const { value, done } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    let boundary = buffer.indexOf('\n\n')
+    while (boundary !== -1) {
+      const chunk = buffer.slice(0, boundary).trim()
+      buffer = buffer.slice(boundary + 2)
+      boundary = buffer.indexOf('\n\n')
+
+      if (chunk.startsWith('data: ')) {
+        let event
+        try {
+          event = JSON.parse(chunk.slice(6))
+        } catch {
+          continue
+        }
+
+        onEvent(event)
+
+        if (event.status === 'done') return event.result
+        if (event.status === 'error') throw new Error(event.message || 'Ошибка анализа')
+      }
+    }
+  }
+}
+
+/**
  * analyzeMultiStream — SSE-поток прогресса анализа.
  *
  * onEvent(event) вызывается на каждое SSE-событие:
@@ -411,6 +479,7 @@ export const api = {
   },
   analyze: (payload, options = {}) => req('POST', '/api/v1/analyze', payload, { authRequired: true, ...options }),
   analyzeMulti: (payload, options = {}) => req('POST', '/api/v1/analyze-multi', payload, { authRequired: true, ...options }),
+  analyzeStream: (payload, onEvent, options = {}) => analyzeStream(payload, onEvent, options),
   analyzeMultiStream: (payload, onEvent, options = {}) => analyzeMultiStream(payload, onEvent, options),
   compareResults: (incidentId, sessionId) => {
     // Предпочитаем session_id; fallback на incident_id для обратной совместимости

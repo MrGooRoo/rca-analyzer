@@ -134,6 +134,84 @@ async def analyze_incident(
 
 
 # ---------------------------------------------------------------------------
+# POST /api/v1/analyze-stream  — SSE прогресс для одиночного анализа
+# ---------------------------------------------------------------------------
+
+@router.post(
+    "/analyze-stream",
+    status_code=status.HTTP_200_OK,
+    summary="Запустить RCA-анализ инцидента (SSE-статус выполнения)",
+)
+async def analyze_stream(
+    request: AnalysisRequest,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    """
+    SSE-эндпоинт для одиночного анализа.
+
+    События:
+      {"status": "started", "methodology": "five_why", "name": "5 Почему"}
+      {"status": "stage", "stage": "preparing", "percent": 10, "message": "..."}
+      {"status": "stage", "stage": "llm",       "percent": 40, "message": "..."}
+      {"status": "stage", "stage": "parsing",   "percent": 80, "message": "..."}
+      {"status": "done",  "result": <RCAResult>}
+      {"status": "error", "message": "..."}
+    """
+    async def event_generator():
+        import uuid as _uuid
+
+        repo = RCARepository(db)
+        session_orm = await repo.create_session(
+            user_id=current_user.user_id,
+            **_incident_to_session_kwargs(request.incident),
+        )
+        session_id = session_orm.id
+
+        result: RCAResult | None = None
+
+        async for event in _service.analyze_stream(request):
+            if event.get("status") == "done":
+                result = event["result"]
+                continue
+            if event.get("status") == "error":
+                yield "data: " + json.dumps(event) + "\n\n"
+                return
+            yield "data: " + json.dumps(event) + "\n\n"
+            await asyncio.sleep(0.02)
+
+        if result is None:
+            yield "data: " + json.dumps({
+                "status": "error",
+                "message": "Анализ не вернул результата.",
+            }) + "\n\n"
+            return
+
+        result.incident_id = str(_uuid.uuid4())
+        result.session_id = session_id
+        await repo.save_result(
+            result,
+            user_id=current_user.user_id,
+            session_id=session_id,
+            incident_title=request.incident.title,
+            incident_description=request.incident.description,
+            incident_date=request.incident.incident_date,
+            incident_location=request.incident.location or None,
+            incident_type=request.incident.incident_type,
+            incident_severity=request.incident.severity,
+        )
+        await db.commit()
+        result.user_id = current_user.user_id
+
+        yield "data: " + json.dumps({
+            "status": "done",
+            "result": result.model_dump(mode="json"),
+        }) + "\n\n"
+
+    return StreamingResponse(event_generator(), media_type="text/event-stream")
+
+
+# ---------------------------------------------------------------------------
 # POST /api/v1/analyze-multi
 # ---------------------------------------------------------------------------
 

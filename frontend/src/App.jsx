@@ -6,11 +6,13 @@ import { Button } from './components/ui/Button.jsx'
 import AuthPage from './components/AuthPage.jsx'
 import IncidentForm from './components/IncidentForm.jsx'
 import AnalysisProgress from './components/AnalysisProgress.jsx'
+import SingleAnalysisProgress from './components/SingleAnalysisProgress.jsx'
 import ResultView from './components/ResultView.jsx'
 import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
 import AdminPage from './components/AdminPage.jsx'
 import AnalysisSteps from './components/AnalysisSteps.jsx'
+import { methodologyMeta } from './lib/methodologies.js'
 import './App.css'
 
 export default function App() {
@@ -27,7 +29,9 @@ export default function App() {
   const [multiProgressPayload, setMultiProgressPayload] = useState(null)
   const [analysisSignal, setAnalysisSignal] = useState(null)
   // Черновик формы — сохраняется при переходе в Историю и обратно
-  const [formDraft, setFormDraft]       = useState(null)
+  const [formDraft, setFormDraft] = useState(null)
+  // Прогресс одиночного анализа (SSE)
+  const [singleProgress, setSingleProgress] = useState(null)
   const analysisRunRef = useRef(0)
   const abortControllerRef = useRef(null)
 
@@ -46,6 +50,7 @@ export default function App() {
       setMultiProgressPayload(null)
       setAnalysisSignal(null)
       setFormDraft(null)
+      setSingleProgress(null)
       setPage('analyze')
     }
   }, [user])
@@ -70,6 +75,7 @@ export default function App() {
     setLoading(false)
     setMultiProgressPayload(null)
     setAnalysisSignal(null)
+    setSingleProgress(null)
     if (notify) {
       toast.info('Текущий запрос остановлен на стороне браузера.', 'Анализ отменён')
     }
@@ -99,10 +105,38 @@ export default function App() {
     setAnalysisSignal(controller.signal)
     setLoading(true)
     setMultiProgressPayload(null)
+    setSingleProgress({
+      phase: 'running',
+      stage: 'started',
+      percent: 0,
+      message: 'Запуск анализа…',
+      methodologyName: methodologyMeta(payload.methodology).name,
+      methodologyKey: payload.methodology,
+    })
     setResult(null)
     setComparison(null)
     try {
-      const data = await api.analyze(payload, { signal: controller.signal })
+      const data = await api.analyzeStream(payload, (event) => {
+        if (analysisRunRef.current !== runId) return
+        if (event.status === 'started') {
+          setSingleProgress({
+            phase: 'running',
+            stage: 'started',
+            percent: 0,
+            message: 'Запуск анализа…',
+            methodologyName: event.name,
+            methodologyKey: event.methodology,
+          })
+        } else if (event.status === 'stage') {
+          setSingleProgress(prev => ({
+            ...prev,
+            phase: 'running',
+            stage: event.stage,
+            percent: event.percent,
+            message: event.message,
+          }))
+        }
+      }, { signal: controller.signal })
       if (analysisRunRef.current !== runId) return
       setResult(data)
       setPage('analyze')
@@ -113,6 +147,7 @@ export default function App() {
       if (analysisRunRef.current === runId) {
         abortControllerRef.current = null
         setAnalysisSignal(null)
+        setSingleProgress(null)
         setLoading(false)
       }
     }
@@ -225,6 +260,7 @@ export default function App() {
     setLoading(false)
     setMultiProgressPayload(null)
     setAnalysisSignal(null)
+    setSingleProgress(null)
     setFormDraft(null)  // сброс черновика при явном «Новый анализ»
     setPage('analyze')
   }
@@ -320,29 +356,24 @@ export default function App() {
                   initialValues={formDraft}
                   onDraftChange={setFormDraft}
                 />
-                {loading && (
-                  <div className="analysis-cancel-toolbar">
-                    <div className="analysis-cancel-toolbar__content">
-                      <div>
-                        <div className="analysis-cancel-toolbar__title">Анализ выполняется</div>
-                        <p className="analysis-cancel-toolbar__text">
-                          Можно отменить текущий запрос и вернуться к редактированию формы.
-                        </p>
-                      </div>
-
-                      {/* Простой индикатор прогресса для одиночного анализа */}
-                      <div className="analysis-progress-simple">
-                        <div className="analysis-progress-simple__bar">
-                          <div className="analysis-progress-simple__fill" />
+                {loading && !multiProgressPayload && (
+                  <>
+                    <SingleAnalysisProgress progress={singleProgress} />
+                    <div className="analysis-cancel-toolbar">
+                      <div className="analysis-cancel-toolbar__content">
+                        <div>
+                          <div className="analysis-cancel-toolbar__title">Анализ выполняется</div>
+                          <p className="analysis-cancel-toolbar__text">
+                            Можно отменить текущий запрос и вернуться к редактированию формы.
+                          </p>
                         </div>
-                        <span className="analysis-progress-simple__percent">В процессе…</span>
                       </div>
-                    </div>
 
-                    <Button variant="secondary" onClick={() => cancelCurrentAnalysis()}>
-                      ⏹ Отменить анализ
-                    </Button>
-                  </div>
+                      <Button variant="secondary" onClick={() => cancelCurrentAnalysis()}>
+                        ⏹ Отменить анализ
+                      </Button>
+                    </div>
+                  </>
                 )}
                 {multiProgressPayload && (
                   <AnalysisProgress

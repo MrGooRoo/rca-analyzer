@@ -1,0 +1,100 @@
+/* SingleAnalysisProgress — прогресс одиночного анализа */
+
+.sap-root {
+  margin: var(--space-lg) 0;
+  padding: var(--space-lg);
+  border-color: rgba(10, 132, 255, 0.24);
+  background:
+    radial-gradient(circle at top left, rgba(10, 132, 255, 0.16), transparent 34%),
+    var(--surface);
+  box-shadow: var(--shadow-md);
+}
+
+.sap-root--error {
+  border-color: rgba(255, 69, 58, 0.32);
+  background:
+    radial-gradient(circle at top left, rgba(255, 69, 58, 0.14), transparent 34%),
+    var(--surface);
+}
+
+.sap-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+
+.sap-eyebrow {
+  color: var(--primary);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin-bottom: var(--space-xs);
+  text-transform: uppercase;
+}
+
+.sap-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  color: var(--text);
+  font-size: var(--text-lg);
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sap-method-icon {
+  font-size: 18px;
+  line-height: 1;
+}
+
+.sap-bar-track {
+  height: 8px;
+  background: var(--surface-2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  overflow: hidden;
+  margin-bottom: var(--space-md);
+}
+
+.sap-bar-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--primary), #30d158);
+  border-radius: 999px;
+  transition: width 0.35s ease;
+}
+
+.sap-root--error .sap-bar-fill {
+  background: linear-gradient(90deg, #ff453a, #ff9f0a);
+}
+
+.sap-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-sm);
+}
+
+.sap-stage {
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+
+.sap-percent {
+  color: var(--text);
+  font-size: var(--text-sm);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+@media (max-width: 640px) {
+  .sap-header {
+    flex-direction: column;
+  }
+
+  .sap-footer {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
