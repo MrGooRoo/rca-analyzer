@@ -16,7 +16,7 @@ const PRIORITY_COLORS = {
 export default function ResultView({ result, onOpenResult = null }) {
   const isBowtie = result.methodology === 'bowtie'
   const [tab, setTab]           = useState(isBowtie ? 'bowtie' : 'tree')
-  const [exporting, setExporting] = useState(null) // null | 'docx' | 'pdf'
+  const [exporting, setExporting] = useState(null)
   const [exportError, setExportError] = useState(null)
 
   async function handleExport(format) {
@@ -25,21 +25,23 @@ export default function ResultView({ result, onOpenResult = null }) {
     try {
       await api.exportResult(result.result_id, result.methodology, format)
     } catch (e) {
-      setExportError(e.message)
+      setExportError(e?.message || 'Ошибка экспорта')
     } finally {
       setExporting(null)
     }
   }
 
+  const recCount = result.recommendations?.length ?? 0
+
   const tabs = isBowtie
     ? [
         { id: 'bowtie', label: '🦋 Диаграмма' },
-        { id: 'recs',   label: `Рекомендации (${result.recommendations.length})` },
+        { id: 'recs',   label: `Рекомендации (${recCount})` },
         { id: 'meta',   label: 'Мета' },
       ]
     : [
         { id: 'tree', label: 'Дерево причин' },
-        { id: 'recs', label: `Рекомендации (${result.recommendations.length})` },
+        { id: 'recs', label: `Рекомендации (${recCount})` },
         { id: 'meta', label: 'Мета' },
       ]
 
@@ -56,13 +58,13 @@ export default function ResultView({ result, onOpenResult = null }) {
       <div className="result-header">
         <div className="result-title">
           <Badge tone={methodologyMeta(result.methodology).badgeTone}>{methodologyMeta(result.methodology).icon} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>
-          <span className="result-id">#{result.result_id.slice(0, 8)}</span>
+          <span className="result-id">#{result.result_id ? result.result_id.slice(0, 8) : ''}</span>
         </div>
         <div className="result-header-right">
           <div className="result-stats">
             <Stat label="Токены" value={result.tokens_used} />
             <Stat label="Уверенность" value={(result.confidence_avg * 100).toFixed(0) + '%'} />
-            <Stat label="Модель" value={result.model_used.split('/')[1] || result.model_used} />
+            <Stat label="Модель" value={(result.model_used || '').split('/')[1] || result.model_used || '—'} />
           </div>
           <div className="export-buttons">
             <Button

@@ -25,6 +25,7 @@ from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import AsyncSessionLocal, get_db
 from src.db.repository import RCARepository
+from src.domain.methodologies import METHODOLOGY_NAMES_RU
 from src.domain.models import (
     AnalysisRequest,
     AnalysisSession,
@@ -45,14 +46,6 @@ _service = AnalysisService()
 
 DbSession = Annotated[AsyncSession, Depends(get_db)]
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
-
-METHODOLOGY_NAMES_RU = {
-    "five_why":     "5 Почему",
-    "ishikawa":     "Ishikawa",
-    "fta":          "FTA",
-    "rca_systemic": "RCA Системный",
-    "bowtie":       "BowTie",
-}
 
 _SAVE_ERROR_MESSAGE = "Не удалось сохранить результат в базе данных"
 _ANALYSIS_ERROR_MESSAGE = "Ошибка анализа методики"
@@ -144,7 +137,6 @@ async def analyze_incident(
 )
 async def analyze_stream(
     request: AnalysisRequest,
-    db: DbSession,
     current_user: CurrentUser,
 ):
     """
@@ -161,12 +153,15 @@ async def analyze_stream(
     async def event_generator():
         import uuid as _uuid
 
-        repo = RCARepository(db)
-        session_orm = await repo.create_session(
-            user_id=current_user.user_id,
-            **_incident_to_session_kwargs(request.incident),
-        )
-        session_id = session_orm.id
+        # Создаём сессию в короткоживущей DB-транзакции
+        async with AsyncSessionLocal() as db:
+            repo = RCARepository(db)
+            session_orm = await repo.create_session(
+                user_id=current_user.user_id,
+                **_incident_to_session_kwargs(request.incident),
+            )
+            session_id = session_orm.id
+            await db.commit()
 
         result: RCAResult | None = None
 
@@ -189,18 +184,30 @@ async def analyze_stream(
 
         result.incident_id = str(_uuid.uuid4())
         result.session_id = session_id
-        await repo.save_result(
-            result,
-            user_id=current_user.user_id,
-            session_id=session_id,
-            incident_title=request.incident.title,
-            incident_description=request.incident.description,
-            incident_date=request.incident.incident_date,
-            incident_location=request.incident.location or None,
-            incident_type=request.incident.incident_type,
-            incident_severity=request.incident.severity,
-        )
-        await db.commit()
+
+        # Сохраняем результат в отдельной короткоживущей DB-сессии
+        try:
+            async with AsyncSessionLocal() as db:
+                repo = RCARepository(db)
+                await repo.save_result(
+                    result,
+                    user_id=current_user.user_id,
+                    session_id=session_id,
+                    incident_title=request.incident.title,
+                    incident_description=request.incident.description,
+                    incident_date=request.incident.incident_date,
+                    incident_location=request.incident.location or None,
+                    incident_type=request.incident.incident_type,
+                    incident_severity=request.incident.severity,
+                )
+        except Exception as exc:
+            logger.error("[API] Ошибка сохранения результата в analyze_stream: %s", exc)
+            yield "data: " + json.dumps({
+                "status": "error",
+                "message": "Не удалось сохранить результат анализа.",
+            }) + "\n\n"
+            return
+
         result.user_id = current_user.user_id
 
         yield "data: " + json.dumps({

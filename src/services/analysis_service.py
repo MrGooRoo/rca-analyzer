@@ -21,7 +21,9 @@ import asyncio
 import logging
 import uuid
 from difflib import SequenceMatcher
+from typing import cast
 
+from src.domain.methodologies import METHODOLOGY_NAMES_RU
 from src.domain.methodologies.base import MethodologyRunner
 from src.domain.methodologies.bowtie import BowTieRunner
 from src.domain.methodologies.five_why import FiveWhyRunner
@@ -42,14 +44,6 @@ from src.integrations.llm.openrouter import OpenRouterClient
 from src.services.prompt_renderer import PromptRenderer
 
 logger = logging.getLogger(__name__)
-
-METHODOLOGY_NAMES_RU = {
-    "five_why":     "5 Почему",
-    "ishikawa":     "Ishikawa",
-    "fta":          "FTA",
-    "rca_systemic": "RCA Системный",
-    "bowtie":       "BowTie",
-}
 
 _RUNNERS: dict[MethodologyType, MethodologyRunner] = {
     MethodologyType.FIVE_WHY:     FiveWhyRunner(),
@@ -242,9 +236,17 @@ class AnalysisService:
             [r.methodology.value for r in single_requests],
         )
 
-        results: list[RCAResult] = await asyncio.gather(
-            *[self.analyze(r) for r in single_requests]
+        gathered = await asyncio.gather(
+            *[self.analyze(r) for r in single_requests],
+            return_exceptions=True,
         )
+
+        results: list[RCAResult] = []
+        for item in gathered:
+            if isinstance(item, Exception):
+                logger.error("[AnalysisService] Ошибка методики в analyze_multi: %s", item)
+            else:
+                results.append(cast(RCAResult, item))
 
         for result in results:
             result.incident_id = incident_id
@@ -377,14 +379,6 @@ class AnalysisService:
         differing: dict[str, list[str]],
     ) -> str:
         """Построить текстовую сводку сравнения."""
-        METHODOLOGY_NAMES_RU = {
-            "five_why":     "5 Почему",
-            "ishikawa":     "Ishikawa",
-            "fta":          "FTA",
-            "rca_systemic": "RCA Системный",
-            "bowtie":       "Bowtie",
-        }
-
         meth_names_ru = [
             METHODOLOGY_NAMES_RU.get(r.methodology.value, r.methodology.value)
             for r in results
