@@ -2,9 +2,9 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — analysis_session + embeddings + Apple-style + UI-kit form
+## Статус: 🟢 Рабочая версия — SSE-статус для одиночного анализа + всё предыдущее
 
-**Дата обновления:** 2026-06-15
+**Дата обновления:** 2026-06-16
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
@@ -121,7 +121,6 @@
   - ✅ App.jsx: `handleSubmitMulti` использует `session_id`
 - [x] **Фикс HTTP 431 в поиске похожих** (11.06.2026)
   - ✅ Новый `POST /api/v1/incidents/similar` — текст в теле запроса (`SimilarIncidentsRequest`)
-  - ✅ Причина бага: длинный текст инцидента в query string → HTTP 431 Request Header Fields Too Large
   - ✅ GET-вариант оставлен как deprecated (обратная совместимость)
   - ✅ `frontend/src/api.js`: querySimilarIncidents переведён на POST
   - ✅ +5 тестов: POST happy-path, длинный текст 5000 символов, excludes, валидация (422)
@@ -164,100 +163,74 @@
   - ✅ main.jsx: обёрнуто в AuthProvider + ToastProvider
 - [x] **App.jsx мигрирован на UI-kit** (14.06.2026)
   - ✅ `useAuth()` из AuthContext: убрана дублирующая auth-логика
-    (bootstrapSession, sessionReady, setAuth, clearAuth, setAuthLostHandler)
-  - ✅ `useToast()` вместо `<div className="alert alert-error">` — ошибки анализа всплывающим тостом
-  - ✅ Навигационные кнопки (Анализ / История / Пользователи) → `<Button variant="ghost">`
-    с классом `.app-nav-btn--active` для активной страницы
+  - ✅ `useToast()` вместо `<div className="alert alert-error">`
+  - ✅ Навигационные кнопки → `<Button variant="ghost">`
   - ✅ Кнопка «Выйти» → `<Button variant="secondary" size="sm">`
   - ✅ Кнопка «← Назад в историю» → `<Button variant="secondary" size="sm">`
-  - ✅ `AuthContext` теперь регистрирует `setAuthLostHandler` — при любом 401
-    (не только bootstrap) user сбрасывается в null, и `useEffect` в App.jsx
-    чистит транзиентное состояние (result, comparison, viewMode, page)
-  - ✅ `AuthPage.jsx`: убран проп `onAuth`, теперь напрямую `useAuth().login/register`
-  - ✅ `App.css` почищен: удалены `.nav-btn`, `.nav-btn--active`, `.btn-logout`,
-    `.btn-back`, `.alert-error` (заменены Button-вариантами и toast)
+  - ✅ `AuthContext` регистрирует `setAuthLostHandler` — при любом 401 user сбрасывается в null
+  - ✅ `AuthPage.jsx`: убран проп `onAuth`, напрямую `useAuth().login/register`
+  - ✅ `App.css` почищен: удалены `.nav-btn`, `.nav-btn--active`, `.btn-logout`, `.btn-back`, `.alert-error`
 - [x] **P2/P6 — явные UI-состояния анализа** (14.06.2026)
   - ✅ Страница анализа разделена на состояния: ВВОД → АНАЛИЗ → РЕЗУЛЬТАТ
-  - ✅ После одиночного результата или сравнения `IncidentForm` скрывается, чтобы ввод не смешивался с результатом
-  - ✅ Над `ResultView`/`CompareView` добавлена панель результата с кнопкой «➕ Новый анализ»
-  - ✅ В просмотре результата из истории теперь есть две кнопки: «Назад в историю» и «Новый анализ»
+  - ✅ После результата `IncidentForm` скрывается, не смешивается с результатом
+  - ✅ Над `ResultView`/`CompareView` добавлена панель с кнопкой «➕ Новый анализ»
+  - ✅ В просмотре результата из истории: «Назад в историю» и «Новый анализ»
 - [x] **IncidentForm.jsx — поля на UI-kit** (14.06.2026)
-  - ✅ Основные поля формы переведены на `Input`, `Textarea`, `Select` из `components/ui/Field.jsx`
-  - ✅ Нативные input оставлены только для file/radio/checkbox контролов со специальным UI
-  - ✅ Добита блокировка `disabled={busy}` на ранее пропущенных полях: фото-ссылки, семейное положение, инструктажи, стажировка, проверка знаний, медосмотр
-  - ✅ Счётчики по коду: `<Input>` 26, `<Textarea>` 6, `<Select>` 5; старые `<textarea>/<select>` отсутствуют
+  - ✅ Основные поля на `Input`, `Textarea`, `Select` из `components/ui/Field.jsx`
+  - ✅ Счётчики по коду: `<Input>` 26, `<Textarea>` 6, `<Select>` 5; нативные `<textarea>/<select>` отсутствуют
 - [x] **HistoryPage.jsx — UI-kit миграция** (14.06.2026)
-  - ✅ Карточки одиночных результатов и групп сравнения используют `Card` из UI-kit
-  - ✅ Фильтры истории используют `Input` и `Select` из UI-kit
-  - ✅ Кнопки обновления, сброса фильтров, пагинации и чипы методик используют `Button`
-  - ✅ `Card`/`CardHeader`/`CardBody` теперь пробрасывают DOM props (`onClick`, `title` и др.), чтобы UI-kit карточки можно было использовать интерактивно
-  - ✅ Счётчики по коду `HistoryPage.jsx`: `<Card>` 2, `<Button>` 5, `<Input>` 1, `<Select>` 3; нативные `<button>/<input>/<select>` отсутствуют
+  - ✅ Карточки на `Card` из UI-kit, фильтры на `Input`/`Select`, кнопки на `Button`
+  - ✅ `Card`/`CardHeader`/`CardBody` пробрасывают DOM props (`onClick`, `title`)
+  - ✅ Счётчики: `<Card>` 2, `<Button>` 5, `<Input>` 1, `<Select>` 3; нативные отсутствуют
 - [x] **HistoryPage.jsx — загрузка через `/sessions` API** (14.06.2026)
-  - ✅ История загружается через `api.sessions.list(PAGE_SIZE, offset)` вместо `api.results.list(...)`
-  - ✅ Пагинация теперь идёт по исследованиям (`analysis_sessions`), а не по плоскому списку RCAResult
-  - ✅ Сравнение методик не разрывается между страницами истории
-  - ✅ `sessionsToHistoryGroups()` преобразует `AnalysisSession[]` в одиночные карточки или группы сравнения
-  - ✅ Для карточек формируется fallback `incident` из данных сессии (`incident_title`, `incident_severity`, и т.д.)
-  - ✅ `RCARepository.list_sessions()` eager-load'ит user, causal_nodes и recommendations результатов, чтобы `/sessions` отдавал полноценные RCAResult для истории
-
+  - ✅ История через `api.sessions.list(PAGE_SIZE, offset)` вместо `api.results.list(...)`
+  - ✅ Пагинация по исследованиям (`analysis_sessions`)
+  - ✅ Сравнение методик не разрывается между страницами
 - [x] **SimilarIncidentsPanel.jsx — UI-kit миграция** (14.06.2026)
-  - ✅ Кнопки поиска/сброса фильтров и «Открыть →» используют `Button`
-  - ✅ Фильтры по методике и датам используют `Select`/`Input`
-  - ✅ Карточка похожего инцидента использует `Card`, метки похожести/методики/даты/автора — `Badge`
-  - ✅ Исправлены зависимости `useCallback(load)`: `incidentTitle` и `incidentDescription` участвуют в автопоиске/дедупе
-  - ✅ Счётчики по коду: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные `<button>/<input>/<select>` отсутствуют
+  - ✅ Кнопки на `Button`, фильтры на `Select`/`Input`, карточки на `Card`/`Badge`
+  - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **261 passed, 1 deselected (slow)** (после P0 15.06.2026)
+- `python -m pytest tests/ -q` → **268 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
-- `ruff check` по изменённым файлам → **All checks passed!**
+- `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
 
 - [x] **AnalysisProgress.jsx — SSE-прогресс multi-analysis** (14.06.2026)
-  - ✅ `App.jsx` подключает `AnalysisProgress` при запуске режима «Сравнить методики»
-  - ✅ Multi-analysis теперь идёт через `api.analyzeMultiStream()` / `POST /api/v1/analyze-multi-stream`
-  - ✅ Во время сравнения форма остаётся видимой, но заблокированной через `loading`/`busy`, а под ней отображается прогресс по методикам
-  - ✅ После SSE `done` результаты передаются в `compareResults(incidentId, sessionId)` и открывается `CompareView`
-  - ✅ `AnalysisProgress` переведён на Apple-style dark UI с `Card`/`Badge`, прогресс-баром и состояниями running/done/error
-  - ✅ Прогресс отражает параллельный запуск: после события `started` все выбранные методики сразу получают статус «в работе», а затем независимо переходят в «готово» или «ошибка»
+  - ✅ Multi-analysis через `api.analyzeMultiStream()` / `POST /api/v1/analyze-multi-stream`
+  - ✅ `AnalysisProgress` на Apple-style dark UI с `Card`/`Badge`, прогресс-баром и состояниями running/done/error
 
 - [x] **P3 — предупреждение при уходе во время анализа** (14.06.2026)
-  - ✅ При попытке перейти из активного анализа в «Историю», «Пользователи» или выйти из аккаунта показывается `window.confirm`.
-  - ✅ При подтверждённом уходе UI отвязывается от текущего in-flight запроса: поздний одиночный результат не перекидывает пользователя обратно на анализ.
-  - ✅ Для multi-analysis прогресс размонтируется и больше не вызывает `onDone/onError` после ухода со страницы.
-  - ✅ При закрытии или обновлении вкладки во время анализа браузер показывает системное `beforeunload`-предупреждение.
+  - ✅ `window.confirm` при переходе из активного анализа
+  - ✅ При подтверждённом уходе UI отвязывается от in-flight запроса
+  - ✅ `beforeunload`-предупреждение при закрытии вкладки во время анализа
 
 - [x] **P4 — отмена анализа через AbortController** (14.06.2026)
-  - ✅ `api.req()` принимает `signal` и прокидывает его в `fetch`.
-  - ✅ `api.analyze(payload, { signal })`, `api.analyzeMulti(payload, { signal })` и `api.analyzeMultiStream(payload, onEvent, { signal })` поддерживают отмену.
-  - ✅ `App.jsx` создаёт `AbortController` для одиночного и SSE multi-analysis.
-  - ✅ Под формой во время анализа показывается панель «Анализ выполняется» с кнопкой «⏹ Отменить анализ».
-  - ✅ При отмене сбрасываются `loading`, `multiProgressPayload`, `analysisSignal`; `AbortError` не показывается как ошибка анализа.
-  - ✅ При подтверждённом уходе со страницы активный HTTP-запрос также отменяется.
-  - ⚠️ Нюанс: если backend уже начал внешний LLM-запрос, браузерная отмена закрывает клиентский запрос, но фактическая остановка на стороне провайдера может быть не мгновенной.
+  - ✅ `api.req()` принимает `signal`, прокидывает в `fetch`
+  - ✅ `api.analyze`, `api.analyzeMulti`, `api.analyzeMultiStream` поддерживают отмену
+  - ✅ Панель «⏹ Отменить анализ» под формой
+  - ✅ `AbortError` не показывается как ошибка
 
 - [x] **Техдолг — httpx deprecation warnings в CSRF-тестах** (14.06.2026)
-  - ✅ `tests/api/test_csrf.py`: тестовый клиент создаётся через явный `ASGITransport`, cookie добавляются в jar после создания клиента.
-  - ✅ `tests/api/test_csrf_e2e.py`: добавлен общий `_client()` через явный `ASGITransport`, повторяющиеся `AsyncClient(...)` заменены на helper.
-  - ✅ CSRF-тесты больше не используют deprecated httpx shortcuts и проверяются с `-W error::DeprecationWarning`.
-
 - [x] **Документация — закрыты TODO-заглушки** (14.06.2026)
-  - ✅ `docs/architecture.md`: описаны слои, request flow одиночного и multi-analysis, sessions, embeddings, frontend architecture и правила расширения.
-  - ✅ `docs/conventions.md`: зафиксированы соглашения по стеку, неймингу, backend/frontend, auth/CSRF, sessions, embeddings, документации и проверкам.
-  - ✅ `docs/methodologies.md`: описаны 5 готовых RCA-методик, runner contract, применимость, multi-analysis и добавление новой методики.
+  - `docs/architecture.md`, `docs/conventions.md`, `docs/methodologies.md`
 
-- [x] **Feedback #1 — логика ручного ввода и DOCX-дозаполнения** (14.06.2026)
-  - ✅ Upload-зона явно объясняет сценарий: можно заполнить вручную или загрузить DOCX.
-  - ✅ После загрузки файла пользователь видит подсказку проверить поля и дозаполнить отсутствующие сведения вручную.
-  - ✅ Пустой список пострадавших из DOCX больше не затирает уже введённых вручную пострадавших.
-- [x] **Feedback #1.1 — явный выбор способа ввода данных** (14.06.2026)
-  - ✅ В начале формы добавлен переключатель «Вручную» / «Из DOCX-отчёта».
-  - ✅ В режиме «Вручную» upload-зона скрыта, пользователь сразу работает с полями формы.
-  - ✅ В режиме «Из DOCX-отчёта» показывается upload-зона; после загрузки найденные данные подставляются, а поля остаются редактируемыми для дозаполнения.
-
+- [x] **Feedback #1 / #1.1 — логика ручного ввода и DOCX-дозаполнения** (14.06.2026)
 - [x] **Feedback #2/#3 — placeholder-подсказки и удаление реальных примеров** (14.06.2026)
-  - ✅ Добавлены нейтральные подсказки в ключевые поля исходных данных: заголовок, описание, детальное место, краткое описание, описания места/оборудования/обстоятельств/фактов.
-  - ✅ Убраны placeholder-примеры, похожие на реальные кейсы: «Цех №3, участок сборки», «ООО “ПромБезопасность”», «Производственный цех».
+
+- [x] **Feedback #15 — статус выполнения для одиночного анализа** (16.06.2026)
+  - ✅ Backend: `POST /api/v1/analyze-stream` — SSE-эндпоинт для одиночного анализа с этапами
+    `started → preparing → llm → parsing → done/error` и процентами 0/10/40/80/100.
+  - ✅ `AnalysisService.analyze_stream()` — асинхронный генератор событий; обрабатывает
+    `MethodologyNotSupportedError`, `LLMResponseValidationError` и неожиданные ошибки.
+  - ✅ Frontend: `api.analyzeStream()` в `api.js` — клиент для SSE, аналогичный `analyzeMultiStream`.
+  - ✅ Frontend: компонент `SingleAnalysisProgress.jsx`/`SingleAnalysisProgress.css` — карточка
+    прогресса с методикой, иконкой, прогресс-баром и текущим этапом.
+  - ✅ `App.jsx` переключил одиночный анализ на `api.analyzeStream`; добавлено состояние
+    `singleProgress`; отмена через `AbortController` работает для SSE-одиночного анализа так же, как для multi.
+  - ✅ Тесты: `tests/api/test_analyze_stream.py` (4 теста), `tests/unit/test_analysis_service.py`
+    (+3 теста на stream). Итого: **268 passed, 1 deselected**.
+  - ✅ Обновлены `docs/contracts.md` (разделы 10.2, 10.4, 10.4.3, 15.6) и `docs/user-feedback-backlog.md`.
 
 ## В работе / следующий приоритет
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
@@ -265,24 +238,15 @@
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.
 
 ## Аудит качества кода (15.06.2026)
-- [x] **Документация аудита** — [code-quality-audit.md](code-quality-audit.md): оценки по слоям, P0–P3, безопасность, план улучшений.
-- [x] **План рефакторинга SSE/БД** — [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): фазы A–E, диаграммы, матрица тестов.
-- [x] **P0 — incident_id в runners**
-  - ✅ `UNASSIGNED_INCIDENT_ID` в `base.py`; все 5 runners больше не используют `str(incident_date)`.
-  - ✅ Тест `test_incident_id_unassigned_without_date` в `test_five_why.py`.
-- [x] **P0 — SSE multi-analysis**
-  - ✅ Короткоживущие `AsyncSessionLocal`: create_session и каждый save — отдельная сессия; LLM без удержания пула.
-  - ✅ Ошибка `save_result` → `error_one`, результат не попадает в `done`.
-  - ✅ Санитизация `error_one` (без `str(exc)` клиенту).
-  - ✅ `analyze_multi_stream` больше не зависит от `Depends(get_db)`.
-  - ✅ Тесты: `tests/api/test_analyze_multi_stream.py` (3 сценария).
-- [x] **P0 — SimilarIncidentsHint.css**
-  - ✅ Импорт стилей в `SimilarIncidentsHint.jsx`.
+- [x] **Документация аудита** — [code-quality-audit.md](code-quality-audit.md)
+- [x] **План рефакторинга SSE/БД** — [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md)
+- [x] **P0 — incident_id в runners** (15.06.2026)
+- [x] **P0 — SSE multi-analysis** (15.06.2026)
+- [x] **P0 — SimilarIncidentsHint.css** (15.06.2026)
 
 ## Известные проблемы / нюансы
-- `EMBEDDINGS_PROVIDER=huggingface`: первый запрос скачивает модель с HF Hub (~120MB) — в Docker стоит смонтировать volume под `HF_HOME`, чтобы кэш переживал пересборку. Для нейросетевых эмбеддингов дефолтный `threshold=0.15` слишком низкий — используйте 0.55–0.6.
+- `EMBEDDINGS_PROVIDER=huggingface`: первый запрос скачивает модель с HF Hub (~120MB) — в Docker стоит смонтировать volume под `HF_HOME`. Для нейросетевых эмбеддингов дефолтный `threshold=0.15` слишком низкий — используйте 0.55–0.6.
 - Смешивать провайдеры безопасно: поиск фильтрует по `model_name`, backfill лениво переиндексирует чужие векторы.
-- При `EMBEDDINGS_PROVIDER=openrouter` embeddings становятся платными запросами (text-embedding-3-small ≈ $0.02/1M токенов); при недоступности API всё автоматически работает через local v2.
-- После смены провайдера старые векторы переиндексируются лениво (батчами по 100 при каждом поиске похожих); до полной переиндексации часть старых результатов не попадает в выдачу.
-- Для production БД требуется `pgvector`: Docker Compose уже переведён на `pgvector/pgvector:pg16`, миграция создаёт `CREATE EXTENSION IF NOT EXISTS vector`.
-- На существующей БД после обновления нужно выполнить `alembic upgrade head`.
+- При `EMBEDDINGS_PROVIDER=openrouter` embeddings становятся платными запросами (≈ $0.02/1M токенов).
+- После смены провайдера старые векторы переиндексируются лениво (батчами по 100 при каждом поиске похожих).
+- Для production БД требуется `pgvector`; после обновления нужно выполнить `alembic upgrade head`.
