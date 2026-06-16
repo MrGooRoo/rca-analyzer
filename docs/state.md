@@ -4,7 +4,7 @@
 
 ## Статус: 🟢 Рабочая версия — analysis_session + embeddings + Apple-style + UI-kit form
 
-**Дата обновления:** 2026-06-14
+**Дата обновления:** 2026-06-15
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
@@ -208,7 +208,7 @@
   - ✅ Счётчики по коду: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные `<button>/<input>/<select>` отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **257 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **261 passed, 1 deselected (slow)** (после P0 15.06.2026)
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` по изменённым файлам → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -262,6 +262,22 @@
 ## В работе / следующий приоритет
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
+- [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.
+
+## Аудит качества кода (15.06.2026)
+- [x] **Документация аудита** — [code-quality-audit.md](code-quality-audit.md): оценки по слоям, P0–P3, безопасность, план улучшений.
+- [x] **План рефакторинга SSE/БД** — [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): фазы A–E, диаграммы, матрица тестов.
+- [x] **P0 — incident_id в runners**
+  - ✅ `UNASSIGNED_INCIDENT_ID` в `base.py`; все 5 runners больше не используют `str(incident_date)`.
+  - ✅ Тест `test_incident_id_unassigned_without_date` в `test_five_why.py`.
+- [x] **P0 — SSE multi-analysis**
+  - ✅ Короткоживущие `AsyncSessionLocal`: create_session и каждый save — отдельная сессия; LLM без удержания пула.
+  - ✅ Ошибка `save_result` → `error_one`, результат не попадает в `done`.
+  - ✅ Санитизация `error_one` (без `str(exc)` клиенту).
+  - ✅ `analyze_multi_stream` больше не зависит от `Depends(get_db)`.
+  - ✅ Тесты: `tests/api/test_analyze_multi_stream.py` (3 сценария).
+- [x] **P0 — SimilarIncidentsHint.css**
+  - ✅ Импорт стилей в `SimilarIncidentsHint.jsx`.
 
 ## Известные проблемы / нюансы
 - `EMBEDDINGS_PROVIDER=huggingface`: первый запрос скачивает модель с HF Hub (~120MB) — в Docker стоит смонтировать volume под `HF_HOME`, чтобы кэш переживал пересборку. Для нейросетевых эмбеддингов дефолтный `threshold=0.15` слишком низкий — используйте 0.55–0.6.

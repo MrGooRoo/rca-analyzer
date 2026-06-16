@@ -19,7 +19,7 @@ import logging
 import uuid
 from datetime import UTC, datetime
 
-from src.domain.methodologies.base import MethodologyRunner
+from src.domain.methodologies.base import UNASSIGNED_INCIDENT_ID, MethodologyRunner
 from src.domain.models import (
     AnalysisRequest,
     CauseNode,
@@ -100,7 +100,7 @@ class BowTieRunner(MethodologyRunner):
 
         return RCAResult(
             result_id=str(uuid.uuid4()),
-            incident_id=str(request.incident.incident_date),
+            incident_id=UNASSIGNED_INCIDENT_ID,
             methodology=MethodologyType.BOWTIE,
             created_at=datetime.now(UTC),
             immediate_causes=immediate_causes,

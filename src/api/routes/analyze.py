@@ -23,7 +23,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
-from src.db.base import get_db
+from src.db.base import AsyncSessionLocal, get_db
 from src.db.repository import RCARepository
 from src.domain.models import (
     AnalysisRequest,
@@ -53,6 +53,9 @@ METHODOLOGY_NAMES_RU = {
     "rca_systemic": "RCA Системный",
     "bowtie":       "BowTie",
 }
+
+_SAVE_ERROR_MESSAGE = "Не удалось сохранить результат в базе данных"
+_ANALYSIS_ERROR_MESSAGE = "Ошибка анализа методики"
 
 
 def _incident_to_session_kwargs(incident):
@@ -194,12 +197,14 @@ async def analyze_multi(
 )
 async def analyze_multi_stream(
     request: MultiAnalysisRequest,
-    db: DbSession,
     current_user: CurrentUser,
 ):
     """
     SSE-эндпоинт: запускает все методологии параллельно и отправляет события
     по мере завершения каждой.
+
+    DB-сессии короткоживущие: create_session и каждый save_result — отдельное
+    соединение; во время LLM-вызовов пул не удерживается.
 
     События:
       {"status": "started",   "total": N, "methodologies": [...]}
@@ -209,6 +214,8 @@ async def analyze_multi_stream(
       {"status": "error",     "message": "..."}   — фатальная ошибка
     """
     async def event_generator():
+        import uuid as _uuid
+
         methodologies = request.methodologies
         total = len(methodologies)
         names = [METHODOLOGY_NAMES_RU.get(m.value, m.value) for m in methodologies]
@@ -220,18 +227,17 @@ async def analyze_multi_stream(
         }) + "\n\n"
         await asyncio.sleep(0.05)
 
-        import uuid as _uuid
         incident_id = str(_uuid.uuid4())
 
-        # Создаём сессию исследования
-        repo = RCARepository(db)
-        session_orm = await repo.create_session(
-            user_id=current_user.user_id,
-            **_incident_to_session_kwargs(request.incident),
-        )
-        session_id = session_orm.id
+        async with AsyncSessionLocal() as db:
+            repo = RCARepository(db)
+            session_orm = await repo.create_session(
+                user_id=current_user.user_id,
+                **_incident_to_session_kwargs(request.incident),
+            )
+            session_id = session_orm.id
+            await db.commit()
 
-        # Очередь для результатов по мере готовности
         queue: asyncio.Queue = asyncio.Queue()
 
         async def run_one(methodology):
@@ -248,12 +254,11 @@ async def analyze_multi_stream(
                 await queue.put(("ok", methodology, result))
             except Exception as exc:
                 logger.error("[AnalyzeMultiStream] %s ошибка: %s", name, exc)
-                await queue.put(("err", methodology, str(exc)))
+                await queue.put(("err", methodology, _ANALYSIS_ERROR_MESSAGE))
 
         tasks = [asyncio.create_task(run_one(m)) for m in methodologies]
 
         results = []
-        errors = []
         done_count = 0
 
         while done_count < total:
@@ -263,22 +268,34 @@ async def analyze_multi_stream(
 
             if kind == "ok":
                 result = payload
+                result.session_id = session_id
                 try:
-                    result.session_id = session_id
-                    await repo.save_result(
-                        result,
-                        user_id=current_user.user_id,
-                        session_id=session_id,
-                        incident_title=request.incident.title,
-                        incident_description=request.incident.description,
-                        incident_date=request.incident.incident_date,
-                        incident_location=request.incident.location or None,
-                        incident_type=request.incident.incident_type,
-                        incident_severity=request.incident.severity,
-                    )
+                    async with AsyncSessionLocal() as db:
+                        repo = RCARepository(db)
+                        await repo.save_result(
+                            result,
+                            user_id=current_user.user_id,
+                            session_id=session_id,
+                            incident_title=request.incident.title,
+                            incident_description=request.incident.description,
+                            incident_date=request.incident.incident_date,
+                            incident_location=request.incident.location or None,
+                            incident_type=request.incident.incident_type,
+                            incident_severity=request.incident.severity,
+                        )
                     result.user_id = current_user.user_id
                 except Exception as exc:
                     logger.error("[AnalyzeMultiStream] Ошибка сохранения %s: %s", name, exc)
+                    yield "data: " + json.dumps({
+                        "status": "error_one",
+                        "methodology": methodology.value,
+                        "name": name,
+                        "message": _SAVE_ERROR_MESSAGE,
+                        "done": done_count,
+                        "total": total,
+                    }) + "\n\n"
+                    await asyncio.sleep(0.02)
+                    continue
 
                 results.append(result)
                 yield "data: " + json.dumps({
@@ -289,7 +306,6 @@ async def analyze_multi_stream(
                     "total": total,
                 }) + "\n\n"
             else:
-                errors.append(name)
                 yield "data: " + json.dumps({
                     "status": "error_one",
                     "methodology": methodology.value,
@@ -301,7 +317,6 @@ async def analyze_multi_stream(
 
             await asyncio.sleep(0.02)
 
-        # Ждём завершения всех задач (на случай исключений вне queue)
         await asyncio.gather(*tasks, return_exceptions=True)
 
         if not results:
@@ -311,7 +326,6 @@ async def analyze_multi_stream(
             }) + "\n\n"
             return
 
-        # Сериализуем через pydantic (datetime → str и т.д.)
         results_json = [r.model_dump(mode="json") for r in results]
         yield "data: " + json.dumps({
             "status": "done",

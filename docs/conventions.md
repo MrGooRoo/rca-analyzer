@@ -95,6 +95,8 @@ docs: update architecture and methodology docs
 
 - `docs/state.md` — текущее состояние;
 - `docs/contracts.md` — если меняется API/data/frontend contract;
+- `docs/code-quality-audit.md` — при значимых выводах аудита или закрытии P0–P3;
+- `docs/refactoring-plan-sse-db.md` — при изменениях SSE/персистенции/транзакций;
 - `README.md` — если меняется запуск или пользовательские возможности;
 - профильный документ (`architecture.md`, `methodologies.md`, `conventions.md`) — если меняется соответствующая область.
 

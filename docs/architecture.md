@@ -62,12 +62,14 @@ POST /api/v1/analyze
 
 ```text
 POST /api/v1/analyze-multi-stream
-  → создать одну analysis_session
+  → создать одну analysis_session (короткая DB-сессия, commit)
   → отправить SSE started
-  → запустить методики параллельно через asyncio.create_task
-  → на каждую методику: progress или error_one
-  → done с массивом RCAResult
+  → запустить методики параллельно через asyncio.create_task (без удержания DB)
+  → на каждую методику: save_result в отдельной DB-сессии → progress или error_one
+  → done только с успешно сохранёнными RCAResult
 ```
+
+Подробности и план дальнейшего рефакторинга: `docs/refactoring-plan-sse-db.md`.
 
 Frontend после `done` вызывает:
 

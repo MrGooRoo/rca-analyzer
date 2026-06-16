@@ -16,7 +16,7 @@ import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from src.domain.methodologies.base import MethodologyRunner
+from src.domain.methodologies.base import UNASSIGNED_INCIDENT_ID, MethodologyRunner
 from src.domain.models import (
     AnalysisRequest,
     CauseNode,
@@ -90,7 +90,7 @@ class FaultTreeRunner(MethodologyRunner):
 
         return RCAResult(
             result_id=str(uuid.uuid4()),
-            incident_id=str(request.incident.incident_date),
+            incident_id=UNASSIGNED_INCIDENT_ID,
             methodology=MethodologyType.FTA,
             created_at=datetime.now(UTC),
             immediate_causes=[top_node] + immediate,

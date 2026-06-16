@@ -14,6 +14,10 @@ from abc import ABC, abstractmethod
 
 from src.domain.models import AnalysisRequest, RCAResult
 
+# Runners не знают финальный incident_id (UUID группы инцидента).
+# Его назначает AnalysisService.analyze_multi() или API-роут после run().
+UNASSIGNED_INCIDENT_ID = ""
+
 
 class MethodologyRunner(ABC):
     """Базовый класс для всех методик анализа корневых причин."""

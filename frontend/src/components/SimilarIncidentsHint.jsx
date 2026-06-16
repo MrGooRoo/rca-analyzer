@@ -1,3 +1,5 @@
+import './SimilarIncidentsHint.css'
+
 import React, { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
 

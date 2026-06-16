@@ -7,6 +7,7 @@ from datetime import datetime
 
 import pytest
 
+from src.domain.methodologies.base import UNASSIGNED_INCIDENT_ID
 from src.domain.methodologies.five_why import FiveWhyRunner
 from src.domain.models import (
     AnalysisRequest,
@@ -152,6 +153,19 @@ class TestFiveWhyRunner:
         del valid_llm_response["immediate_causes"][0]["text"]
         with pytest.raises(LLMResponseValidationError):
             await runner.run(request_obj, valid_llm_response)
+
+    @pytest.mark.asyncio
+    async def test_incident_id_unassigned_without_date(self, runner, valid_llm_response):
+        """incident_id не должен зависеть от incident_date (раньше был str(date) → 'None')."""
+        incident = IncidentInput(
+            title="Инцидент без даты",
+            description="Описание инцидента без указания даты происшествия.",
+            incident_type="injury",
+            severity="moderate",
+        )
+        request_obj = AnalysisRequest(incident=incident, methodology=MethodologyType.FIVE_WHY)
+        result = await runner.run(request_obj, valid_llm_response)
+        assert result.incident_id == UNASSIGNED_INCIDENT_ID
 
     @pytest.mark.asyncio
     async def test_empty_contributing_causes(self, runner, request_obj, valid_llm_response):
