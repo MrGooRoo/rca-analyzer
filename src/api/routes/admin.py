@@ -16,7 +16,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user, require_admin
 from src.db.base import get_db
+from src.db.llm_settings_repository import LLMSettingsRepository
 from src.db.orm_models import UserORM
+from src.domain.models import LLMSettings, LLMSettingsUpdate
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -118,3 +120,34 @@ async def update_user_role(
         role=user.role,
         is_active=user.is_active,
     )
+
+
+# ---------------------------------------------------------------------------
+# GET/PUT /api/v1/admin/llm-settings — P17 LLM Conductor settings
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/llm-settings",
+    response_model=LLMSettings,
+    summary="Получить настройки LLM Conductor (admin-only)",
+)
+async def get_llm_settings(
+    db: DbSession,
+    current_user: CurrentUser,
+) -> LLMSettings:
+    require_admin(current_user)
+    return await LLMSettingsRepository(db).get()
+
+
+@router.put(
+    "/llm-settings",
+    response_model=LLMSettings,
+    summary="Обновить настройки LLM Conductor (admin-only)",
+)
+async def update_llm_settings(
+    body: LLMSettingsUpdate,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> LLMSettings:
+    require_admin(current_user)
+    return await LLMSettingsRepository(db).upsert(body, updated_by=current_user.email)

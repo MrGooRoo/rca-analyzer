@@ -26,7 +26,7 @@
 | 14 | Шкала / процент обработки анализа | ✅ done | `8ad9b87` |
 | 15 | Статус выполнения для одиночного анализа | ✅ done | `9200b00` |
 | 16 | Оптимизация скорости обработки | ✅ done | `a686cf6`, `798c172`, `d00e251`, cleanup `72e84b2` |
-| **17** | **LLM Conductor: бесплатный черновик + дешёвый verifier по порогу качества** | 🟡 **next / architecture fixed** | [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md) |
+| **17** | **LLM Conductor: бесплатный черновик + дешёвый verifier по порогу качества** | 🟡 **in progress** | этап 1: DB/API settings |
 | 18 | Упростить страницу результата (убрать «Форма скрыта…», меньше вложенности) | 🔜 | — |
 | 19 | Кнопка «Открыть» в похожих инцидентах — логика и куда ведёт | 🔜 | — |
 
@@ -74,8 +74,8 @@ confidence_avg < quality_threshold?
 
 Порядок реализации P17:
 
-1. DB/API settings: migration `011_add_llm_settings.py`, ORM, Pydantic, upsert, admin-only `GET/PUT /llm-settings`.
-2. OpenRouter catalog proxy: `GET /api/v1/admin/openrouter/models` + кэш и тесты.
+1. ✅ DB/API settings: migration `011_add_llm_settings.py`, ORM, Pydantic, upsert, admin-only `GET/PUT /llm-settings`.
+2. 🔜 OpenRouter catalog proxy: `GET /api/v1/admin/openrouter/models` + кэш и тесты.
 3. Admin UI: блок LLM-настроек с select/autocomplete и ручным fallback.
 4. `configs/prompts/verifier.j2`.
 5. `LLMConductor` и интеграция в `AnalysisService.analyze()` / `analyze_stream()`.
@@ -85,7 +85,7 @@ confidence_avg < quality_threshold?
 
 ## Заметки
 
-- Пункты 1–16 закрыты. Следующий — **п.17**.
+- Пункты 1–16 закрыты. **П.17 в работе**: этап 1 DB/API settings реализован, следующий этап — OpenRouter catalog proxy.
 - П.5 потребовал 3 итерации (9df52a9 → de0cd5b → 3c1e6d7).
 - П.8 был уже реализован в `26df63c` (обнаружено при аудите).
 - Не делать крупные batch-патчи: строго один пункт за раз.

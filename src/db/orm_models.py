@@ -11,6 +11,7 @@ ORM-модели (таблицы БД).
     recommendations         — корректирующие мероприятия
     docx_extraction_cache   — кэш результатов LLM-извлечения по хешу файла
     result_embeddings       — pgvector-эмбеддинги RCA-результатов для похожих инцидентов
+    llm_settings            — singleton admin-настройки LLM Conductor (P17)
 """
 
 from __future__ import annotations
@@ -20,6 +21,7 @@ from datetime import datetime
 from pgvector.sqlalchemy import Vector
 from sqlalchemy import (
     Boolean,
+    CheckConstraint,
     DateTime,
     Float,
     ForeignKey,
@@ -70,6 +72,35 @@ class RefreshTokenORM(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
 
     user: Mapped[UserORM] = relationship(back_populates="refresh_tokens")
+
+
+class LLMSettingsORM(Base):
+    """Singleton admin settings for P17 LLM Conductor."""
+
+    __tablename__ = "llm_settings"
+    __table_args__ = (
+        CheckConstraint("id = 1", name="ck_llm_settings_singleton"),
+        CheckConstraint(
+            "quality_threshold >= 0.0 AND quality_threshold <= 1.0",
+            name="ck_llm_settings_quality_threshold",
+        ),
+        CheckConstraint(
+            "verification_scheme IN ('disabled', 'threshold', 'always')",
+            name="ck_llm_settings_verification_scheme",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, default=1)
+    draft_model: Mapped[str] = mapped_column(String(200), nullable=False)
+    verifier_model: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    quality_threshold: Mapped[float] = mapped_column(Float, nullable=False, default=0.70)
+    verification_scheme: Mapped[str] = mapped_column(
+        String(20), nullable=False, default="threshold"
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+    updated_by: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
 
 class IncidentORM(Base):

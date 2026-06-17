@@ -4,10 +4,12 @@ Pydantic domain-модели RCA Analyzer.
 
 from __future__ import annotations
 
+import re
 from datetime import date, datetime, time
 from enum import StrEnum
+from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 class MethodologyType(StrEnum):
@@ -125,6 +127,75 @@ class RCAResult(BaseModel):
     model_used:          str
     tokens_used:         int
     confidence_avg:      float
+
+
+# ----------------------------------------------------------------------
+# P17 — LLM Conductor settings (admin-managed, planned conductor runtime)
+# ----------------------------------------------------------------------
+
+VerificationScheme = Literal["disabled", "threshold", "always"]
+
+_MODEL_ID_RE = re.compile(r"^[A-Za-z0-9._~:/-]{1,200}$")
+
+
+def _normalize_model_id(value: str | None, *, required: bool) -> str | None:
+    if value is None:
+        if required:
+            raise ValueError("Model id is required")
+        return None
+    normalized = value.strip()
+    if not normalized:
+        if required:
+            raise ValueError("Model id is required")
+        return None
+    if not _MODEL_ID_RE.fullmatch(normalized):
+        raise ValueError("Model id must be an OpenRouter slug without spaces")
+    return normalized
+
+
+class LLMSettingsUpdate(BaseModel):
+    """Payload for admin-managed LLM conductor settings."""
+
+    draft_model: str
+    verifier_model: str | None = None
+    quality_threshold: float = Field(default=0.70, ge=0.0, le=1.0)
+    verification_scheme: VerificationScheme = "threshold"
+
+    @field_validator("draft_model", mode="before")
+    @classmethod
+    def validate_draft_model(cls, value: str | None) -> str:
+        normalized = _normalize_model_id(value, required=True)
+        assert normalized is not None
+        return normalized
+
+    @field_validator("verifier_model", mode="before")
+    @classmethod
+    def validate_verifier_model(cls, value: str | None) -> str | None:
+        return _normalize_model_id(value, required=False)
+
+    @model_validator(mode="after")
+    def validate_verifier_required(self) -> LLMSettingsUpdate:
+        if self.verification_scheme != "disabled" and not self.verifier_model:
+            raise ValueError("verifier_model is required unless verification_scheme is disabled")
+        return self
+
+
+class LLMSettings(LLMSettingsUpdate):
+    """Current LLM conductor settings returned by admin API."""
+
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+
+
+class OpenRouterModelInfo(BaseModel):
+    """OpenRouter catalog item for future admin model picker."""
+
+    id: str
+    name: str | None = None
+    context_length: int | None = None
+    prompt_price_per_1m: float | None = None
+    completion_price_per_1m: float | None = None
+    is_free: bool = False
 
 
 class MethodologyNotSupportedError(Exception):

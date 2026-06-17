@@ -287,9 +287,9 @@ UX-правила:
 
 Строго один пункт за раз, без крупных batch-патчей.
 
-1. **Docs-only фиксация P17** — этот документ + ссылки из `state.md`, `contracts.md`, `user-feedback-backlog.md`.
-2. **DB/API settings:** migration `011`, ORM, Pydantic, repository/upsert, `GET/PUT /admin/llm-settings`, тесты.
-3. **OpenRouter catalog:** backend proxy `/admin/openrouter/models`, кэш, тесты с моками.
+1. ✅ **Docs-only фиксация P17** — этот документ + ссылки из `state.md`, `contracts.md`, `user-feedback-backlog.md`.
+2. ✅ **DB/API settings:** migration `011`, ORM, Pydantic, repository/upsert, `GET/PUT /admin/llm-settings`, тесты.
+3. 🔜 **OpenRouter catalog:** backend proxy `/admin/openrouter/models`, кэш, тесты с моками.
 4. **Admin UI:** блок LLM-настроек, загрузка/сохранение, валидация, ручной fallback.
 5. **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
 6. **LLMConductor:** draft → threshold gate → verifier → итоговый `RCAResult`; unit tests без реальных LLM.
@@ -307,3 +307,28 @@ UX-правила:
 - Настройки лучше хранить в отдельной singleton-таблице `llm_settings`.
 - OpenRouter catalog желательно получать программно через backend proxy; ручной ввод остаётся как fallback.
 - Верификатор должен быть дешёвым и выполнять лёгкую проверку/улучшение черновика, а не полный повторный анализ.
+
+---
+
+## 12. Реализовано
+
+### 12.1. Этап 1 — DB/API settings (17.06.2026)
+
+Добавлено:
+
+- `alembic/versions/011_add_llm_settings.py` — singleton-таблица `llm_settings` с seed `id=1`.
+- `LLMSettingsORM` в `src/db/orm_models.py`.
+- Pydantic-схемы `LLMSettingsUpdate`, `LLMSettings`, `OpenRouterModelInfo` в `src/domain/models.py`.
+- `src/db/llm_settings_repository.py` — get-or-create и upsert singleton-настроек.
+- Admin-only endpoints:
+  - `GET /api/v1/admin/llm-settings`;
+  - `PUT /api/v1/admin/llm-settings`.
+- `tests/api/test_admin_llm_settings.py` — 5 API-тестов.
+
+Проверки:
+
+```text
+pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py -q → 13 passed
+python -m pytest tests/ -q → 274 passed, 1 deselected
+ruff check src/domain/models.py src/db/orm_models.py src/db/llm_settings_repository.py src/api/routes/admin.py tests/api/test_admin_llm_settings.py → All checks passed!
+```

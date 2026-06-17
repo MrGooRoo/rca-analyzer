@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.16 закрыт; п.17 спроектирован (LLM Conductor)
+## Статус: 🟢 Рабочая версия — п.17 начат: DB/API настройки LLM Conductor
 
 **Дата обновления:** 2026-06-17
 
@@ -191,7 +191,7 @@
   - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **269 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **274 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -260,9 +260,13 @@
     и возвращает тот же JSON-контракт для существующих methodology runners.
   - Порядок реализации: settings DB/API → OpenRouter catalog → Admin UI → verifier prompt → `LLMConductor`
     → интеграция в `AnalysisService.analyze()` и `analyze_stream()` → аудит токенов/моделей.
+  - ✅ Этап 1 реализован (17.06.2026): `llm_settings` singleton-таблица, ORM, Pydantic-схемы,
+    `LLMSettingsRepository`, admin-only `GET/PUT /api/v1/admin/llm-settings`, API-тесты.
+  - ✅ Проверки этапа 1: `pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py -q` → **13 passed**;
+    `python -m pytest tests/ -q` → **274 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — начать реализацию с DB/API настроек `llm_settings` и admin-only endpoints.**
+- [ ] **Feedback #17 — следующий этап: OpenRouter catalog proxy `GET /api/v1/admin/openrouter/models`.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.
