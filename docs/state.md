@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17: DB/API настройки + OpenRouter catalog proxy
+## Статус: 🟢 Рабочая версия — п.17: Admin UI настроек LLM Conductor
 
 **Дата обновления:** 2026-06-17
 
@@ -270,9 +270,14 @@
   - ✅ Проверки этапа 2: `pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py tests/api/test_admin_openrouter_models.py -q`
     → **17 passed**;
     `python -m pytest tests/ -q` → **278 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
+  - ✅ Этап 3 реализован (17.06.2026): в `AdminPage` добавлен блок **LLM Conductor** для настройки
+    `draft_model`, `verifier_model`, `quality_threshold`, `verification_scheme`; модели выбираются через
+    `api.admin.openRouterModels()` с `datalist` и ручным fallback, если каталог недоступен.
+  - ✅ Проверки этапа 3: `cd frontend && npm run build` → **успешно**;
+    `python -m pytest tests/ -q` → **278 passed, 1 deselected**.
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — следующий этап: Admin UI для LLM-настроек и выбора моделей из каталога.**
+- [ ] **Feedback #17 — следующий этап: verifier prompt `configs/prompts/verifier.j2`.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.

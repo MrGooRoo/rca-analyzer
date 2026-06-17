@@ -290,7 +290,7 @@ UX-правила:
 1. ✅ **Docs-only фиксация P17** — этот документ + ссылки из `state.md`, `contracts.md`, `user-feedback-backlog.md`.
 2. ✅ **DB/API settings:** migration `011`, ORM, Pydantic, repository/upsert, `GET/PUT /admin/llm-settings`, тесты.
 3. ✅ **OpenRouter catalog:** backend proxy `/admin/openrouter/models`, кэш, тесты с моками.
-4. **Admin UI:** блок LLM-настроек, загрузка/сохранение, валидация, ручной fallback.
+4. ✅ **Admin UI:** блок LLM-настроек, загрузка/сохранение, валидация, ручной fallback.
 5. **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
 6. **LLMConductor:** draft → threshold gate → verifier → итоговый `RCAResult`; unit tests без реальных LLM.
 7. **Integration:** `AnalysisService.analyze()` и `analyze_stream()` используют conductor; API/SSE tests.
@@ -354,4 +354,29 @@ ruff check src/domain/models.py src/db/orm_models.py src/db/llm_settings_reposit
 pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py tests/api/test_admin_openrouter_models.py -q → 17 passed
 python -m pytest tests/ -q → 278 passed, 1 deselected
 ruff check src/integrations/llm/openrouter_catalog.py src/api/routes/admin.py tests/api/test_admin_openrouter_models.py → All checks passed!
+```
+
+
+### 12.3. Этап 3 — Admin UI для LLM-настроек (17.06.2026)
+
+Добавлено:
+
+- `frontend/src/api.js`:
+  - `api.admin.getLlmSettings()`;
+  - `api.admin.updateLlmSettings(payload)`;
+  - `api.admin.openRouterModels(params)`.
+- `frontend/src/components/AdminPage.jsx`:
+  - блок «LLM Conductor» над управлением пользователями;
+  - загрузка/сохранение `draft_model`, `verifier_model`, `quality_threshold`, `verification_scheme`;
+  - поиск моделей OpenRouter через backend proxy;
+  - `datalist` для выбора model id + ручной fallback;
+  - фильтр «Только бесплатные» и принудительное обновление каталога;
+  - UX-подсказки по цене, схеме и экономике токенов.
+- `frontend/src/components/AdminPage.css` — стили блока настроек.
+
+Проверки:
+
+```text
+cd frontend && npm run build → built successfully
+python -m pytest tests/ -q → 278 passed, 1 deselected
 ```

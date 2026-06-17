@@ -605,7 +605,7 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 
 ## 17. P17 LLM Conductor — контракты и план реализации (зафиксировано 17.06.2026)
 
-> Статус раздела: **частично реализовано**. Этапы 1–2 реализованы 17.06.2026: DB/API settings и backend proxy каталога OpenRouter; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+> Статус раздела: **частично реализовано**. Этапы 1–3 реализованы 17.06.2026: DB/API settings, backend proxy каталога OpenRouter и Admin UI; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
 
 ### 17.1. Назначение
 
@@ -681,7 +681,7 @@ GET /api/v1/admin/openrouter/models?search=&free_only=&limit=100  # implemented
 - backend не отдаёт `OPENROUTER_API_KEY` во frontend;
 - `/openrouter/models` вызывает публичный каталог OpenRouter server-side, кэширует результат in-memory и возвращает UI-safe `OpenRouterModelInfo[]`.
 
-### 17.5. Frontend API (planned; backend endpoint already available)
+### 17.5. Frontend API (implemented)
 
 ```js
 api.admin.getLlmSettings()                 // GET /api/v1/admin/llm-settings
@@ -689,7 +689,19 @@ api.admin.updateLlmSettings(payload)        // PUT /api/v1/admin/llm-settings
 api.admin.openRouterModels(params)          // GET /api/v1/admin/openrouter/models
 ```
 
-### 17.6. Схемы верификации
+
+### 17.6. AdminPage UI (implemented)
+
+`frontend/src/components/AdminPage.jsx` содержит блок **LLM Conductor**:
+
+- загрузка текущих настроек через `api.admin.getLlmSettings()`;
+- сохранение через `api.admin.updateLlmSettings(payload)`;
+- поиск моделей через `api.admin.openRouterModels({ search, free_only, limit, force_refresh })`;
+- поля `draft_model`, `verifier_model`, `verification_scheme`, `quality_threshold`;
+- `datalist`/ручной fallback для model id, если каталог OpenRouter недоступен;
+- frontend-проверка: при `verification_scheme != "disabled"` verifier-модель обязательна.
+
+### 17.7. Схемы верификации
 
 | `verification_scheme` | Поведение |
 |---|---|
@@ -697,7 +709,7 @@ api.admin.openRouterModels(params)          // GET /api/v1/admin/openrouter/mode
 | `threshold` | Verifier вызывается, если `confidence_avg < quality_threshold` |
 | `always` | Verifier вызывается после каждого черновика |
 
-### 17.7. Контракт `LLMConductor` (planned)
+### 17.8. Контракт `LLMConductor` (planned)
 
 ```python
 class LLMConductor:
@@ -720,7 +732,7 @@ render methodology prompt
 
 Верификатор возвращает тот же JSON-контракт, что и обычная методология, чтобы не плодить отдельные result types.
 
-### 17.8. Аудит моделей и токенов
+### 17.9. Аудит моделей и токенов
 
 Минимально совместимый вариант:
 

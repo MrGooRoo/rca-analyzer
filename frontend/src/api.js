@@ -508,5 +508,19 @@ export const api = {
     listUsers: () => req('GET', '/api/v1/admin/users', undefined, { authRequired: true }),
     setRole: (userId, role) =>
       req('PUT', `/api/v1/admin/users/${userId}/role`, { role }, { authRequired: true }),
+    getLlmSettings: () =>
+      req('GET', '/api/v1/admin/llm-settings', undefined, { authRequired: true }),
+    updateLlmSettings: (payload) =>
+      req('PUT', '/api/v1/admin/llm-settings', payload, { authRequired: true }),
+    openRouterModels: (params = {}) => {
+      const qs = new URLSearchParams()
+      Object.entries(params).forEach(([key, value]) => {
+        if (value !== undefined && value !== null && value !== '') {
+          qs.set(key, String(value))
+        }
+      })
+      const suffix = qs.toString() ? `?${qs.toString()}` : ''
+      return req('GET', `/api/v1/admin/openrouter/models${suffix}`, undefined, { authRequired: true })
+    },
   },
 }
