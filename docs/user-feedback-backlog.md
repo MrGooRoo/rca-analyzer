@@ -26,7 +26,7 @@
 | 14 | Шкала / процент обработки анализа | ✅ done | `8ad9b87` |
 | 15 | Статус выполнения для одиночного анализа | ✅ done | `9200b00` |
 | 16 | Оптимизация скорости обработки | ✅ done | `a686cf6`, `798c172`, `d00e251`, cleanup `72e84b2` |
-| **17** | **LLM Conductor: бесплатный черновик + дешёвый verifier по порогу качества** | 🟡 **in progress** | этапы 1–3: settings API + catalog + Admin UI |
+| **17** | **LLM Conductor: бесплатный черновик + дешёвый verifier по порогу качества** | 🟡 **in progress** | этапы 1–4: settings/catalog/UI/verifier prompt |
 | 18 | Упростить страницу результата (убрать «Форма скрыта…», меньше вложенности) | 🔜 | — |
 | 19 | Кнопка «Открыть» в похожих инцидентах — логика и куда ведёт | 🔜 | — |
 
@@ -77,15 +77,15 @@ confidence_avg < quality_threshold?
 1. ✅ DB/API settings: migration `011_add_llm_settings.py`, ORM, Pydantic, upsert, admin-only `GET/PUT /llm-settings`.
 2. ✅ OpenRouter catalog proxy: `GET /api/v1/admin/openrouter/models` + кэш и тесты.
 3. ✅ Admin UI: блок LLM-настроек с select/autocomplete и ручным fallback.
-4. 🔜 `configs/prompts/verifier.j2`.
-5. `LLMConductor` и интеграция в `AnalysisService.analyze()` / `analyze_stream()`.
+4. ✅ `configs/prompts/verifier.j2`.
+5. 🔜 `LLMConductor` и интеграция в `AnalysisService.analyze()` / `analyze_stream()`.
 6. Аудит token/model provenance.
 
 ---
 
 ## Заметки
 
-- Пункты 1–16 закрыты. **П.17 в работе**: этапы 1–3 реализованы, следующий этап — verifier prompt.
+- Пункты 1–16 закрыты. **П.17 в работе**: этапы 1–4 реализованы, следующий этап — LLMConductor.
 - П.5 потребовал 3 итерации (9df52a9 → de0cd5b → 3c1e6d7).
 - П.8 был уже реализован в `26df63c` (обнаружено при аудите).
 - Не делать крупные batch-патчи: строго один пункт за раз.

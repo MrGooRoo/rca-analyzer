@@ -605,7 +605,7 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 
 ## 17. P17 LLM Conductor — контракты и план реализации (зафиксировано 17.06.2026)
 
-> Статус раздела: **частично реализовано**. Этапы 1–3 реализованы 17.06.2026: DB/API settings, backend proxy каталога OpenRouter и Admin UI; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+> Статус раздела: **частично реализовано**. Этапы 1–4 реализованы 17.06.2026: DB/API settings, backend proxy каталога OpenRouter, Admin UI и verifier prompt; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
 
 ### 17.1. Назначение
 
@@ -709,7 +709,33 @@ api.admin.openRouterModels(params)          // GET /api/v1/admin/openrouter/mode
 | `threshold` | Verifier вызывается, если `confidence_avg < quality_threshold` |
 | `always` | Verifier вызывается после каждого черновика |
 
-### 17.8. Контракт `LLMConductor` (planned)
+
+### 17.8. Verifier prompt (implemented)
+
+`configs/prompts/verifier.j2` — Jinja2-шаблон для дешёвой verifier-модели.
+
+Входные переменные:
+
+```jinja2
+{{ incident }}
+{{ methodology }}
+{{ draft_result_json }}
+{{ low_confidence_nodes }}
+{{ output_schema_hint }}
+```
+
+Контракт:
+
+- verifier не выполняет полный анализ с нуля, а проверяет и точечно улучшает черновой RCA JSON;
+- ответ — только валидный JSON без Markdown/code fence;
+- верхнеуровневые ключи остаются совместимыми с существующими methodology runners:
+  `immediate_causes`, `contributing_causes`, `root_causes`, `summary`, `recommendations`;
+- `cause_id` и `parent_id` должны ссылаться на существующие id итогового JSON;
+- `confidence` остаётся числом `0.0..1.0`.
+
+`PromptRenderer.render()` поддерживает `extra_context`, чтобы `LLMConductor` мог передать verifier-переменные без отдельного renderer.
+
+### 17.9. Контракт `LLMConductor` (planned)
 
 ```python
 class LLMConductor:
@@ -732,7 +758,7 @@ render methodology prompt
 
 Верификатор возвращает тот же JSON-контракт, что и обычная методология, чтобы не плодить отдельные result types.
 
-### 17.9. Аудит моделей и токенов
+### 17.10. Аудит моделей и токенов
 
 Минимально совместимый вариант:
 

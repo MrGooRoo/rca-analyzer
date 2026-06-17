@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17: Admin UI настроек LLM Conductor
+## Статус: 🟢 Рабочая версия — п.17: verifier prompt готов, следующий LLMConductor
 
 **Дата обновления:** 2026-06-17
 
@@ -191,7 +191,7 @@
   - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **278 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **280 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -275,9 +275,15 @@
     `api.admin.openRouterModels()` с `datalist` и ручным fallback, если каталог недоступен.
   - ✅ Проверки этапа 3: `cd frontend && npm run build` → **успешно**;
     `python -m pytest tests/ -q` → **278 passed, 1 deselected**.
+  - ✅ Этап 4 реализован (17.06.2026): `configs/prompts/verifier.j2` — prompt для дешёвой verifier-модели,
+    которая проверяет draft RCA JSON, low-confidence узлы и рекомендации без полного повторного анализа.
+  - ✅ `PromptRenderer.render()` поддерживает `extra_context`, чтобы будущий `LLMConductor` мог передать
+    `draft_result_json`, `low_confidence_nodes`, `methodology`, `output_schema_hint`.
+  - ✅ Проверки этапа 4: `pytest tests/unit/test_prompt_renderer.py -q` → **10 passed**;
+    `python -m pytest tests/ -q` → **280 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — следующий этап: verifier prompt `configs/prompts/verifier.j2`.**
+- [ ] **Feedback #17 — следующий этап: `LLMConductor` (draft → threshold gate → verifier → final result).**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.

@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
+from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, TemplateNotFound, TemplateSyntaxError
 
@@ -67,6 +68,7 @@ class PromptRenderer:
         self,
         template_name: str,
         request: AnalysisRequest,
+        extra_context: dict[str, Any] | None = None,
     ) -> tuple[str, str]:
         """
         Рендерит шаблон и возвращает (system_prompt, user_prompt).
@@ -95,6 +97,8 @@ class PromptRenderer:
             "request": request,
             "detail_map": _DETAIL_MAP,
         }
+        if extra_context:
+            ctx.update(extra_context)
 
         try:
             blocks = template.blocks

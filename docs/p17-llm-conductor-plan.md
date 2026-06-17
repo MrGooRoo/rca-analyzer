@@ -291,7 +291,7 @@ UX-правила:
 2. ✅ **DB/API settings:** migration `011`, ORM, Pydantic, repository/upsert, `GET/PUT /admin/llm-settings`, тесты.
 3. ✅ **OpenRouter catalog:** backend proxy `/admin/openrouter/models`, кэш, тесты с моками.
 4. ✅ **Admin UI:** блок LLM-настроек, загрузка/сохранение, валидация, ручной fallback.
-5. **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
+5. ✅ **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
 6. **LLMConductor:** draft → threshold gate → verifier → итоговый `RCAResult`; unit tests без реальных LLM.
 7. **Integration:** `AnalysisService.analyze()` и `analyze_stream()` используют conductor; API/SSE tests.
 8. **Observability:** token/model provenance в результате; при необходимости отдельная миграция.
@@ -379,4 +379,29 @@ ruff check src/integrations/llm/openrouter_catalog.py src/api/routes/admin.py te
 ```text
 cd frontend && npm run build → built successfully
 python -m pytest tests/ -q → 278 passed, 1 deselected
+```
+
+
+### 12.4. Этап 4 — Verifier prompt (17.06.2026)
+
+Добавлено:
+
+- `configs/prompts/verifier.j2` — prompt для дешёвой verifier-модели.
+- `PromptRenderer.render(..., extra_context=...)` — возможность передать `draft_result_json`, `low_confidence_nodes`, `methodology`, `output_schema_hint`.
+- Тесты в `tests/unit/test_prompt_renderer.py`:
+  - extra_context доступен в Jinja2-блоках;
+  - реальный `verifier.j2` рендерит инцидент, draft JSON, low-confidence элементы и JSON-контракт.
+
+Ключевой принцип prompt:
+
+- verifier не делает полный анализ с нуля;
+- verifier проверяет причинную логику, weak confidence nodes, рекомендации и JSON-ссылки;
+- ответ остаётся совместимым с существующими methodology runners.
+
+Проверки:
+
+```text
+ruff check src/services/prompt_renderer.py tests/unit/test_prompt_renderer.py → All checks passed!
+pytest tests/unit/test_prompt_renderer.py -q → 10 passed
+python -m pytest tests/ -q → 280 passed, 1 deselected
 ```

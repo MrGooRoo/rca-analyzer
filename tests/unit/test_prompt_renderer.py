@@ -91,3 +91,52 @@ class TestPromptRenderer:
     def test_auto_system_contains_detail_level(self, renderer, req):
         system, _ = renderer.render("flat.j2", req)
         assert str(req.detail_level) in system
+
+    def test_template_can_use_extra_context(self, tmp_prompts, req):
+        (tmp_prompts / "extra.j2").write_text(
+            "{% block system %}Verifier for {{ methodology }}{% endblock %}"
+            "{% block user %}Draft: {{ draft_result_json }}{% endblock %}",
+            encoding="utf-8",
+        )
+        renderer = PromptRenderer(prompts_dir=tmp_prompts)
+
+        system, user = renderer.render(
+            "extra.j2",
+            req,
+            extra_context={
+                "methodology": "5 Почему",
+                "draft_result_json": '{"summary":"draft"}',
+            },
+        )
+
+        assert system == "Verifier for 5 Почему"
+        assert '{"summary":"draft"}' in user
+
+    def test_real_verifier_template_renders_contract_and_draft(self, req):
+        renderer = PromptRenderer()
+        system, user = renderer.render(
+            "verifier.j2",
+            req,
+            extra_context={
+                "methodology": "5 Почему",
+                "draft_result_json": '{"summary":"Черновой вывод","recommendations":[]}',
+                "low_confidence_nodes": [
+                    {
+                        "id": "n1",
+                        "text": "Недостаточный контроль работ",
+                        "category": "управление",
+                        "level": 2,
+                        "confidence": 0.42,
+                    }
+                ],
+                "output_schema_hint": "{ immediate_causes, contributing_causes, root_causes, summary, recommendations }",
+            },
+        )
+
+        assert "верификатор" in system.lower()
+        assert "НЕ выполняешь расследование с нуля" in system
+        assert "Падение на складе" in user
+        assert "Черновой вывод" in user
+        assert "Недостаточный контроль работ" in user
+        assert "immediate_causes" in user
+        assert "recommendations" in user
