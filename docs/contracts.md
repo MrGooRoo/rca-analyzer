@@ -605,7 +605,7 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 
 ## 17. P17 LLM Conductor — контракты и план реализации (зафиксировано 17.06.2026)
 
-> Статус раздела: **частично реализовано**. Этапы 1–4 реализованы 17.06.2026: DB/API settings, backend proxy каталога OpenRouter, Admin UI и verifier prompt; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+> Статус раздела: **частично реализовано**. Этапы 1–5 реализованы 17.06.2026: DB/API settings, OpenRouter catalog proxy, Admin UI, verifier prompt и standalone `LLMConductor`; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
 
 ### 17.1. Назначение
 
@@ -735,15 +735,15 @@ api.admin.openRouterModels(params)          // GET /api/v1/admin/openrouter/mode
 
 `PromptRenderer.render()` поддерживает `extra_context`, чтобы `LLMConductor` мог передать verifier-переменные без отдельного renderer.
 
-### 17.9. Контракт `LLMConductor` (planned)
+### 17.9. Контракт `LLMConductor` (implemented standalone; integration planned)
 
 ```python
 class LLMConductor:
-    async def analyze(self, request: AnalysisRequest, runner: MethodologyRunner) -> RCAResult:
-        ...
+    def __init__(self, settings: LLMSettings, *, llm_factory=OpenRouterClient, prompt_renderer=None): ...
+    async def analyze(self, request: AnalysisRequest, runner: MethodologyRunner) -> RCAResult: ...
 ```
 
-Логика:
+Логика реализованного standalone-сервиса (`src/services/llm_conductor.py`):
 
 ```text
 render methodology prompt
@@ -754,7 +754,10 @@ render methodology prompt
     yes → render verifier.j2 with IncidentInput + methodology + draft JSON + low-confidence nodes
           → OpenRouterClient(model=verifier_model) → verified raw
           → runner.run(request, verified raw) → final RCAResult
+          → model_used = "draft_model -> verifier_model", tokens_used = draft + verifier
 ```
+
+Важно: на этом этапе `LLMConductor` покрыт unit-тестами, но ещё не подключён к `AnalysisService.analyze()` / `analyze_stream()` — это следующий шаг P17.
 
 Верификатор возвращает тот же JSON-контракт, что и обычная методология, чтобы не плодить отдельные result types.
 

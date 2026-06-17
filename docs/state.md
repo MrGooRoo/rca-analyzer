@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17: verifier prompt готов, следующий LLMConductor
+## Статус: 🟢 Рабочая версия — п.17: standalone LLMConductor готов, следующая интеграция
 
 **Дата обновления:** 2026-06-17
 
@@ -191,7 +191,7 @@
   - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **280 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **284 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -281,9 +281,14 @@
     `draft_result_json`, `low_confidence_nodes`, `methodology`, `output_schema_hint`.
   - ✅ Проверки этапа 4: `pytest tests/unit/test_prompt_renderer.py -q` → **10 passed**;
     `python -m pytest tests/ -q` → **280 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
+  - ✅ Этап 5 реализован (17.06.2026): `src/services/llm_conductor.py` — standalone-сервис
+    `draft_model → threshold gate → verifier_model → final RCAResult`, с суммированием токенов и `model_used="draft -> verifier"`.
+  - ✅ Unit-тесты `tests/unit/test_llm_conductor.py`: disabled, threshold skip, threshold verify, always verify.
+  - ✅ Проверки этапа 5: `pytest tests/unit/test_llm_conductor.py -q` → **4 passed**;
+    `python -m pytest tests/ -q` → **284 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — следующий этап: `LLMConductor` (draft → threshold gate → verifier → final result).**
+- [ ] **Feedback #17 — следующий этап: интеграция `LLMConductor` в `AnalysisService.analyze()` и `analyze_stream()`.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.
