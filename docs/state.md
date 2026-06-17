@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17 начат: DB/API настройки LLM Conductor
+## Статус: 🟢 Рабочая версия — п.17: DB/API настройки + OpenRouter catalog proxy
 
 **Дата обновления:** 2026-06-17
 
@@ -191,7 +191,7 @@
   - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **274 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **278 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -264,9 +264,15 @@
     `LLMSettingsRepository`, admin-only `GET/PUT /api/v1/admin/llm-settings`, API-тесты.
   - ✅ Проверки этапа 1: `pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py -q` → **13 passed**;
     `python -m pytest tests/ -q` → **274 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
+  - ✅ Этап 2 реализован (17.06.2026): `GET /api/v1/admin/openrouter/models` — admin-only backend proxy
+    к публичному каталогу `https://openrouter.ai/api/v1/models` с in-memory cache, фильтрами `search/free_only/limit`
+    и безопасным ответом `OpenRouterModelInfo[]` для будущего select/autocomplete в админке.
+  - ✅ Проверки этапа 2: `pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py tests/api/test_admin_openrouter_models.py -q`
+    → **17 passed**;
+    `python -m pytest tests/ -q` → **278 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — следующий этап: OpenRouter catalog proxy `GET /api/v1/admin/openrouter/models`.**
+- [ ] **Feedback #17 — следующий этап: Admin UI для LLM-настроек и выбора моделей из каталога.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.

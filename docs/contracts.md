@@ -605,7 +605,7 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 
 ## 17. P17 LLM Conductor — контракты и план реализации (зафиксировано 17.06.2026)
 
-> Статус раздела: **частично реализовано**. Этап 1 DB/API settings реализован 17.06.2026; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+> Статус раздела: **частично реализовано**. Этапы 1–2 реализованы 17.06.2026: DB/API settings и backend proxy каталога OpenRouter; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
 
 ### 17.1. Назначение
 
@@ -671,7 +671,7 @@ class OpenRouterModelInfo(BaseModel):
 ```text
 GET /api/v1/admin/llm-settings                         # implemented
 PUT /api/v1/admin/llm-settings                         # implemented
-GET /api/v1/admin/openrouter/models?search=&free_only=&limit=100  # planned
+GET /api/v1/admin/openrouter/models?search=&free_only=&limit=100  # implemented
 ```
 
 Требования:
@@ -679,9 +679,9 @@ GET /api/v1/admin/openrouter/models?search=&free_only=&limit=100  # planned
 - все endpoints доступны только `role='admin'` через `require_admin(current_user)`;
 - CSRF/auth работают так же, как для существующих admin endpoints;
 - backend не отдаёт `OPENROUTER_API_KEY` во frontend;
-- `/openrouter/models` вызывает публичный каталог OpenRouter server-side и может кэшировать результат.
+- `/openrouter/models` вызывает публичный каталог OpenRouter server-side, кэширует результат in-memory и возвращает UI-safe `OpenRouterModelInfo[]`.
 
-### 17.5. Frontend API (planned)
+### 17.5. Frontend API (planned; backend endpoint already available)
 
 ```js
 api.admin.getLlmSettings()                 // GET /api/v1/admin/llm-settings

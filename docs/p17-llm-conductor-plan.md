@@ -289,7 +289,7 @@ UX-правила:
 
 1. ✅ **Docs-only фиксация P17** — этот документ + ссылки из `state.md`, `contracts.md`, `user-feedback-backlog.md`.
 2. ✅ **DB/API settings:** migration `011`, ORM, Pydantic, repository/upsert, `GET/PUT /admin/llm-settings`, тесты.
-3. 🔜 **OpenRouter catalog:** backend proxy `/admin/openrouter/models`, кэш, тесты с моками.
+3. ✅ **OpenRouter catalog:** backend proxy `/admin/openrouter/models`, кэш, тесты с моками.
 4. **Admin UI:** блок LLM-настроек, загрузка/сохранение, валидация, ручной fallback.
 5. **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
 6. **LLMConductor:** draft → threshold gate → verifier → итоговый `RCAResult`; unit tests без реальных LLM.
@@ -331,4 +331,27 @@ UX-правила:
 pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py -q → 13 passed
 python -m pytest tests/ -q → 274 passed, 1 deselected
 ruff check src/domain/models.py src/db/orm_models.py src/db/llm_settings_repository.py src/api/routes/admin.py tests/api/test_admin_llm_settings.py → All checks passed!
+```
+
+
+### 12.2. Этап 2 — OpenRouter catalog proxy (17.06.2026)
+
+Добавлено:
+
+- `src/integrations/llm/openrouter_catalog.py` — server-side клиент публичного каталога OpenRouter.
+- In-memory cache каталога с TTL `OPENROUTER_MODELS_CACHE_TTL_SECONDS` (default 6 часов).
+- Admin-only endpoint `GET /api/v1/admin/openrouter/models` с параметрами:
+  - `search`;
+  - `free_only`;
+  - `limit` (`1..500`);
+  - `force_refresh`.
+- Ответ — `OpenRouterModelInfo[]`: `id`, `name`, `context_length`, цены prompt/completion за 1M токенов, `is_free`.
+- `tests/api/test_admin_openrouter_models.py` — 4 теста: права доступа, параметры, 502 при ошибке каталога, парсинг/фильтрация цен и free-флага.
+
+Проверки:
+
+```text
+pytest tests/api/test_admin.py tests/api/test_admin_llm_settings.py tests/api/test_admin_openrouter_models.py -q → 17 passed
+python -m pytest tests/ -q → 278 passed, 1 deselected
+ruff check src/integrations/llm/openrouter_catalog.py src/api/routes/admin.py tests/api/test_admin_openrouter_models.py → All checks passed!
 ```

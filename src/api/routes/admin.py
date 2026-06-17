@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -18,7 +18,11 @@ from src.auth.service import get_current_user, require_admin
 from src.db.base import get_db
 from src.db.llm_settings_repository import LLMSettingsRepository
 from src.db.orm_models import UserORM
-from src.domain.models import LLMSettings, LLMSettingsUpdate
+from src.domain.models import LLMSettings, LLMSettingsUpdate, OpenRouterModelInfo
+from src.integrations.llm.openrouter_catalog import (
+    OpenRouterCatalogError,
+    fetch_openrouter_models,
+)
 
 router = APIRouter(prefix="/api/v1/admin", tags=["admin"])
 
@@ -151,3 +155,31 @@ async def update_llm_settings(
 ) -> LLMSettings:
     require_admin(current_user)
     return await LLMSettingsRepository(db).upsert(body, updated_by=current_user.email)
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/openrouter/models — P17 OpenRouter catalog proxy
+# ---------------------------------------------------------------------------
+
+@router.get(
+    "/openrouter/models",
+    response_model=list[OpenRouterModelInfo],
+    summary="Каталог моделей OpenRouter для выбора в LLM-настройках (admin-only)",
+)
+async def list_openrouter_models(
+    current_user: CurrentUser,
+    search: str | None = Query(default=None, max_length=100),
+    free_only: bool = False,
+    limit: int = Query(default=100, ge=1, le=500),
+    force_refresh: bool = False,
+) -> list[OpenRouterModelInfo]:
+    require_admin(current_user)
+    try:
+        return await fetch_openrouter_models(
+            search=search,
+            free_only=free_only,
+            limit=limit,
+            force_refresh=force_refresh,
+        )
+    except OpenRouterCatalogError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
