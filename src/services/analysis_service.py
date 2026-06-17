@@ -34,6 +34,7 @@ from src.domain.models import (
     AnalysisRequest,
     ComparisonResult,
     LLMResponseValidationError,
+    LLMSettings,
     MethodologyNotSupportedError,
     MethodologyType,
     MultiAnalysisRequest,
@@ -41,6 +42,7 @@ from src.domain.models import (
     Recommendation,
 )
 from src.integrations.llm.openrouter import OpenRouterClient
+from src.services.llm_conductor import LLMConductor
 from src.services.prompt_renderer import PromptRenderer
 
 logger = logging.getLogger(__name__)
@@ -91,7 +93,7 @@ class AnalysisService:
         llm_client:      OpenRouterClient | None = None,
         prompt_renderer: PromptRenderer | None   = None,
     ) -> None:
-        self._llm_factory = (lambda: llm_client) if llm_client else OpenRouterClient
+        self._llm_factory = (lambda *_, **__: llm_client) if llm_client else OpenRouterClient
         self._prompts     = prompt_renderer or PromptRenderer()
 
     _STAGE_LABELS: dict[str, str] = {
@@ -100,27 +102,39 @@ class AnalysisService:
         "parsing":   "Обработка результата",
     }
 
-    async def analyze(self, request: AnalysisRequest) -> RCAResult:
+    async def analyze(
+        self,
+        request: AnalysisRequest,
+        llm_settings: LLMSettings | None = None,
+    ) -> RCAResult:
         runner = self._get_runner(request.methodology)
 
-        system_prompt, user_prompt = self._prompts.render(
-            template_name=runner.get_prompt_template_name(),
-            request=request,
-        )
-
         logger.info(
-            "[AnalysisService] Старт | methodology=%s severity=%s",
+            "[AnalysisService] Старт | methodology=%s severity=%s conductor=%s",
             request.methodology,
             request.incident.severity,
+            bool(llm_settings),
         )
 
-        async with self._llm_factory() as client:
-            raw = await client.complete(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
+        if llm_settings is not None:
+            result = await LLMConductor(
+                llm_settings,
+                llm_factory=self._llm_factory,
+                prompt_renderer=self._prompts,
+            ).analyze(request, runner)
+        else:
+            system_prompt, user_prompt = self._prompts.render(
+                template_name=runner.get_prompt_template_name(),
+                request=request,
             )
 
-        result = await runner.run(request, raw)
+            async with self._llm_factory() as client:
+                raw = await client.complete(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                )
+
+            result = await runner.run(request, raw)
 
         logger.info(
             "[AnalysisService] Готово | result_id=%s causes=%d recs=%d",
@@ -131,7 +145,11 @@ class AnalysisService:
 
         return result
 
-    async def analyze_stream(self, request: AnalysisRequest):
+    async def analyze_stream(
+        self,
+        request: AnalysisRequest,
+        llm_settings: LLMSettings | None = None,
+    ):
         """
         SSE-генератор одиночного анализа.
 
@@ -156,23 +174,35 @@ class AnalysisService:
                 "message": self._STAGE_LABELS["preparing"],
             }
 
-            system_prompt, user_prompt = self._prompts.render(
-                template_name=runner.get_prompt_template_name(),
-                request=request,
-            )
-
             yield {
                 "status": "stage",
                 "stage": "llm",
                 "percent": 40,
-                "message": self._STAGE_LABELS["llm"],
+                "message": (
+                    "Черновой анализ и верификация при необходимости"
+                    if llm_settings is not None else self._STAGE_LABELS["llm"]
+                ),
             }
 
-            async with self._llm_factory() as client:
-                raw = await client.complete(
-                    system_prompt=system_prompt,
-                    user_prompt=user_prompt,
+            if llm_settings is not None:
+                result = await LLMConductor(
+                    llm_settings,
+                    llm_factory=self._llm_factory,
+                    prompt_renderer=self._prompts,
+                ).analyze(request, runner)
+            else:
+                system_prompt, user_prompt = self._prompts.render(
+                    template_name=runner.get_prompt_template_name(),
+                    request=request,
                 )
+
+                async with self._llm_factory() as client:
+                    raw = await client.complete(
+                        system_prompt=system_prompt,
+                        user_prompt=user_prompt,
+                    )
+
+                result = await runner.run(request, raw)
 
             yield {
                 "status": "stage",
@@ -180,8 +210,6 @@ class AnalysisService:
                 "percent": 80,
                 "message": self._STAGE_LABELS["parsing"],
             }
-
-            result = await runner.run(request, raw)
             logger.info(
                 "[AnalysisService] analyze_stream готово | result_id=%s methodology=%s",
                 result.result_id,
@@ -217,7 +245,11 @@ class AnalysisService:
     def supported_methodologies(cls) -> list[MethodologyType]:
         return list(_RUNNERS.keys())
 
-    async def analyze_multi(self, request: MultiAnalysisRequest) -> list[RCAResult]:
+    async def analyze_multi(
+        self,
+        request: MultiAnalysisRequest,
+        llm_settings: LLMSettings | None = None,
+    ) -> list[RCAResult]:
         incident_id = str(uuid.uuid4())
 
         single_requests = [
@@ -237,7 +269,7 @@ class AnalysisService:
         )
 
         gathered = await asyncio.gather(
-            *[self.analyze(r) for r in single_requests],
+            *[self.analyze(r, llm_settings=llm_settings) for r in single_requests],
             return_exceptions=True,
         )
 

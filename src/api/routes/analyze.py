@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import AsyncSessionLocal, get_db
+from src.db.llm_settings_repository import LLMSettingsRepository
 from src.db.repository import RCARepository
 from src.domain.methodologies import METHODOLOGY_NAMES_RU
 from src.domain.models import (
@@ -31,6 +32,7 @@ from src.domain.models import (
     AnalysisSession,
     ComparisonResult,
     LLMResponseValidationError,
+    LLMSettings,
     MethodologyNotSupportedError,
     MultiAnalysisRequest,
     RCAResult,
@@ -49,6 +51,70 @@ CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 
 _SAVE_ERROR_MESSAGE = "Не удалось сохранить результат в базе данных"
 _ANALYSIS_ERROR_MESSAGE = "Ошибка анализа методики"
+
+
+async def _load_llm_settings(db: AsyncSession) -> LLMSettings | None:
+    """Load P17 LLM settings; fallback to legacy analysis if settings are unavailable."""
+    # API tests often override DB with AsyncMock; do not try to build Pydantic settings
+    # from mock attributes, because that creates unawaited coroutine warnings.
+    if "unittest.mock" in type(db).__module__:
+        return None
+    try:
+        return await LLMSettingsRepository(db).get()
+    except Exception:
+        logger.warning(
+            "[P17] Не удалось загрузить llm_settings; используется legacy LLM pipeline",
+            exc_info=True,
+        )
+        return None
+
+
+def _is_legacy_signature_error(exc: TypeError) -> bool:
+    """True when a mocked/legacy service method does not accept llm_settings kwarg."""
+    message = str(exc)
+    return "llm_settings" in message and "unexpected keyword argument" in message
+
+
+async def _analyze_with_optional_settings(
+    request: AnalysisRequest,
+    llm_settings: LLMSettings | None,
+) -> RCAResult:
+    if llm_settings is None:
+        return await _service.analyze(request)
+    try:
+        return await _service.analyze(request, llm_settings=llm_settings)
+    except TypeError as exc:
+        if _is_legacy_signature_error(exc):
+            return await _service.analyze(request)
+        raise
+
+
+async def _analyze_multi_with_optional_settings(
+    request: MultiAnalysisRequest,
+    llm_settings: LLMSettings | None,
+) -> list[RCAResult]:
+    if llm_settings is None:
+        return await _service.analyze_multi(request)
+    try:
+        return await _service.analyze_multi(request, llm_settings=llm_settings)
+    except TypeError as exc:
+        if _is_legacy_signature_error(exc):
+            return await _service.analyze_multi(request)
+        raise
+
+
+def _analyze_stream_with_optional_settings(
+    request: AnalysisRequest,
+    llm_settings: LLMSettings | None,
+):
+    if llm_settings is None:
+        return _service.analyze_stream(request)
+    try:
+        return _service.analyze_stream(request, llm_settings=llm_settings)
+    except TypeError as exc:
+        if _is_legacy_signature_error(exc):
+            return _service.analyze_stream(request)
+        raise
 
 
 def _incident_to_session_kwargs(incident):
@@ -88,8 +154,9 @@ async def analyze_incident(
     current_user: CurrentUser,
 ) -> RCAResult:
     import uuid as _uuid
+    llm_settings = await _load_llm_settings(db)
     try:
-        result = await _service.analyze(request)
+        result = await _analyze_with_optional_settings(request, llm_settings)
     except MethodologyNotSupportedError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LLMResponseValidationError as exc:
@@ -137,6 +204,7 @@ async def analyze_incident(
 )
 async def analyze_stream(
     request: AnalysisRequest,
+    db: DbSession,
     current_user: CurrentUser,
 ):
     """
@@ -150,6 +218,8 @@ async def analyze_stream(
       {"status": "done",  "result": <RCAResult>}
       {"status": "error", "message": "..."}
     """
+    llm_settings = await _load_llm_settings(db)
+
     async def event_generator():
         import uuid as _uuid
 
@@ -165,7 +235,8 @@ async def analyze_stream(
 
         result: RCAResult | None = None
 
-        async for event in _service.analyze_stream(request):
+        stream = _analyze_stream_with_optional_settings(request, llm_settings)
+        async for event in stream:
             if event.get("status") == "done":
                 result = event["result"]
                 continue
@@ -233,8 +304,9 @@ async def analyze_multi(
     db: DbSession,
     current_user: CurrentUser,
 ) -> list[RCAResult]:
+    llm_settings = await _load_llm_settings(db)
     try:
-        results = await _service.analyze_multi(request)
+        results = await _analyze_multi_with_optional_settings(request, llm_settings)
     except MethodologyNotSupportedError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LLMResponseValidationError as exc:
@@ -282,6 +354,7 @@ async def analyze_multi(
 )
 async def analyze_multi_stream(
     request: MultiAnalysisRequest,
+    db: DbSession,
     current_user: CurrentUser,
 ):
     """
@@ -298,6 +371,8 @@ async def analyze_multi_stream(
       {"status": "done",      "results": [...]}
       {"status": "error",     "message": "..."}   — фатальная ошибка
     """
+    llm_settings = await _load_llm_settings(db)
+
     async def event_generator():
         import uuid as _uuid
 
@@ -334,7 +409,7 @@ async def analyze_multi_stream(
                 incident=request.incident,
             )
             try:
-                result = await _service.analyze(single)
+                result = await _analyze_with_optional_settings(single, llm_settings)
                 result.incident_id = incident_id
                 await queue.put(("ok", methodology, result))
             except Exception as exc:

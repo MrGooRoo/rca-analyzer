@@ -605,7 +605,7 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 
 ## 17. P17 LLM Conductor — контракты и план реализации (зафиксировано 17.06.2026)
 
-> Статус раздела: **частично реализовано**. Этапы 1–5 реализованы 17.06.2026: DB/API settings, OpenRouter catalog proxy, Admin UI, verifier prompt и standalone `LLMConductor`; дальнейшие этапы см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+> Статус раздела: **интеграция реализована для AnalysisService**. Этапы 1–6 реализованы 17.06.2026: settings, OpenRouter catalog proxy, Admin UI, verifier prompt, standalone `LLMConductor` и подключение к `AnalysisService.analyze()` / `analyze_stream()`; дальнейшие follow-up см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
 
 ### 17.1. Назначение
 
@@ -757,7 +757,7 @@ render methodology prompt
           → model_used = "draft_model -> verifier_model", tokens_used = draft + verifier
 ```
 
-Важно: на этом этапе `LLMConductor` покрыт unit-тестами, но ещё не подключён к `AnalysisService.analyze()` / `analyze_stream()` — это следующий шаг P17.
+Интеграция выполнена: `AnalysisService.analyze(..., llm_settings=...)`, `analyze_stream(..., llm_settings=...)` и `analyze_multi(..., llm_settings=...)` используют `LLMConductor`, если настройки переданы из API-роутера. Без настроек сохраняется legacy pipeline.
 
 Верификатор возвращает тот же JSON-контракт, что и обычная методология, чтобы не плодить отдельные result types.
 
@@ -781,3 +781,19 @@ verification_reason: str | None
 ```
 
 ---
+
+
+### 17.11. Интеграция в AnalysisService (implemented)
+
+API-роутер анализа загружает admin-настройки из `llm_settings` через `LLMSettingsRepository` и передаёт их в сервис:
+
+- `POST /api/v1/analyze` → `_service.analyze(request, llm_settings=settings)`;
+- `POST /api/v1/analyze-stream` → `_service.analyze_stream(request, llm_settings=settings)`;
+- `POST /api/v1/analyze-multi` → `_service.analyze_multi(request, llm_settings=settings)`;
+- `POST /api/v1/analyze-multi-stream` → каждый `run_one()` вызывает `_service.analyze(single, llm_settings=settings)`.
+
+Контракт совместимости:
+
+- если `llm_settings` не удалось загрузить, API логирует warning и использует legacy pipeline;
+- существующие тесты с mock DB не пытаются строить настройки из `AsyncMock`;
+- SSE-контракт не ломается: сохраняются стадии `started → preparing → llm → parsing → done/error`, при этом стадия `llm` может включать draft+verifier.

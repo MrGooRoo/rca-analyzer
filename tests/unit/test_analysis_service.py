@@ -7,13 +7,14 @@ LLM и PromptRenderer мокируются — реальных HTTP-вызов�
 from __future__ import annotations
 
 from datetime import datetime
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from src.domain.models import (
     AnalysisRequest,
     IncidentInput,
+    LLMSettings,
     MethodologyNotSupportedError,
     MethodologyType,
     RCAResult,
@@ -98,6 +99,43 @@ class TestAnalysisService:
             template_name="five_why.j2",
             request=request_obj,
         )
+
+    @pytest.mark.asyncio
+    async def test_analyze_uses_conductor_when_settings_provided(self, request_obj, valid_llm_payload):
+        service = AnalysisService(
+            llm_client=_mock_llm(valid_llm_payload),
+            prompt_renderer=_mock_renderer(),
+        )
+        settings = LLMSettings(
+            draft_model="draft-model",
+            verifier_model="verifier-model",
+            quality_threshold=0.7,
+            verification_scheme="threshold",
+        )
+        expected = RCAResult(
+            result_id="r1",
+            incident_id="",
+            methodology=MethodologyType.FIVE_WHY,
+            created_at=datetime(2026, 6, 1, 10, 0),
+            immediate_causes=[],
+            contributing_causes=[],
+            root_causes=[],
+            causal_tree=[],
+            summary="Conductor result",
+            recommendations=[],
+            model_used="draft-model -> verifier-model",
+            tokens_used=100,
+            confidence_avg=0.9,
+        )
+
+        with patch("src.services.analysis_service.LLMConductor") as MockConductor:
+            conductor = MockConductor.return_value
+            conductor.analyze = AsyncMock(return_value=expected)
+            result = await service.analyze(request_obj, llm_settings=settings)
+
+        assert result is expected
+        MockConductor.assert_called_once()
+        conductor.analyze.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_unsupported_methodology_raises(self, request_obj, valid_llm_payload):

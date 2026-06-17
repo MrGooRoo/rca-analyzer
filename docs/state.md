@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17: standalone LLMConductor готов, следующая интеграция
+## Статус: 🟢 Рабочая версия — п.17 LLM Conductor интегрирован в AnalysisService
 
 **Дата обновления:** 2026-06-17
 
@@ -191,7 +191,7 @@
   - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **284 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **285 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -286,9 +286,14 @@
   - ✅ Unit-тесты `tests/unit/test_llm_conductor.py`: disabled, threshold skip, threshold verify, always verify.
   - ✅ Проверки этапа 5: `pytest tests/unit/test_llm_conductor.py -q` → **4 passed**;
     `python -m pytest tests/ -q` → **284 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
+  - ✅ Этап 6 реализован (17.06.2026): `LLMConductor` подключён к реальному pipeline:
+    `AnalysisService.analyze()`, `analyze_stream()`, `analyze_multi()` и API-роуты single/multi/SSE передают `llm_settings`.
+    Если настройки недоступны, используется legacy pipeline без падения анализа.
+  - ✅ Проверки этапа 6: `pytest tests/unit/test_analysis_service.py -q` → **9 passed**;
+    API analyze tests → **15 passed**; `python -m pytest tests/ -q` → **285 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — следующий этап: интеграция `LLMConductor` в `AnalysisService.analyze()` и `analyze_stream()`.**
+- [ ] **Feedback #17 — optional follow-up: расширенный audit/provenance по draft/verifier токенам и моделям.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.

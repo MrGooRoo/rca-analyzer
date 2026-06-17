@@ -293,7 +293,7 @@ UX-правила:
 4. ✅ **Admin UI:** блок LLM-настроек, загрузка/сохранение, валидация, ручной fallback.
 5. ✅ **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
 6. ✅ **LLMConductor:** draft → threshold gate → verifier → итоговый `RCAResult`; unit tests без реальных LLM.
-7. **Integration:** `AnalysisService.analyze()` и `analyze_stream()` используют conductor; API/SSE tests.
+7. ✅ **Integration:** `AnalysisService.analyze()` и `analyze_stream()` используют conductor; API/SSE tests.
 8. **Observability:** token/model provenance в результате; при необходимости отдельная миграция.
 9. **Final checks:** `python -m pytest tests/ -q`, `ruff check`, `cd frontend && npm run build && cd ..`.
 
@@ -433,3 +433,30 @@ python -m pytest tests/ -q → 284 passed, 1 deselected
 ```
 
 Следующий шаг: подключить `LLMConductor` к `AnalysisService.analyze()` и `analyze_stream()` так, чтобы существующие API и SSE начали использовать admin-настройки.
+
+
+### 12.6. Этап 6 — Integration в AnalysisService/API (17.06.2026)
+
+Добавлено:
+
+- `AnalysisService.analyze(request, llm_settings=None)`:
+  - если настройки переданы — использует `LLMConductor`;
+  - если нет — сохраняет legacy pipeline.
+- `AnalysisService.analyze_stream(request, llm_settings=None)`:
+  - сохраняет SSE-стадии `started → preparing → llm → parsing → done/error`;
+  - стадия `llm` при включённом conductor покрывает draft и verifier при необходимости.
+- `AnalysisService.analyze_multi(request, llm_settings=None)` передаёт настройки в каждый одиночный анализ.
+- `src/api/routes/analyze.py` загружает `llm_settings` для single, single SSE, multi и multi SSE.
+- Безопасный fallback: если настройки не загрузились, логируется warning и используется legacy pipeline.
+- Unit-тест `test_analyze_uses_conductor_when_settings_provided`.
+
+Проверки:
+
+```text
+ruff check src/services/analysis_service.py src/api/routes/analyze.py tests/unit/test_analysis_service.py → All checks passed!
+pytest tests/unit/test_analysis_service.py -q → 9 passed
+pytest tests/api/test_analyze_stream.py tests/api/test_analyze_router.py tests/api/test_analyze_multi_stream.py -q → 15 passed
+python -m pytest tests/ -q → 285 passed, 1 deselected
+```
+
+P17 теперь подключён к реальному pipeline анализа. Расширенный audit/provenance (`draft_tokens_used`, `verifier_tokens_used`, etc.) остаётся optional follow-up.
