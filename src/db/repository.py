@@ -165,6 +165,12 @@ class RCARepository:
             model_used=result.model_used,
             tokens_used=result.tokens_used,
             confidence_avg=result.confidence_avg,
+            draft_model_used=result.draft_model_used,
+            verifier_model_used=result.verifier_model_used,
+            draft_tokens_used=result.draft_tokens_used,
+            verifier_tokens_used=result.verifier_tokens_used,
+            verification_applied=result.verification_applied,
+            verification_reason=result.verification_reason,
             created_at=result.created_at,
         )
         await self._session_call("add", rca_orm)
@@ -671,6 +677,12 @@ def _orm_to_domain(row: RCAResultORM) -> RCAResult:
         model_used=row.model_used,
         tokens_used=row.tokens_used,
         confidence_avg=row.confidence_avg,
+        draft_model_used=getattr(row, "draft_model_used", None),
+        verifier_model_used=getattr(row, "verifier_model_used", None),
+        draft_tokens_used=getattr(row, "draft_tokens_used", None),
+        verifier_tokens_used=getattr(row, "verifier_tokens_used", None),
+        verification_applied=bool(getattr(row, "verification_applied", False)),
+        verification_reason=getattr(row, "verification_reason", None),
     )
 
 

@@ -605,7 +605,7 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 
 ## 17. P17 LLM Conductor — контракты и план реализации (зафиксировано 17.06.2026)
 
-> Статус раздела: **интеграция реализована для AnalysisService**. Этапы 1–6 реализованы 17.06.2026: settings, OpenRouter catalog proxy, Admin UI, verifier prompt, standalone `LLMConductor` и подключение к `AnalysisService.analyze()` / `analyze_stream()`; дальнейшие follow-up см. в [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+> Статус раздела: **P17 реализован**. Этапы 1–7 реализованы 17.06.2026: settings, OpenRouter catalog proxy, Admin UI, verifier prompt, `LLMConductor`, интеграция в `AnalysisService` и расширенный audit/provenance моделей/токенов.
 
 ### 17.1. Назначение
 
@@ -761,15 +761,9 @@ render methodology prompt
 
 Верификатор возвращает тот же JSON-контракт, что и обычная методология, чтобы не плодить отдельные result types.
 
-### 17.10. Аудит моделей и токенов
+### 17.10. Аудит моделей и токенов (implemented: migration `012_add_llm_provenance.py`)
 
-Минимально совместимый вариант:
-
-- `RCAResult.model_used = draft_model`, если verifier не применялся;
-- `RCAResult.model_used = "{draft_model} -> {verifier_model}"`, если verifier применялся;
-- `RCAResult.tokens_used = draft_tokens + verifier_tokens`.
-
-Рекомендуемый follow-up для точной экономики:
+`RCAResult` и таблица `rca_results` содержат расширенные поля provenance:
 
 ```python
 draft_model_used: str | None
@@ -779,6 +773,13 @@ verifier_tokens_used: int | None
 verification_applied: bool
 verification_reason: str | None
 ```
+
+Правила заполнения:
+
+- если verifier не применялся: `verification_applied=False`, заполнены `draft_model_used` и `draft_tokens_used`, verifier-поля `None`;
+- если verifier применялся: `verification_applied=True`, заполнены draft/verifier модели и токены;
+- `model_used` остаётся совместимым summary-полем: `draft_model` или `draft_model -> verifier_model`;
+- `tokens_used` остаётся суммарным: `draft_tokens + verifier_tokens`.
 
 ---
 
@@ -797,3 +798,15 @@ API-роутер анализа загружает admin-настройки из
 - если `llm_settings` не удалось загрузить, API логирует warning и использует legacy pipeline;
 - существующие тесты с mock DB не пытаются строить настройки из `AsyncMock`;
 - SSE-контракт не ломается: сохраняются стадии `started → preparing → llm → parsing → done/error`, при этом стадия `llm` может включать draft+verifier.
+
+### 17.12. DB compatibility for LLM-generated ids (implemented: migration `013_expand_llm_generated_ids.py`)
+
+LLM may generate ids with semantic prefixes (`imm-<uuid>`, `contrib-<uuid>`, `root-<uuid>`, `r111...`).
+To avoid `StringDataRightTruncationError`, persistence columns are wider than pure UUID length:
+
+- `causal_nodes.node_id`: `VARCHAR(200)`;
+- `causal_nodes.parent_id`: `VARCHAR(200)`;
+- `recommendations.rec_id`: `VARCHAR(200)`;
+- `recommendations.cause_id`: `VARCHAR(200)`.
+
+Primary keys (`causal_nodes.id`, `recommendations.id`) and `result_id` remain UUID-length internal identifiers.

@@ -97,12 +97,20 @@ class LLMConductor:
                 draft_result.confidence_avg,
                 self._settings.quality_threshold,
             )
-            return draft_result
+            return self._apply_draft_provenance(
+                draft_result,
+                draft_raw,
+                reason=self._verification_reason(draft_result),
+            )
 
         verifier_model = self._settings.verifier_model
         if not verifier_model:
             logger.warning("[LLMConductor] verifier requested but verifier_model is empty")
-            return draft_result
+            return self._apply_draft_provenance(
+                draft_result,
+                draft_raw,
+                reason="verifier_model is empty; fallback to draft",
+            )
 
         verifier_system, verifier_user = self._prompts.render(
             template_name=_VERIFIER_TEMPLATE,
@@ -120,7 +128,7 @@ class LLMConductor:
             user_prompt=verifier_user,
         )
         final_result = await runner.run(request, verifier_raw)
-        return self._merge_model_metadata(final_result, draft_raw, verifier_raw)
+        return self._merge_model_metadata(final_result, draft_result, draft_raw, verifier_raw)
 
     async def _complete_with_model(
         self,
@@ -161,24 +169,70 @@ class LLMConductor:
             low_nodes.append(_node_to_prompt_dict(node))
         return low_nodes
 
+    def _raw_meta(self, raw: dict) -> tuple[str, int]:
+        meta = raw.get("_meta", {}) if isinstance(raw, dict) else {}
+        return str(meta.get("model") or "unknown"), int(meta.get("tokens") or 0)
+
+    def _apply_draft_provenance(
+        self,
+        draft_result: RCAResult,
+        draft_raw: dict,
+        *,
+        reason: str,
+    ) -> RCAResult:
+        draft_model, draft_tokens = self._raw_meta(draft_raw)
+        if draft_model == "unknown":
+            draft_model = self._settings.draft_model
+        return draft_result.model_copy(
+            update={
+                "draft_model_used": draft_model,
+                "verifier_model_used": None,
+                "draft_tokens_used": draft_tokens,
+                "verifier_tokens_used": None,
+                "verification_applied": False,
+                "verification_reason": reason,
+            }
+        )
+
     def _merge_model_metadata(
         self,
         final_result: RCAResult,
+        draft_result: RCAResult,
         draft_raw: dict,
         verifier_raw: dict,
     ) -> RCAResult:
-        draft_meta = draft_raw.get("_meta", {}) if isinstance(draft_raw, dict) else {}
-        verifier_meta = verifier_raw.get("_meta", {}) if isinstance(verifier_raw, dict) else {}
-        draft_model = draft_meta.get("model") or self._settings.draft_model
-        verifier_model = verifier_meta.get("model") or self._settings.verifier_model or "unknown"
-        draft_tokens = int(draft_meta.get("tokens") or 0)
-        verifier_tokens = int(verifier_meta.get("tokens") or 0)
+        draft_model, draft_tokens = self._raw_meta(draft_raw)
+        verifier_model, verifier_tokens = self._raw_meta(verifier_raw)
+        if draft_model == "unknown":
+            draft_model = self._settings.draft_model
+        if verifier_model == "unknown":
+            verifier_model = self._settings.verifier_model or "unknown"
 
         return final_result.model_copy(
             update={
                 "model_used": f"{draft_model} -> {verifier_model}",
                 "tokens_used": draft_tokens + verifier_tokens,
+                "draft_model_used": draft_model,
+                "verifier_model_used": verifier_model,
+                "draft_tokens_used": draft_tokens,
+                "verifier_tokens_used": verifier_tokens,
+                "verification_applied": True,
+                "verification_reason": self._verification_reason(draft_result),
             }
+        )
+
+    def _verification_reason(self, draft_result: RCAResult) -> str:
+        scheme = self._settings.verification_scheme
+        if scheme == "disabled":
+            return "verification disabled"
+        if scheme == "always":
+            return "verification scheme is always"
+        return (
+            f"confidence_avg {draft_result.confidence_avg:.3f} "
+            f"< threshold {self._settings.quality_threshold:.3f}"
+            if draft_result.confidence_avg < self._settings.quality_threshold
+            else f"confidence_avg {draft_result.confidence_avg:.3f} >= threshold "
+                 f"{self._settings.quality_threshold:.3f}"
         )
 
     @staticmethod

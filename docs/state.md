@@ -2,7 +2,7 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17 LLM Conductor интегрирован в AnalysisService
+## Статус: 🟢 Рабочая версия — п.17 LLM Conductor полностью реализован
 
 **Дата обновления:** 2026-06-17
 
@@ -242,7 +242,7 @@
   - ✅ Финальная проверка после cleanup: **269 passed, 1 deselected**, targeted `ruff check` — **All checks passed!**
   - Коммиты: `a686cf6`, `798c172`, `d00e251`, cleanup `72e84b2`.
 
-- [ ] **Feedback #17 — LLM Conductor: бесплатный черновик + дешёвый верификатор** (план зафиксирован 17.06.2026)
+- [x] **Feedback #17 — LLM Conductor: бесплатный черновик + дешёвый верификатор** (17.06.2026)
   - 📌 Подробная архитектура: [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
   - Решение: это не простой fallback и не «подмешивание» моделей, а дирижирование:
     `draft_model` делает основной RCA-анализ, `verifier_model` проверяет/улучшает черновик только по схеме.
@@ -291,9 +291,17 @@
     Если настройки недоступны, используется legacy pipeline без падения анализа.
   - ✅ Проверки этапа 6: `pytest tests/unit/test_analysis_service.py -q` → **9 passed**;
     API analyze tests → **15 passed**; `python -m pytest tests/ -q` → **285 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
+  - ✅ Этап 7 реализован (17.06.2026): расширенный audit/provenance моделей и токенов:
+    `draft_model_used`, `verifier_model_used`, `draft_tokens_used`, `verifier_tokens_used`,
+    `verification_applied`, `verification_reason` в `RCAResult` и `rca_results` (migration `012`).
+  - ✅ `LLMConductor` заполняет provenance для draft-only и verified сценариев; `tokens_used` остаётся суммарным.
+  - ✅ Проверки этапа 7: `pytest tests/unit/test_llm_conductor.py -q` → **4 passed**;
+    `python -m pytest tests/ -q` → **285 passed, 1 deselected**; targeted `ruff check` → **All checks passed!**
+  - ✅ Stability fix (17.06.2026): расширены DB-колонки LLM-generated ids до `VARCHAR(200)`
+    (`causal_nodes.node_id/parent_id`, `recommendations.rec_id/cause_id`), чтобы сохранять id с префиксами
+    вроде `imm-<uuid>`, `contrib-<uuid>`, `r111...` без `StringDataRightTruncationError`.
 
 ## В работе / следующий приоритет
-- [ ] **Feedback #17 — optional follow-up: расширенный audit/provenance по draft/verifier токенам и моделям.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.

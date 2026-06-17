@@ -186,6 +186,15 @@ class RCAResultORM(Base):
     model_used: Mapped[str] = mapped_column(String(100))
     tokens_used: Mapped[int] = mapped_column(Integer)
     confidence_avg: Mapped[float] = mapped_column(Float)
+    # P17 LLM Conductor provenance (nullable for historical rows)
+    draft_model_used: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    verifier_model_used: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    draft_tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    verifier_tokens_used: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    verification_applied: Mapped[bool | None] = mapped_column(
+        Boolean, nullable=True, server_default="false"
+    )
+    verification_reason: Mapped[str | None] = mapped_column(String(300), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()
     )
@@ -211,12 +220,13 @@ class CausalNodeORM(Base):
     result_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("rca_results.result_id", ondelete="CASCADE")
     )
-    node_id: Mapped[str] = mapped_column(String(36))
+    # LLM-generated ids may be longer than UUIDs (e.g. "imm-<uuid>", "root-<uuid>").
+    node_id: Mapped[str] = mapped_column(String(200))
     node_role: Mapped[str] = mapped_column(String(20))
     text: Mapped[str] = mapped_column(Text)
     category: Mapped[str] = mapped_column(String(100))
     level: Mapped[int] = mapped_column(Integer)
-    parent_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    parent_id: Mapped[str | None] = mapped_column(String(200), nullable=True)
     confidence: Mapped[float] = mapped_column(Float)
 
     result: Mapped[RCAResultORM] = relationship(back_populates="causal_nodes")
@@ -229,11 +239,12 @@ class RecommendationORM(Base):
     result_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("rca_results.result_id", ondelete="CASCADE")
     )
-    rec_id: Mapped[str] = mapped_column(String(36))
+    # LLM-generated recommendation/cause ids may include prefixes and exceed UUID length.
+    rec_id: Mapped[str] = mapped_column(String(200))
     text: Mapped[str] = mapped_column(Text)
     priority: Mapped[str] = mapped_column(String(20))
     category: Mapped[str] = mapped_column(String(50))
-    cause_id: Mapped[str] = mapped_column(String(36))
+    cause_id: Mapped[str] = mapped_column(String(200))
     responsible: Mapped[str | None] = mapped_column(String(200), nullable=True)
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")

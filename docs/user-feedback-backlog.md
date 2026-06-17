@@ -26,7 +26,7 @@
 | 14 | Шкала / процент обработки анализа | ✅ done | `8ad9b87` |
 | 15 | Статус выполнения для одиночного анализа | ✅ done | `9200b00` |
 | 16 | Оптимизация скорости обработки | ✅ done | `a686cf6`, `798c172`, `d00e251`, cleanup `72e84b2` |
-| **17** | **LLM Conductor: бесплатный черновик + дешёвый verifier по порогу качества** | ✅ **done** | интегрирован в AnalysisService; follow-up audit optional |
+| **17** | **LLM Conductor: бесплатный черновик + дешёвый verifier по порогу качества** | ✅ **done** | settings/catalog/UI/conductor/integration/audit |
 | 18 | Упростить страницу результата (убрать «Форма скрыта…», меньше вложенности) | 🔜 | — |
 | 19 | Кнопка «Открыть» в похожих инцидентах — логика и куда ведёт | 🔜 | — |
 
@@ -80,13 +80,13 @@ confidence_avg < quality_threshold?
 4. ✅ `configs/prompts/verifier.j2`.
 5. ✅ Standalone `LLMConductor`.
 6. ✅ Интеграция в `AnalysisService.analyze()` / `analyze_stream()` / multi-analysis.
-6. Аудит token/model provenance.
+7. ✅ Аудит token/model provenance.
 
 ---
 
 ## Заметки
 
-- Пункты 1–16 закрыты. **П.17 закрыт функционально**: настройки, каталог моделей, Admin UI, verifier prompt, LLMConductor и интеграция в AnalysisService реализованы. Optional follow-up — расширенные поля audit/provenance.
+- Пункты 1–16 закрыты. **П.17 закрыт полностью**: настройки, каталог моделей, Admin UI, verifier prompt, LLMConductor, интеграция в AnalysisService и расширенный audit/provenance реализованы.
 - П.5 потребовал 3 итерации (9df52a9 → de0cd5b → 3c1e6d7).
 - П.8 был уже реализован в `26df63c` (обнаружено при аудите).
 - Не делать крупные batch-патчи: строго один пункт за раз.

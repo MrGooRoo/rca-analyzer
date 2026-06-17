@@ -127,6 +127,13 @@ class RCAResult(BaseModel):
     model_used:          str
     tokens_used:         int
     confidence_avg:      float
+    # P17 LLM Conductor provenance (optional for backward compatibility)
+    draft_model_used:       str | None = None
+    verifier_model_used:    str | None = None
+    draft_tokens_used:      int | None = None
+    verifier_tokens_used:   int | None = None
+    verification_applied:   bool = False
+    verification_reason:    str | None = None
 
 
 # ----------------------------------------------------------------------

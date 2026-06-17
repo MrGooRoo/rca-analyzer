@@ -294,7 +294,7 @@ UX-правила:
 5. ✅ **Verifier prompt:** `configs/prompts/verifier.j2` + unit tests prompt/render.
 6. ✅ **LLMConductor:** draft → threshold gate → verifier → итоговый `RCAResult`; unit tests без реальных LLM.
 7. ✅ **Integration:** `AnalysisService.analyze()` и `analyze_stream()` используют conductor; API/SSE tests.
-8. **Observability:** token/model provenance в результате; при необходимости отдельная миграция.
+8. ✅ **Observability:** token/model provenance в результате + migration `012`.
 9. **Final checks:** `python -m pytest tests/ -q`, `ruff check`, `cd frontend && npm run build && cd ..`.
 
 ---
@@ -459,4 +459,48 @@ pytest tests/api/test_analyze_stream.py tests/api/test_analyze_router.py tests/a
 python -m pytest tests/ -q → 285 passed, 1 deselected
 ```
 
-P17 теперь подключён к реальному pipeline анализа. Расширенный audit/provenance (`draft_tokens_used`, `verifier_tokens_used`, etc.) остаётся optional follow-up.
+P17 теперь подключён к реальному pipeline анализа. Расширенный audit/provenance реализован.
+
+
+### 12.7. Этап 7 — Audit/provenance моделей и токенов (17.06.2026)
+
+Добавлено:
+
+- `alembic/versions/012_add_llm_provenance.py` — nullable-поля в `rca_results`:
+  - `draft_model_used`;
+  - `verifier_model_used`;
+  - `draft_tokens_used`;
+  - `verifier_tokens_used`;
+  - `verification_applied`;
+  - `verification_reason`.
+- `RCAResult` расширен теми же optional-полями без ломки старых ответов.
+- `RCAResultORM` и `RCARepository.save_result()` / `_orm_to_domain()` сохраняют и читают provenance.
+- `LLMConductor` заполняет provenance:
+  - draft-only: `verification_applied=False`, verifier-поля пустые;
+  - verified: `verification_applied=True`, токены draft/verifier раздельно и суммарно.
+- Unit-тесты `tests/unit/test_llm_conductor.py` проверяют provenance для disabled, threshold skip, threshold verify и always.
+
+Проверки:
+
+```text
+ruff check src/domain/models.py src/db/orm_models.py src/db/repository.py src/services/llm_conductor.py tests/unit/test_llm_conductor.py → All checks passed!
+pytest tests/unit/test_llm_conductor.py -q → 4 passed
+python -m pytest tests/ -q → 285 passed, 1 deselected
+```
+
+P17 закрыт полностью: настройки, выбор моделей, verifier prompt, conductor, интеграция и audit/provenance реализованы.
+
+
+### 12.8. Stability fix — длинные LLM-generated ids (17.06.2026)
+
+Логи production-run показали `StringDataRightTruncationError` при сохранении результатов FTA/RCA Systemic:
+LLM вернул id с префиксами (`imm-<uuid>`, `contrib-<uuid>`, `r111...`), а старые DB-колонки были `VARCHAR(36)`.
+
+Исправлено миграцией `013_expand_llm_generated_ids.py`:
+
+- `causal_nodes.node_id` → `VARCHAR(200)`;
+- `causal_nodes.parent_id` → `VARCHAR(200)`;
+- `recommendations.rec_id` → `VARCHAR(200)`;
+- `recommendations.cause_id` → `VARCHAR(200)`.
+
+ORM обновлён соответственно.

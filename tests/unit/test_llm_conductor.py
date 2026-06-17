@@ -127,6 +127,11 @@ async def test_conductor_disabled_scheme_uses_only_draft(request_obj):
     assert result.summary == "Черновик достаточен"
     assert result.model_used == "draft-model"
     assert result.tokens_used == 100
+    assert result.draft_model_used == "draft-model"
+    assert result.draft_tokens_used == 100
+    assert result.verifier_model_used is None
+    assert result.verification_applied is False
+    assert result.verification_reason == "verification disabled"
     assert len(calls) == 1
     assert calls[0]["model"] == "draft-model"
     assert calls[0]["fallback_models"] == []
@@ -150,6 +155,8 @@ async def test_conductor_threshold_skips_verifier_for_high_confidence(request_ob
 
     assert result.summary == "Высокая уверенность"
     assert result.confidence_avg == 0.82
+    assert result.verification_applied is False
+    assert result.verification_reason == "confidence_avg 0.820 >= threshold 0.700"
     assert len(calls) == 1
 
 
@@ -175,6 +182,12 @@ async def test_conductor_threshold_runs_verifier_for_low_confidence(request_obj)
     assert result.summary == "Проверенный вывод"
     assert result.model_used == "draft-model -> verifier-model"
     assert result.tokens_used == 135
+    assert result.draft_model_used == "draft-model"
+    assert result.verifier_model_used == "verifier-model"
+    assert result.draft_tokens_used == 100
+    assert result.verifier_tokens_used == 35
+    assert result.verification_applied is True
+    assert result.verification_reason == "confidence_avg 0.450 < threshold 0.700"
     assert len(calls) == 2
     assert calls[0]["model"] == "draft-model"
     assert calls[1]["model"] == "verifier-model"
@@ -204,4 +217,6 @@ async def test_conductor_always_runs_verifier_even_for_high_confidence(request_o
 
     assert result.summary == "Проверенный вывод"
     assert result.tokens_used == 120
+    assert result.verification_applied is True
+    assert result.verification_reason == "verification scheme is always"
     assert len(calls) == 2
