@@ -4,7 +4,7 @@
 > Любой новый чат с AI-ассистентом должен получить этот файл как первый контекст.
 > Запрещено менять типы и названия полей без обновления этого документа.
 >
-> **Дата актуализации:** 2026-06-14 (P4-отмена анализа через AbortController, P3-предупреждение при уходе во время анализа, UI-состояния анализа и IncidentForm на UI-kit поля, см. разделы 10.4, 10.4.1, 16; ранее — сущность «исследование» analysis_session, разделы 10.5, 15).
+> **Дата актуализации:** 2026-06-17 (зафиксирован план п.17 — LLM Conductor: admin-настройки моделей, порог качества и verifier-схема; см. раздел 17; ранее — SSE-статус одиночного анализа, p16 shared OpenRouter client, UI-kit и analysis_session).
 
 ---
 
@@ -94,11 +94,12 @@ class IncidentInput(BaseModel):
 ### 10.2. API-клиент (api.js)
 
 ```js
-api.analyze(payload, { signal }?)      // POST /api/v1/analyze      → RCAResult
-api.analyzeMulti(payload, { signal }?) // POST /api/v1/analyze-multi → RCAResult[]
+api.analyze(payload, { signal }?)       // POST /api/v1/analyze        → RCAResult (legacy/sync)
+api.analyzeStream(payload, onEvent, { signal }?) // POST /api/v1/analyze-stream → SSE/RCAResult
+api.analyzeMulti(payload, { signal }?)  // POST /api/v1/analyze-multi  → RCAResult[]
 api.analyzeMultiStream(payload, onEvent, { signal }?) // POST /api/v1/analyze-multi-stream → SSE/results
-api.compareResults(id)                 // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
-api.similarIncidents(text, options)    // POST /api/v1/incidents/similar (текст в теле) → SimilarIncident[]
+api.compareResults(id)                  // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
+api.similarIncidents(text, options)     // POST /api/v1/incidents/similar (текст в теле) → SimilarIncident[]
 ```
 
 ### 10.3. Компонент CompareView
@@ -507,12 +508,12 @@ GET /api/v1/results/compare?incident_id=...     → ComparisonResult  # backward
 
 ### 15.6. Жизненный цикл
 
-1. **POST /analyze** → создаёт сессию → возвращает `session_id` в `RCAResult`
-2. **POST /analyze-multi** → создаёт ОДНУ сессию → все N результатов
-   получают один `session_id`
-3. **POST /analyze-multi-stream** — аналогично: одна сессия на все методики
-4. **GET /sessions** — история по исследованиям (вместо плоской списка результатов)
-5. **GET /results/compare?session_id=...** — сравнение по сессии
+1. **POST /analyze** → создаёт сессию → возвращает `session_id` в `RCAResult` (legacy/sync)
+2. **POST /analyze-stream** → SSE-статус → сохраняет результат и сессию → финальное событие `done` с `RCAResult`
+3. **POST /analyze-multi** → создаёт ОДНУ сессию → все N результатов получают один `session_id`
+4. **POST /analyze-multi-stream** — аналогично: одна сессия на все методики
+5. **GET /sessions** — история по исследованиям (вместо плоской списка результатов)
+6. **GET /results/compare?session_id=...** — сравнение по сессии
 
 ---
 
@@ -598,3 +599,144 @@ top-right, `z-index: 9999`. Контейнер — `.toast-container` в `Toast.
 - Навигация и кнопка «Выйти» используют `<Button>` из UI-kit.
 - `AuthPage.jsx` больше НЕ принимает `onAuth` prop — сам вызывает
   `useAuth().login/register`.
+
+
+---
+
+## 17. P17 LLM Conductor — планируемые контракты (draft, зафиксировано 17.06.2026)
+
+> Статус раздела: **план реализации**, код ещё не обязан соответствовать этим контрактам. Перед изменением кода P17 этот раздел и [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md) считаются источником требований.
+
+### 17.1. Назначение
+
+P17 реализует не простой fallback моделей, а дирижирование:
+
+1. `draft_model` выполняет основной RCA-анализ и формирует черновой `RCAResult`.
+2. Если схема требует верификации, `verifier_model` получает инцидент + методологию + JSON-черновик и возвращает улучшенный результат того же формата.
+3. Основной экономичный режим: verifier вызывается только если `draft_result.confidence_avg < quality_threshold`.
+
+### 17.2. Таблица `llm_settings` (planned)
+
+Singleton-таблица с одной строкой `id=1`.
+
+```python
+class LLMSettingsORM(Base):
+    __tablename__ = "llm_settings"
+
+    id: int                         # always 1
+    draft_model: str                # OpenRouter model id, required
+    verifier_model: str | None      # OpenRouter model id; None disables paid verification path
+    quality_threshold: float        # 0.0..1.0, default 0.70
+    verification_scheme: str        # "disabled" | "threshold" | "always"
+    updated_at: datetime
+    updated_by: str | None          # email/user id admin-а, изменившего настройки
+```
+
+Правила валидации:
+
+- `quality_threshold`: `ge=0.0`, `le=1.0`.
+- `verification_scheme`: только `disabled`, `threshold`, `always`.
+- `draft_model`: обязательный OpenRouter model id.
+- `verifier_model`: обязателен, если `verification_scheme` не `disabled`.
+- model id: строка до 200 символов, без пробелов/управляющих символов; допустимые символы slug — `A-Za-z0-9._~:/-`.
+
+### 17.3. Pydantic-схемы (planned)
+
+```python
+class LLMSettings(BaseModel):
+    draft_model: str
+    verifier_model: str | None = None
+    quality_threshold: float = Field(0.70, ge=0.0, le=1.0)
+    verification_scheme: Literal["disabled", "threshold", "always"] = "threshold"
+    updated_at: datetime | None = None
+    updated_by: str | None = None
+
+class LLMSettingsUpdate(BaseModel):
+    draft_model: str
+    verifier_model: str | None = None
+    quality_threshold: float = Field(0.70, ge=0.0, le=1.0)
+    verification_scheme: Literal["disabled", "threshold", "always"] = "threshold"
+
+class OpenRouterModelInfo(BaseModel):
+    id: str
+    name: str | None = None
+    context_length: int | None = None
+    prompt_price_per_1m: float | None = None
+    completion_price_per_1m: float | None = None
+    is_free: bool = False
+```
+
+### 17.4. Admin API (planned)
+
+```text
+GET /api/v1/admin/llm-settings
+PUT /api/v1/admin/llm-settings
+GET /api/v1/admin/openrouter/models?search=&free_only=&limit=100
+```
+
+Требования:
+
+- все endpoints доступны только `role='admin'` через `require_admin(current_user)`;
+- CSRF/auth работают так же, как для существующих admin endpoints;
+- backend не отдаёт `OPENROUTER_API_KEY` во frontend;
+- `/openrouter/models` вызывает публичный каталог OpenRouter server-side и может кэшировать результат.
+
+### 17.5. Frontend API (planned)
+
+```js
+api.admin.getLlmSettings()                 // GET /api/v1/admin/llm-settings
+api.admin.updateLlmSettings(payload)        // PUT /api/v1/admin/llm-settings
+api.admin.openRouterModels(params)          // GET /api/v1/admin/openrouter/models
+```
+
+### 17.6. Схемы верификации
+
+| `verification_scheme` | Поведение |
+|---|---|
+| `disabled` | Только `draft_model`, verifier не вызывается |
+| `threshold` | Verifier вызывается, если `confidence_avg < quality_threshold` |
+| `always` | Verifier вызывается после каждого черновика |
+
+### 17.7. Контракт `LLMConductor` (planned)
+
+```python
+class LLMConductor:
+    async def analyze(self, request: AnalysisRequest, runner: MethodologyRunner) -> RCAResult:
+        ...
+```
+
+Логика:
+
+```text
+render methodology prompt
+→ OpenRouterClient(model=draft_model) → draft raw
+→ runner.run(request, draft raw) → draft RCAResult
+→ should_verify(settings, draft_result)?
+    no  → return draft_result
+    yes → render verifier.j2 with IncidentInput + methodology + draft JSON + low-confidence nodes
+          → OpenRouterClient(model=verifier_model) → verified raw
+          → runner.run(request, verified raw) → final RCAResult
+```
+
+Верификатор возвращает тот же JSON-контракт, что и обычная методология, чтобы не плодить отдельные result types.
+
+### 17.8. Аудит моделей и токенов
+
+Минимально совместимый вариант:
+
+- `RCAResult.model_used = draft_model`, если verifier не применялся;
+- `RCAResult.model_used = "{draft_model} -> {verifier_model}"`, если verifier применялся;
+- `RCAResult.tokens_used = draft_tokens + verifier_tokens`.
+
+Рекомендуемый follow-up для точной экономики:
+
+```python
+draft_model_used: str | None
+verifier_model_used: str | None
+draft_tokens_used: int | None
+verifier_tokens_used: int | None
+verification_applied: bool
+verification_reason: str | None
+```
+
+---

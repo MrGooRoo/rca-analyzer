@@ -2,15 +2,15 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — SSE-статус для одиночного анализа + всё предыдущее
+## Статус: 🟢 Рабочая версия — п.16 закрыт; п.17 спроектирован (LLM Conductor)
 
-**Дата обновления:** 2026-06-16
+**Дата обновления:** 2026-06-17
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
 - Docker Compose: `rca-analyzer-api-1` (FastAPI) + PostgreSQL с pgvector
   - DB image: `pgvector/pgvector:pg16`
-- LLM: `nvidia/nemotron-3-super-120b-a12b:free` (1M контекст)
+- LLM: текущий runtime — OpenRouter через `OpenRouterClient`; п.17 планирует admin-настройки `draft_model`/`verifier_model` вместо жёсткой модели в коде
 - Embeddings: провайдер выбирается через `EMBEDDINGS_PROVIDER`
   - `local` (default): `local/hash-ngrams-v2`, 384 dim — стемминг + словарь HSE-синонимов
   - `huggingface` (рекомендуется): локальная предобученная модель `cointegrated/rubert-tiny2`
@@ -191,7 +191,7 @@
   - ✅ Счётчики: `<Button>` 4, `<Input>` 2, `<Select>` 1, `<Card>` 1, `<Badge>` 4; нативные отсутствуют
 
 ## Проверки
-- `python -m pytest tests/ -q` → **268 passed, 1 deselected (slow)**
+- `python -m pytest tests/ -q` → **269 passed, 1 deselected (slow)**
 - `pytest -m slow -o addopts=""` (реальная rubert-tiny2) → **1 passed**
 - `ruff check` → **All checks passed!**
 - `npm run build` во frontend → **успешно**
@@ -232,7 +232,37 @@
     (+3 теста на stream). Итого: **268 passed, 1 deselected**.
   - ✅ Обновлены `docs/contracts.md` (разделы 10.2, 10.4, 10.4.3, 15.6) и `docs/user-feedback-backlog.md`.
 
+- [x] **Feedback #16 — оптимизация скорости обработки** (16.06.2026)
+  - ✅ `OpenRouterClient` переиспользует общий `httpx.AsyncClient` между экземплярами в процессе
+    (keep-alive / connection reuse), вместо создания нового HTTP-клиента на каждый LLM-запрос.
+  - ✅ Добавлены счётчик ссылок и `asyncio.Lock` для безопасного жизненного цикла shared client.
+  - ✅ Лимиты соединений: `max_connections=20`, `max_keepalive_connections=10`.
+  - ✅ Shutdown FastAPI вызывает `OpenRouterClient.close_shared()`.
+  - ✅ Временный файл `p16-only.patch` удалён из репозитория.
+  - ✅ Финальная проверка после cleanup: **269 passed, 1 deselected**, targeted `ruff check` — **All checks passed!**
+  - Коммиты: `a686cf6`, `798c172`, `d00e251`, cleanup `72e84b2`.
+
+- [ ] **Feedback #17 — LLM Conductor: бесплатный черновик + дешёвый верификатор** (план зафиксирован 17.06.2026)
+  - 📌 Подробная архитектура: [`docs/p17-llm-conductor-plan.md`](p17-llm-conductor-plan.md).
+  - Решение: это не простой fallback и не «подмешивание» моделей, а дирижирование:
+    `draft_model` делает основной RCA-анализ, `verifier_model` проверяет/улучшает черновик только по схеме.
+  - Основной режим: `verification_scheme="threshold"` — verifier вызывается, если
+    `draft_result.confidence_avg < quality_threshold` (default `0.70`).
+  - Настройки должен менять admin в кабинете, без хардкода в Python: `draft_model`, `verifier_model`,
+    `quality_threshold`, `verification_scheme`.
+  - Рекомендуемое хранение: новая singleton-таблица `llm_settings` (`id=1`) с типизированными полями,
+    DB-валидацией и аудитом `updated_at`/`updated_by`.
+  - Желательный выбор моделей: backend proxy к публичному каталогу OpenRouter
+    `GET https://openrouter.ai/api/v1/models`, autocomplete/select в админке; ручной ввод slug остаётся fallback.
+  - Дешёвые verifier-кандидаты: `openai/gpt-oss-20b`, `openai/gpt-oss-120b`, их `:free` варианты,
+    `openai/gpt-4o-mini`, `google/gemini-2.5-flash-lite` — конкретные цены показывать live из OpenRouter.
+  - Верификатор не делает полный анализ заново: получает IncidentInput + methodology + draft JSON + low-confidence узлы
+    и возвращает тот же JSON-контракт для существующих methodology runners.
+  - Порядок реализации: settings DB/API → OpenRouter catalog → Admin UI → verifier prompt → `LLMConductor`
+    → интеграция в `AnalysisService.analyze()` и `analyze_stream()` → аудит токенов/моделей.
+
 ## В работе / следующий приоритет
+- [ ] **Feedback #17 — начать реализацию с DB/API настроек `llm_settings` и admin-only endpoints.**
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 - [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.
