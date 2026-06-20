@@ -1,71 +1,172 @@
-@import "tailwindcss";
+/* Tailwind utilities (no preflight/reset — keeps existing styles) */
+@import "tailwindcss/utilities" layer(tailwind);
 
-@theme {
-  --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, Roboto, sans-serif;
+/* ==========================================
+   Apple-inspired Design System (Dark Mode)
+   ========================================== */
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
 }
 
-@layer base {
-  html, body, #root {
-    height: 100%;
-  }
-  :root {
-    --bg: #020617;
-    --surface: rgba(15, 23, 42, 0.6);
-    --surface-2: #1e293b;
-    --border: #1e293b;
-    --text: #e2e8f0;
-    --text-secondary: #94a3b8;
-    --primary: #6366f1;
-    --primary-hover: #818cf8;
-  }
-  body {
-    background:
-      radial-gradient(1200px 600px at 10% -10%, rgba(99, 102, 241, 0.18), transparent 60%),
-      radial-gradient(900px 500px at 110% 10%, rgba(168, 85, 247, 0.18), transparent 60%),
-      radial-gradient(800px 400px at 50% 120%, rgba(14, 165, 233, 0.15), transparent 60%),
-      #020617;
-    color: #e2e8f0;
-    font-family: var(--font-sans);
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
-  }
+:root {
+  /* Colors - Apple-inspired palette */
+  --bg:           #000000;
+  --surface:      #1c1c1e;
+  --surface-2:    #2c2c2e;
+  --surface-3:    #3a3a3c;
+  --border:       #48484a;
+  --border-light: #636366;
+  --text:         #f5f5f7;
+  --text-secondary: #98989d;
+  --text-tertiary:  #636366;
+  
+  /* Accent colors */
+  --primary:      #0a84ff;
+  --primary-hover:#007aff;
+  --success:      #30d158;
+  --warning:      #ffd60a;
+  --error:        #ff453a;
+  
+  /* Shadows - Apple style */
+  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow:  0 0 20px rgba(10, 132, 255, 0.15);
+  
+  /* Spacing */
+  --space-xs:  4px;
+  --space-sm:  8px;
+  --space-md:  16px;
+  --space-lg:  24px;
+  --space-xl:  32px;
+  --space-2xl: 48px;
+  
+  /* Border radius - Apple style (larger) */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:   16px;
+  --radius-xl:   20px;
+  
+  /* Typography */
+  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, Consolas, monospace;
+  
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  32px;
+  
+  /* Transitions */
+  --transition-fast:   150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow:   350ms ease;
 }
 
-@layer utilities {
-  .animate-fadeIn {
-    animation: fadeIn 0.3s ease both;
-  }
-  .animate-slideIn {
-    animation: slideIn 0.25s ease both;
-  }
+/* ==========================================
+   Base
+   ========================================== */
+
+body {
+  font-family: var(--font);
+  font-size: var(--text-base);
+  line-height: 1.5;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100dvh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
 }
 
-@keyframes slideIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+button {
+  cursor: pointer;
+  font: inherit;
+  border: none;
+  background: none;
+  color: inherit;
 }
 
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(6px); }
-  to { opacity: 1; transform: translateY(0); }
+input, select, textarea {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
 }
+
+a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+/* ==========================================
+   Scrollbar styling
+   ========================================== */
 
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
-  background: rgba(100, 116, 139, 0.4);
-  border-radius: 999px;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(148, 163, 184, 0.6);
+  background: var(--border);
+  border-radius: 4px;
 }
 
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-light);
+}
+
+/* ==========================================
+   Selection
+   ========================================== */
+
 ::selection {
-  background: rgba(99, 102, 241, 0.3);
-  color: #e2e8f0;
+  background: rgba(10, 132, 255, 0.3);
+  color: var(--text);
+}
+
+/* ==========================================
+   Focus states
+   ========================================== */
+
+:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================
+   Utility classes
+   ========================================== */
+
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
 }

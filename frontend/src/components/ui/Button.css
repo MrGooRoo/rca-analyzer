@@ -1,0 +1,83 @@
+/* ---- UI Button ---- */
+
+.ui-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  cursor: pointer;
+  border: none;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.ui-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* Sizes */
+.ui-btn--sm { padding: 6px 12px; font-size: var(--text-sm, 13px); border-radius: var(--radius-sm, 8px); gap: 6px; }
+.ui-btn--md { padding: 8px 16px; font-size: var(--text-sm, 13px); border-radius: var(--radius-md, 12px); gap: 8px; }
+.ui-btn--lg { padding: 10px 20px; font-size: var(--text-base, 15px); border-radius: var(--radius-md, 12px); gap: 8px; }
+
+/* Variants */
+.ui-btn--primary {
+  background: linear-gradient(135deg, var(--primary, #0a84ff), #6c5ce7);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(10, 132, 255, 0.3);
+}
+.ui-btn--primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #007aff, #5b4cdb);
+}
+
+.ui-btn--secondary {
+  background: var(--surface-2, #2c2c2e);
+  color: var(--text, #f5f5f7);
+  border: 1px solid var(--border, #48484a);
+}
+.ui-btn--secondary:hover:not(:disabled) {
+  background: var(--surface-3, #3a3a3c);
+  border-color: var(--border-light, #636366);
+}
+
+.ui-btn--ghost {
+  background: transparent;
+  color: var(--text-secondary, #98989d);
+}
+.ui-btn--ghost:hover:not(:disabled) {
+  background: var(--surface-2, #2c2c2e);
+  color: var(--text, #f5f5f7);
+}
+
+.ui-btn--danger {
+  background: var(--error, #ff453a);
+  color: #fff;
+}
+.ui-btn--danger:hover:not(:disabled) {
+  background: #e03e34;
+}
+
+.ui-btn--outline {
+  background: transparent;
+  color: var(--primary, #0a84ff);
+  border: 1px solid rgba(10, 132, 255, 0.35);
+}
+.ui-btn--outline:hover:not(:disabled) {
+  background: rgba(10, 132, 255, 0.1);
+  border-color: var(--primary, #0a84ff);
+}
+
+/* Spinner */
+.ui-btn__spinner {
+  width: 14px;
+  height: 14px;
+  border: 2px solid rgba(255,255,255,0.3);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: ui-btn-spin 0.6s linear infinite;
+}
+
+@keyframes ui-btn-spin {
+  to { transform: rotate(360deg); }
+}

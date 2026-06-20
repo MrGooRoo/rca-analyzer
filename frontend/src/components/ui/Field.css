@@ -1,0 +1,71 @@
+/* ---- UI Field ---- */
+
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.ui-field__label {
+  font-size: var(--text-sm, 13px);
+  font-weight: 500;
+  color: var(--text-secondary, #98989d);
+}
+
+.ui-field__required {
+  color: var(--error, #ff453a);
+}
+
+.ui-field__hint {
+  font-size: var(--text-xs, 11px);
+  color: var(--text-tertiary, #636366);
+}
+
+.ui-field__error {
+  font-size: var(--text-xs, 11px);
+  color: var(--error, #ff453a);
+}
+
+/* Shared input base */
+.ui-input,
+.ui-textarea,
+.ui-select {
+  width: 100%;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid var(--border, #48484a);
+  background: var(--surface-2, #2c2c2e);
+  padding: 8px 12px;
+  font-size: var(--text-sm, 13px);
+  color: var(--text, #f5f5f7);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+.ui-input:focus,
+.ui-textarea:focus,
+.ui-select:focus {
+  border-color: var(--primary, #0a84ff);
+  box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
+  outline: none;
+}
+
+.ui-input::placeholder,
+.ui-textarea::placeholder {
+  color: var(--text-tertiary, #636366);
+}
+
+.ui-input:disabled,
+.ui-textarea:disabled,
+.ui-select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  background: var(--surface-3, #3a3a3c);
+}
+
+.ui-textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.ui-select {
+  cursor: pointer;
+}
