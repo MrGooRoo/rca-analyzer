@@ -3,19 +3,18 @@ import BowtieDiagram from './BowtieDiagram.jsx'
 import SimilarIncidentsPanel from './SimilarIncidentsPanel.jsx'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Button } from './ui/Button.jsx'
-import { Badge } from './ui/Card.jsx'
+import { Badge, Card, CardBody } from './ui/Card.jsx'
 import { api } from '../api.js'
-import './ResultView.css'
 
 const PRIORITY_COLORS = {
-  high:   '#f76f6f',
-  medium: '#f7b955',
-  low:    '#3ecf8e',
+  high:   'bg-rose-500',
+  medium: 'bg-amber-500',
+  low:    'bg-emerald-500',
 }
 
 export default function ResultView({ result, onOpenResult = null }) {
   const isBowtie = result.methodology === 'bowtie'
-  const [tab, setTab]           = useState(isBowtie ? 'bowtie' : 'tree')
+  const [tab, setTab] = useState(isBowtie ? 'bowtie' : 'tree')
   const [exporting, setExporting] = useState(null)
   const [exportError, setExportError] = useState(null)
 
@@ -53,54 +52,45 @@ export default function ResultView({ result, onOpenResult = null }) {
     ...(result.recommendations || []).map(r => r.text),
   ].filter(Boolean).join('\n')
 
+  const meta = methodologyMeta(result.methodology)
+
   return (
-    <div className="result" id="step-result">
-      <div className="result-header">
-        <div className="result-title">
-          <Badge tone={methodologyMeta(result.methodology).badgeTone}>{methodologyMeta(result.methodology).icon} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>
-          <span className="result-id">#{result.result_id ? result.result_id.slice(0, 8) : ''}</span>
+    <div className="space-y-4" id="step-result">
+      {/* Header */}
+      <div className="flex items-start justify-between gap-3 flex-wrap">
+        <div className="flex items-center gap-2">
+          <Badge tone={meta.badgeTone}>{meta.icon} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>
+          <span className="text-xs text-slate-500 font-mono">#{result.result_id ? result.result_id.slice(0, 8) : ''}</span>
         </div>
-        <div className="result-header-right">
-          <div className="result-stats">
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex items-center gap-3 text-xs">
             <Stat label="Токены" value={result.tokens_used} />
             <Stat label="Уверенность" value={(result.confidence_avg * 100).toFixed(0) + '%'} />
             <Stat label="Модель" value={(result.model_used || '').split('/')[1] || result.model_used || '—'} />
           </div>
-          <div className="export-buttons">
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={exporting === 'docx'}
-              onClick={() => handleExport('docx')}
-              disabled={!!exporting}
-              leftIcon="⬇️"
-            >
-              DOCX
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              loading={exporting === 'pdf'}
-              onClick={() => handleExport('pdf')}
-              disabled={!!exporting}
-              leftIcon="⬇️"
-            >
-              PDF
-            </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="secondary" size="sm" loading={exporting === 'docx'} onClick={() => handleExport('docx')} disabled={!!exporting} leftIcon="⬇️">DOCX</Button>
+            <Button variant="secondary" size="sm" loading={exporting === 'pdf'} onClick={() => handleExport('pdf')} disabled={!!exporting} leftIcon="⬇️">PDF</Button>
           </div>
         </div>
       </div>
 
       {exportError && (
-        <div className="alert alert-error" style={{ marginBottom: '0.75rem' }}>
+        <div className="rounded-lg bg-rose-500/10 ring-1 ring-rose-500/30 text-rose-300 text-sm px-3 py-2.5">
           <strong>Ошибка экспорта:</strong> {exportError}
         </div>
       )}
 
-      <div className="summary-box">
-        <p>{result.summary}</p>
-      </div>
+      {/* Summary */}
+      <Card>
+        <CardBody>
+          <p className="text-sm text-slate-300 italic border-l-2 border-indigo-500/40 pl-3">
+            {result.summary}
+          </p>
+        </CardBody>
+      </Card>
 
+      {/* Similar incidents */}
       <SimilarIncidentsPanel
         queryText={similarQueryText}
         excludeResultId={result.result_id}
@@ -110,11 +100,16 @@ export default function ResultView({ result, onOpenResult = null }) {
         onOpenResult={onOpenResult}
       />
 
-      <div className="tabs">
+      {/* Tabs */}
+      <div className="flex gap-1 rounded-xl bg-slate-800 p-1">
         {tabs.map(t => (
           <button
             key={t.id}
-            className={`tab ${tab === t.id ? 'tab--active' : ''}`}
+            className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
+              tab === t.id
+                ? 'bg-slate-700 text-white shadow'
+                : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+            }`}
             onClick={() => setTab(t.id)}
           >{t.label}</button>
         ))}
@@ -130,24 +125,24 @@ export default function ResultView({ result, onOpenResult = null }) {
 
 function CausalTree({ result }) {
   const sections = [
-    { key: 'root_causes',         label: 'Корневые причины',       color: '#f76f6f' },
-    { key: 'contributing_causes', label: 'Способствующие факторы', color: '#f7b955' },
-    { key: 'immediate_causes',    label: 'Непосредственные причины', color: '#4f8ef7' },
+    { key: 'root_causes',         label: 'Корневые причины',         color: '#f43f5e' },
+    { key: 'contributing_causes', label: 'Способствующие факторы', color: '#f59e0b' },
+    { key: 'immediate_causes',    label: 'Непосредственные причины', color: '#6366f1' },
   ]
   return (
-    <div className="causal-tree">
+    <div className="space-y-4">
       {sections.map(s => {
         const nodes = result[s.key]
         if (!nodes?.length) return null
         return (
-          <div key={s.key} className="cause-section">
-            <div className="cause-section-label" style={{ color: s.color }}>{s.label}</div>
+          <div key={s.key} className="space-y-2">
+            <div className="text-xs uppercase tracking-wider font-semibold" style={{ color: s.color }}>{s.label}</div>
             {nodes.map(n => (
-              <div key={n.id} className="cause-node">
-                <div className="cause-node-text">{n.text}</div>
-                <div className="cause-node-meta">
-                  <span className="tag">{n.category}</span>
-                  <span className="confidence">{(n.confidence * 100).toFixed(0)}%</span>
+              <div key={n.id} className="rounded-lg bg-slate-950/60 ring-1 ring-slate-800 p-3">
+                <div className="text-sm text-slate-200">{n.text}</div>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="inline-flex items-center rounded-md bg-slate-800 px-2 py-0.5 text-xs text-slate-400">{n.category}</span>
+                  <span className="text-xs text-slate-500">{(n.confidence * 100).toFixed(0)}%</span>
                 </div>
               </div>
             ))}
@@ -160,16 +155,16 @@ function CausalTree({ result }) {
 
 function Recommendations({ recs }) {
   return (
-    <div className="recs">
+    <div className="space-y-3">
       {recs.map(r => (
-        <div key={r.id} className="rec-card">
-          <div className="rec-header">
-            <span className="priority-dot" style={{ background: PRIORITY_COLORS[r.priority] || '#7b82a8' }} />
-            <span className="rec-priority">{r.priority}</span>
-            <span className="rec-category">{r.category}</span>
-            {r.responsible && <span className="rec-resp">{r.responsible}</span>}
+        <div key={r.id} className="rounded-lg bg-slate-950/60 ring-1 ring-slate-800 p-3">
+          <div className="flex items-center gap-2 text-sm mb-1">
+            <span className={`h-2 w-2 rounded-full ${PRIORITY_COLORS[r.priority] || 'bg-slate-500'}`} />
+            <span className="text-xs font-semibold uppercase text-slate-300">{r.priority}</span>
+            <span className="text-xs text-slate-400">{r.category}</span>
+            {r.responsible && <span className="text-xs text-slate-500">{r.responsible}</span>}
           </div>
-          <p className="rec-text">{r.text}</p>
+          <p className="text-sm text-slate-300">{r.text}</p>
         </div>
       ))}
     </div>
@@ -186,24 +181,26 @@ function Meta({ result }) {
     ['created_at',     result.created_at],
   ]
   return (
-    <table className="meta-table">
-      <tbody>
-        {rows.map(([k, v]) => (
-          <tr key={k}>
-            <td className="meta-key">{k}</td>
-            <td className="meta-val">{String(v)}</td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div className="overflow-hidden rounded-xl bg-slate-950/60 ring-1 ring-slate-800">
+      <table className="w-full text-sm text-left">
+        <tbody>
+          {rows.map(([k, v]) => (
+            <tr key={k} className="border-b border-slate-800 last:border-0">
+              <td className="px-4 py-2.5 text-slate-400">{k}</td>
+              <td className="px-4 py-2.5 text-slate-200 font-mono text-xs">{String(v)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
 function Stat({ label, value }) {
   return (
-    <div className="stat">
-      <span className="stat-label">{label}</span>
-      <span className="stat-value">{value}</span>
+    <div className="flex items-center gap-1">
+      <span className="text-slate-500">{label}:</span>
+      <span className="text-slate-200 font-medium">{value}</span>
     </div>
   )
 }

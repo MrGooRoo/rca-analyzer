@@ -1,10 +1,8 @@
 /**
  * BowtieDiagram v7
  * Изменения: убрана SVG-визуализация, оставлен только «Список узлов».
- * Промпт: несколько барьеров на угрозу/последствие, реальный confidence.
  */
 import React from 'react'
-import './BowtieDiagram.css'
 
 const P = {
   hazard:      { dot: '#a78bfa', label: 'Опасный фактор' },
@@ -46,16 +44,16 @@ function confColor(v) {
 function NodeList({ label, dot, nodes }) {
   if (!nodes || nodes.length === 0) return null
   return (
-    <div className="bt-section">
-      <div className="bt-section-label">
-        <span className="bt-leg-dot" style={{ background: dot }} />
+    <div className="bg-white/[0.04] border border-white/[0.08] rounded-lg p-3">
+      <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-slate-400 mb-2">
+        <span className="h-2 w-2 rounded-full shrink-0" style={{ background: dot }} />
         {label}
       </div>
       {nodes.map((n, i) => (
-        <div className="bt-raw-row" key={i}>
-          <span className="bt-raw-text">{n?.text || '—'}</span>
+        <div className="flex items-start justify-between gap-2 py-1 border-t border-white/[0.05] first:border-0" key={i}>
+          <span className="flex-1 leading-snug text-sm text-slate-300">{n?.text || '—'}</span>
           {n?.confidence != null && (
-            <span className="bt-raw-conf" style={{ color: confColor(n.confidence) }}>
+            <span className="text-xs font-semibold whitespace-nowrap shrink-0 mt-0.5" style={{ color: confColor(n.confidence) }}>
               {(n.confidence * 100).toFixed(0)}%
             </span>
           )}
@@ -69,18 +67,17 @@ export default function BowtieDiagram({ result }) {
   const { hazards, topEvents, threats, prevention, consequences, mitigation } = parse(result)
 
   return (
-    <div className="bt-shell bt-shell--list">
-
-      <div className="bt-legend">
+    <div className="text-sm text-slate-200 py-2">
+      <div className="flex flex-wrap gap-2 gap-x-5 p-2 mb-4 bg-white/[0.04] rounded-lg">
         {Object.entries(P).map(([k, v]) => (
-          <div className="bt-leg-item" key={k}>
-            <div className="bt-leg-dot" style={{ background: v.dot }} />
+          <div className="flex items-center gap-1.5 text-xs text-slate-400" key={k}>
+            <span className="h-2 w-2 rounded-full shrink-0" style={{ background: v.dot }} />
             <span>{v.label}</span>
           </div>
         ))}
       </div>
 
-      <div className="bt-list-grid">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-3">
         <NodeList label="Опасный фактор" dot={P.hazard.dot}      nodes={hazards}      />
         <NodeList label="Топ-событие"    dot={P.topEvent.dot}    nodes={topEvents}    />
         <NodeList label="Угрозы"         dot={P.threat.dot}      nodes={threats}      />
@@ -88,7 +85,6 @@ export default function BowtieDiagram({ result }) {
         <NodeList label="Последствия"    dot={P.consequence.dot} nodes={consequences} />
         <NodeList label="Барьеры смяг."  dot={P.mitigation.dot}  nodes={mitigation}   />
       </div>
-
     </div>
   )
 }

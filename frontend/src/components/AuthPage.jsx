@@ -3,7 +3,6 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { Button } from './ui/Button.jsx'
 import { Input } from './ui/Field.jsx'
 import { useToast } from './ui/Toast.jsx'
-import './AuthPage.css'
 
 export default function AuthPage() {
   const { login, register } = useAuth()
@@ -37,9 +36,10 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="auth-wrap">
-      <div className="auth-card">
-        <div className="auth-logo">
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <div className="w-full max-w-[400px] rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 p-8 flex flex-col gap-6 shadow-xl shadow-black/20">
+        {/* Logo */}
+        <div className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight text-white">
           <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
             <circle cx="14" cy="14" r="13" stroke="#4f8ef7" strokeWidth="2"/>
             <path d="M8 20 L14 8 L20 20" stroke="#4f8ef7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -48,20 +48,30 @@ export default function AuthPage() {
           <span>RCA Analyzer</span>
         </div>
 
-        <div className="auth-tabs">
+        {/* Tabs */}
+        <div className="flex rounded-lg bg-slate-800 p-0.5 gap-0.5">
           <button
-            className={`auth-tab ${mode === 'login' ? 'auth-tab--active' : ''}`}
-            onClick={() => { setMode('login'); setError(null) }}
             type="button"
+            onClick={() => { setMode('login'); setError(null) }}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              mode === 'login'
+                ? 'bg-slate-900 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
           >Вход</button>
           <button
-            className={`auth-tab ${mode === 'register' ? 'auth-tab--active' : ''}`}
-            onClick={() => { setMode('register'); setError(null) }}
             type="button"
+            onClick={() => { setMode('register'); setError(null) }}
+            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
+              mode === 'register'
+                ? 'bg-slate-900 text-white shadow'
+                : 'text-slate-400 hover:text-white'
+            }`}
           >Регистрация</button>
         </div>
 
-        <form className="auth-form" onSubmit={submit}>
+        {/* Form */}
+        <form className="flex flex-col gap-4" onSubmit={submit}>
           {mode === 'register' && (
             <Input
               label="Имя"
@@ -95,9 +105,13 @@ export default function AuthPage() {
             autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
           />
 
-          {error && <div className="auth-error">{error}</div>}
+          {error && (
+            <div className="rounded-lg bg-rose-500/10 ring-1 ring-rose-500/30 text-rose-300 text-sm px-3 py-2.5">
+              {error}
+            </div>
+          )}
 
-          <Button className="auth-submit" type="submit" loading={loading}>
+          <Button type="submit" size="lg" loading={loading} className="mt-1">
             {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
           </Button>
         </form>

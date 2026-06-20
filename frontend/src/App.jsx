@@ -19,25 +19,20 @@ export default function App() {
   const { user, loading: authLoading, logout: authLogout } = useAuth()
   const toast = useToast()
 
-  // page: 'analyze' | 'history' | 'admin' | 'view'
-  const [page, setPage]                 = useState('analyze')
-  const [result, setResult]             = useState(null)
-  const [comparison, setComparison]     = useState(null)
-  // viewMode: { type: 'single', result } | { type: 'compare', comparison } | null
-  const [viewMode, setViewMode]         = useState(null)
-  const [loading, setLoading]           = useState(false)
+  const [page, setPage] = useState('analyze')
+  const [result, setResult] = useState(null)
+  const [comparison, setComparison] = useState(null)
+  const [viewMode, setViewMode] = useState(null)
+  const [loading, setLoading] = useState(false)
   const [multiProgressPayload, setMultiProgressPayload] = useState(null)
   const [analysisSignal, setAnalysisSignal] = useState(null)
-  // Черновик формы — сохраняется при переходе в Историю и обратно
   const [formDraft, setFormDraft] = useState(null)
-  // Прогресс одиночного анализа (SSE)
   const [singleProgress, setSingleProgress] = useState(null)
   const analysisRunRef = useRef(0)
   const abortControllerRef = useRef(null)
 
   const isAdmin = user?.role === 'admin'
 
-  // При потере сессии (user стал null) сбрасываем всё транзиентное состояние
   useEffect(() => {
     if (user === null) {
       analysisRunRef.current += 1
@@ -55,15 +50,12 @@ export default function App() {
     }
   }, [user])
 
-  // Предупреждаем, если пользователь закрывает/обновляет вкладку во время анализа.
   useEffect(() => {
     if (!loading) return undefined
-
     function handleBeforeUnload(event) {
       event.preventDefault()
       event.returnValue = ''
     }
-
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [loading])
@@ -94,12 +86,10 @@ export default function App() {
     return true
   }
 
-  // === Single analysis ===
   async function handleSubmit(payload) {
     const controller = new AbortController()
     abortControllerRef.current?.abort()
     abortControllerRef.current = controller
-
     const runId = analysisRunRef.current + 1
     analysisRunRef.current = runId
     setAnalysisSignal(controller.signal)
@@ -158,7 +148,6 @@ export default function App() {
       toast.error('Не получено результатов анализа', 'Пустой ответ')
       return
     }
-
     const incidentId = results[0].incident_id
     const sessionId = results[0].session_id || null
     let comparisonData = null
@@ -179,12 +168,10 @@ export default function App() {
     setPage('analyze')
   }
 
-  // === Multi analysis ===
   async function handleSubmitMulti(payload) {
     const controller = new AbortController()
     abortControllerRef.current?.abort()
     abortControllerRef.current = controller
-
     analysisRunRef.current += 1
     setAnalysisSignal(controller.signal)
     setLoading(true)
@@ -221,13 +208,11 @@ export default function App() {
     setMultiProgressPayload(null)
   }
 
-  // Открыть одиночный результат из истории — режим просмотра
   function openResult(r) {
     setViewMode({ type: 'single', result: r })
     setPage('view')
   }
 
-  // Открыть сравнение из истории — режим просмотра
   function openComparison(comp) {
     setViewMode({ type: 'compare', comparison: comp })
     setPage('view')
@@ -261,7 +246,7 @@ export default function App() {
     setMultiProgressPayload(null)
     setAnalysisSignal(null)
     setSingleProgress(null)
-    setFormDraft(null)  // сброс черновика при явном «Новый анализ»
+    setFormDraft(null)
     setPage('analyze')
   }
 
@@ -274,15 +259,21 @@ export default function App() {
     }
   }
 
-  // Этап анализа для степпера: 1 — ввод данных, 2 — анализ, 3 — результат
   const analysisStep = comparison || result ? 3 : loading ? 2 : 1
+
+  const navActive = (id) =>
+    id === 'analyze'
+      ? page === 'analyze'
+      : id === 'history'
+        ? page === 'history' || page === 'view'
+        : page === 'admin'
 
   if (authLoading) {
     return (
-      <div className="app">
-        <main className="app-main">
-          <div className="alert">Проверка сессии…</div>
-        </main>
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="rounded-xl bg-slate-900/60 ring-1 ring-slate-800 px-6 py-4 text-sm text-slate-300">
+          Проверка сессии…
+        </div>
       </div>
     )
   }
@@ -292,135 +283,179 @@ export default function App() {
   }
 
   return (
-    <div className="app">
-      <header className="app-header">
-        <div className="logo">
-          <svg width="28" height="28" viewBox="0 0 28 28" fill="none">
-            <circle cx="14" cy="14" r="13" stroke="#4f8ef7" strokeWidth="2"/>
-            <path d="M8 20 L14 8 L20 20" stroke="#4f8ef7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-            <path d="M10 16 H18" stroke="#4f8ef7" strokeWidth="2" strokeLinecap="round"/>
-          </svg>
-          <span>RCA Analyzer</span>
-        </div>
-        <nav className="app-nav">
-          <Button
-            variant="ghost"
-            size="sm"
-            className={page === 'analyze' ? 'app-nav-btn--active' : ''}
-            onClick={goToAnalyze}
-          >➕ Анализ</Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            className={page === 'history' || page === 'view' ? 'app-nav-btn--active' : ''}
-            onClick={goToHistory}
-          >🗂 История</Button>
-          {isAdmin && (
-            <Button
-              variant="ghost"
-              size="sm"
-              className={page === 'admin' ? 'app-nav-btn--active' : ''}
-              onClick={goToAdmin}
-            >👥 Пользователи</Button>
-          )}
-        </nav>
-        <div className="header-right">
-          <span className="header-user">{user.display_name}</span>
-          <span className={`header-role-badge ${isAdmin ? 'header-role-badge--admin' : 'header-role-badge--user'}`}>
-            {isAdmin ? 'Admin' : 'User'}
-          </span>
-          <Button variant="secondary" size="sm" onClick={logout}>Выйти</Button>
+    <div className="min-h-screen flex flex-col">
+      {/* Header */}
+      <header className="sticky top-0 z-50 border-b border-slate-800/60 bg-slate-950/40 backdrop-blur-md">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16 gap-4">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500 via-violet-500 to-purple-600 text-xl shadow-lg shadow-indigo-900/40">
+                🔬
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold text-white tracking-tight truncate">
+                  RCA Analyzer
+                </div>
+                <div className="text-[11px] text-slate-400 -mt-0.5 truncate">
+                  Анализ корневых причин промышленных инцидентов
+                </div>
+              </div>
+            </div>
+
+            <nav className="flex items-center gap-1 rounded-xl bg-slate-900/60 ring-1 ring-slate-800 p-1">
+              {[
+                { id: 'analyze', label: 'Анализ', icon: '🚀' },
+                { id: 'history', label: 'История', icon: '📚' },
+              ].map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => (t.id === 'analyze' ? goToAnalyze() : goToHistory())}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    navActive(t.id)
+                      ? 'bg-indigo-500 text-white shadow'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span>{t.icon}</span>
+                  <span className="hidden sm:inline">{t.label}</span>
+                </button>
+              ))}
+              {isAdmin && (
+                <button
+                  onClick={goToAdmin}
+                  className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${
+                    navActive('admin')
+                      ? 'bg-indigo-500 text-white shadow'
+                      : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
+                  }`}
+                >
+                  <span>👥</span>
+                  <span className="hidden sm:inline">Пользователи</span>
+                </button>
+              )}
+            </nav>
+
+            <div className="flex items-center gap-3 shrink-0">
+              <span className="hidden sm:inline text-sm text-slate-400 max-w-[160px] truncate">
+                {user.display_name}
+              </span>
+              <span
+                className={`text-xs font-semibold px-2 py-0.5 rounded-full uppercase tracking-wider ${
+                  isAdmin
+                    ? 'bg-amber-500/15 text-amber-400'
+                    : 'bg-indigo-500/15 text-indigo-400'
+                }`}
+              >
+                {isAdmin ? 'Admin' : 'User'}
+              </span>
+              <Button variant="secondary" size="sm" onClick={logout}>
+                Выйти
+              </Button>
+            </div>
+          </div>
         </div>
       </header>
 
-      <main className="app-main">
-        {page === 'analyze' && (
-          <>
-            <AnalysisSteps
-              current={analysisStep}
-              onNavigate={(step) => {
-                const ids = { 1: 'step-data', 2: 'step-method', 3: 'step-result' }
-                const el = document.getElementById(ids[step])
-                if (el) {
-                  const y = el.getBoundingClientRect().top + window.scrollY - 120
-                  window.scrollTo({ top: y, behavior: 'smooth' })
-                }
-              }}
-            />
-            {!result && !comparison && (
-              <>
-                <IncidentForm
-                  onSubmit={handleSubmit}
-                  onSubmitMulti={handleSubmitMulti}
-                  loading={loading}
-                  initialValues={formDraft}
-                  onDraftChange={setFormDraft}
-                />
-                {loading && !multiProgressPayload && (
-                  <>
-                    <SingleAnalysisProgress progress={singleProgress} />
-                    <div className="analysis-cancel-toolbar">
-                      <div className="analysis-cancel-toolbar__content">
+      {/* Main */}
+      <main className="flex-1">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-6 lg:py-10">
+          {page === 'analyze' && (
+            <>
+              <AnalysisSteps
+                current={analysisStep}
+                onNavigate={(step) => {
+                  const ids = { 1: 'step-data', 2: 'step-method', 3: 'step-result' }
+                  const el = document.getElementById(ids[step])
+                  if (el) {
+                    const y = el.getBoundingClientRect().top + window.scrollY - 120
+                    window.scrollTo({ top: y, behavior: 'smooth' })
+                  }
+                }}
+              />
+              {!result && !comparison && (
+                <>
+                  <IncidentForm
+                    onSubmit={handleSubmit}
+                    onSubmitMulti={handleSubmitMulti}
+                    loading={loading}
+                    initialValues={formDraft}
+                    onDraftChange={setFormDraft}
+                  />
+                  {loading && !multiProgressPayload && (
+                    <>
+                      <SingleAnalysisProgress progress={singleProgress} />
+                      <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-900/60 ring-1 ring-slate-800 p-4 shadow-sm mt-4">
                         <div>
-                          <div className="analysis-cancel-toolbar__title">Анализ выполняется</div>
-                          <p className="analysis-cancel-toolbar__text">
+                          <div className="text-sm font-bold text-white">Анализ выполняется</div>
+                          <p className="text-xs text-slate-400 mt-0.5">
                             Можно отменить текущий запрос и вернуться к редактированию формы.
                           </p>
                         </div>
+                        <Button variant="secondary" onClick={() => cancelCurrentAnalysis()}>
+                          ⏹ Отменить анализ
+                        </Button>
                       </div>
+                    </>
+                  )}
+                  {multiProgressPayload && (
+                    <AnalysisProgress
+                      payload={multiProgressPayload}
+                      signal={analysisSignal}
+                      onDone={handleMultiProgressDone}
+                      onError={handleMultiProgressError}
+                    />
+                  )}
+                </>
+              )}
 
-                      <Button variant="secondary" onClick={() => cancelCurrentAnalysis()}>
-                        ⏹ Отменить анализ
-                      </Button>
-                    </div>
-                  </>
-                )}
-                {multiProgressPayload && (
-                  <AnalysisProgress
-                    payload={multiProgressPayload}
-                    signal={analysisSignal}
-                    onDone={handleMultiProgressDone}
-                    onError={handleMultiProgressError}
-                  />
-                )}
-              </>
-            )}
+              {(result || comparison) && (
+                <div className="flex items-center justify-between gap-4 mb-6 rounded-xl ring-1 ring-indigo-500/30 p-4 bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-slate-900/60 shadow-md">
+                  <h2 className="text-xl font-semibold text-white leading-tight flex flex-col gap-0.5">
+                    <span className="text-xs font-bold uppercase tracking-wider text-indigo-400">
+                      Результат анализа
+                    </span>
+                    {comparison ? 'Сравнение методик готово' : 'Анализ готов'}
+                  </h2>
+                  <Button variant="primary" onClick={startNewAnalysis}>
+                    ➕ Новый анализ
+                  </Button>
+                </div>
+              )}
 
-            {(result || comparison) && (
-              <div className="analysis-result-toolbar">
-                <h2 className="analysis-result-toolbar__title">
-                  <span className="analysis-result-toolbar__eyebrow">Результат анализа</span>
-                  {comparison ? 'Сравнение методик готово' : 'Анализ готов'}
-                </h2>
-                <Button variant="primary" onClick={startNewAnalysis}>➕ Новый анализ</Button>
+              {comparison && <CompareView comparison={comparison} />}
+              {!comparison && result && <ResultView result={result} onOpenResult={openResult} />}
+            </>
+          )}
+
+          {page === 'history' && (
+            <HistoryPage
+              onOpen={openResult}
+              onOpenComparison={openComparison}
+              currentUser={user}
+            />
+          )}
+
+          {page === 'view' && viewMode && (
+            <>
+              <div className="flex flex-wrap gap-2 mb-4">
+                <Button variant="secondary" size="sm" onClick={goToHistory}>
+                  ← Назад в историю
+                </Button>
+                <Button variant="primary" size="sm" onClick={startNewAnalysis}>
+                  ➕ Новый анализ
+                </Button>
               </div>
-            )}
+              {viewMode.type === 'single' && (
+                <ResultView result={viewMode.result} onOpenResult={openResult} />
+              )}
+              {viewMode.type === 'compare' && (
+                <CompareView comparison={viewMode.comparison} />
+              )}
+            </>
+          )}
 
-            {comparison && <CompareView comparison={comparison} />}
-            {!comparison && result && <ResultView result={result} onOpenResult={openResult} />}
-          </>
-        )}
-
-        {page === 'history' && (
-          <HistoryPage
-            onOpen={openResult}
-            onOpenComparison={openComparison}
-            currentUser={user}
-          />
-        )}
-
-        {page === 'view' && viewMode && (
-          <>
-            <div className="view-actions">
-              <Button variant="secondary" size="sm" onClick={goToHistory}>← Назад в историю</Button>
-              <Button variant="primary" size="sm" onClick={startNewAnalysis}>➕ Новый анализ</Button>
-            </div>
-            {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={openResult} />}
-            {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}
-          </>
-        )}
-
-        {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
+          {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
+        </div>
       </main>
     </div>
   )
