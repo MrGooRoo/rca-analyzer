@@ -29,3 +29,4 @@ node_modules/
 
 # Frontend build output
 frontend/dist/
+test.db
