@@ -1,7 +1,7 @@
-import { clsx } from 'clsx'
-import { twMerge } from 'tailwind-merge'
-
-/** Merge Tailwind classes with clsx — handles conflicts correctly */
+/**
+ * Merge class names — simple utility, no external dependencies.
+ * Filters falsy values and joins with space.
+ */
 export function cn(...inputs) {
-  return twMerge(clsx(inputs))
+  return inputs.filter(Boolean).join(' ')
 }
