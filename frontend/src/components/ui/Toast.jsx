@@ -1,30 +1,29 @@
 import { createContext, useCallback, useContext, useState } from 'react'
 import { cn } from '../../utils/cn'
-import './Toast.css'
 
 const Ctx = createContext(undefined)
 
 const toneStyles = {
-  info: 'toast--info',
-  success: 'toast--success',
-  error: 'toast--error',
-  warning: 'toast--warning',
+  info: 'bg-slate-800 ring-slate-700 text-slate-100',
+  success: 'bg-emerald-600/90 ring-emerald-400/40 text-white',
+  error: 'bg-rose-600/90 ring-rose-400/40 text-white',
+  warning: 'bg-amber-600/90 ring-amber-400/40 text-white',
 }
 
 const icons = {
   info: 'ℹ️',
-  success: '✅',
-  error: '⚠️',
-  warning: '⚡',
+  success: '✓',
+  error: '✕',
+  warning: '⚠',
 }
 
 export function ToastProvider({ children }) {
-  const [toasts, setToasts] = useState([])
+  const [items, setItems] = useState([])
 
   const push = useCallback((t) => {
     const id = Date.now() + Math.random()
-    setToasts(s => [...s, { ...t, id }])
-    setTimeout(() => setToasts(s => s.filter(x => x.id !== id)), 5000)
+    setItems(s => [...s, { ...t, id }])
+    setTimeout(() => setItems(s => s.filter(x => x.id !== id)), 5000)
   }, [])
 
   const api = {
@@ -38,17 +37,24 @@ export function ToastProvider({ children }) {
   return (
     <Ctx.Provider value={api}>
       {children}
-      <div className="toast-container">
-        {toasts.map(t => (
-          <div key={t.id} className={cn('toast', toneStyles[t.tone] || 'toast--info')}>
-            <span className="toast__icon">{icons[t.tone]}</span>
-            <div className="toast__body">
-              {t.title && <div className="toast__title">{t.title}</div>}
-              <div className="toast__message">{t.message}</div>
+      <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex flex-col gap-2">
+        {items.map(t => (
+          <div
+            key={t.id}
+            className={cn(
+              'pointer-events-auto flex items-center gap-3 rounded-xl px-4 py-3 shadow-xl ring-1 animate-slideIn',
+              toneStyles[t.tone] || toneStyles.info,
+            )}
+            style={{ minWidth: 240 }}
+          >
+            <span className="text-lg">{icons[t.tone] || icons.info}</span>
+            <div className="text-sm">
+              {t.title && <div className="font-semibold">{t.title}</div>}
+              <div>{t.message}</div>
             </div>
             <button
-              className="toast__close"
-              onClick={() => setToasts(s => s.filter(x => x.id !== t.id))}
+              className="ml-auto text-slate-400 hover:text-white transition"
+              onClick={() => setItems(s => s.filter(x => x.id !== t.id))}
             >
               ✕
             </button>
