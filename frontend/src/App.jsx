@@ -388,15 +388,10 @@ export default function App() {
 
             {(result || comparison) && (
               <div className="analysis-result-toolbar">
-                <div>
-                  <div className="analysis-result-toolbar__eyebrow">Результат анализа</div>
-                  <h2 className="analysis-result-toolbar__title">
-                    {comparison ? 'Сравнение методик готово' : 'Анализ готов'}
-                  </h2>
-                  <p className="analysis-result-toolbar__text">
-                    Форма скрыта, чтобы результат не смешивался с вводом. Для нового случая нажмите «Новый анализ».
-                  </p>
-                </div>
+                <h2 className="analysis-result-toolbar__title">
+                  <span className="analysis-result-toolbar__eyebrow">Результат анализа</span>
+                  {comparison ? 'Сравнение методик готово' : 'Анализ готов'}
+                </h2>
                 <Button variant="primary" onClick={startNewAnalysis}>➕ Новый анализ</Button>
               </div>
             )}
@@ -415,20 +410,14 @@ export default function App() {
         )}
 
         {page === 'view' && viewMode && (
-          <div>
+          <>
             <div className="view-actions">
-              <Button
-                variant="secondary"
-                size="sm"
-                onClick={goToHistory}
-              >
-                ← Назад в историю
-              </Button>
+              <Button variant="secondary" size="sm" onClick={goToHistory}>← Назад в историю</Button>
               <Button variant="primary" size="sm" onClick={startNewAnalysis}>➕ Новый анализ</Button>
             </div>
             {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={openResult} />}
             {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}
-          </div>
+          </>
         )}
 
         {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
