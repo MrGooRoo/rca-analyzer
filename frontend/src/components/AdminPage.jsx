@@ -2,10 +2,11 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
 import { Button } from './ui/Button.jsx'
 import { Badge } from './ui/Card.jsx'
+import './AdminPage.css'
 
 const ROLE_LABELS = {
-  admin: { label: 'Admin', color: 'text-amber-400', bg: 'bg-amber-500/10' },
-  user:  { label: 'User',  color: 'text-indigo-400', bg: 'bg-indigo-500/10' },
+  admin: { label: 'Admin', tone: 'amber' },
+  user:  { label: 'User',  tone: 'indigo' },
 }
 
 const DEFAULT_LLM_FORM = {
@@ -104,32 +105,32 @@ export default function AdminPage({ currentUser }) {
     } catch (err) { setLlmError(err.message) } finally { setLlmSaving(false) }
   }
 
-  const inputBase = 'w-full rounded-xl bg-slate-950/60 ring-1 ring-slate-700 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-400/60 disabled:opacity-50'
+  const inputBase = 'admin-input'
 
   return (
-    <div className="space-y-6">
+    <div className="admin-page">
       {/* LLM Conductor */}
-      <section className="rounded-2xl p-5 ring-1 ring-indigo-500/30 bg-gradient-to-r from-indigo-500/10 via-slate-900/60 to-slate-900/60 space-y-4">
-        <div className="flex items-center justify-between gap-3">
+      <section className="admin-section admin-section--llm">
+        <div className="admin-section__header">
           <div>
-            <h2 className="text-lg font-semibold text-white">🧠 LLM Conductor</h2>
-            <p className="text-sm text-slate-400 mt-1 leading-relaxed">Черновую работу делает draft-модель, verifier подключается по выбранной схеме.</p>
+            <h2 className="admin-section__title">🧠 LLM Conductor</h2>
+            <p className="admin-section__description">Черновую работу делает draft-модель, verifier подключается по выбранной схеме.</p>
           </div>
           <Button variant="secondary" size="sm" onClick={loadLlmSettings} disabled={llmLoading || llmSaving}>
             {llmLoading ? '…' : '↻ Обновить'}
           </Button>
         </div>
 
-        {llmError && <div className="rounded-lg p-3 text-sm text-rose-300 bg-rose-500/10 ring-1 ring-rose-500/30">{llmError}</div>}
-        {llmMessage && <div className="rounded-lg p-3 text-sm text-emerald-300 bg-emerald-500/10 ring-1 ring-emerald-500/30">{llmMessage}</div>}
+        {llmError && <div className="admin-alert admin-alert--error">{llmError}</div>}
+        {llmMessage && <div className="admin-alert admin-alert--success">{llmMessage}</div>}
 
-        <form className="space-y-4" onSubmit={saveLlmSettings}>
-          <div className="grid grid-cols-1 sm:grid-cols-[minmax(220px,1fr)_auto_auto] items-end gap-3">
-            <label className="flex flex-col gap-2 min-w-0">
-              <span className="text-sm text-white font-semibold">Поиск моделей OpenRouter</span>
+        <form className="admin-form" onSubmit={saveLlmSettings}>
+          <div className="admin-grid admin-grid--model-search">
+            <label className="admin-field">
+              <span className="admin-field__label">Поиск моделей OpenRouter</span>
               <input className={inputBase} value={modelSearch} onChange={e => setModelSearch(e.target.value)} placeholder="gpt-oss, nemotron, llama…" />
             </label>
-            <label className="inline-flex items-center gap-2 text-sm text-slate-400 pb-2">
+            <label className="admin-checkbox">
               <input type="checkbox" checked={freeOnly} onChange={e => setFreeOnly(e.target.checked)} />
               Только бесплатные
             </label>
@@ -138,46 +139,46 @@ export default function AdminPage({ currentUser }) {
             </Button>
           </div>
 
-          {modelsError && <div className="rounded-lg p-3 text-sm text-amber-300 bg-amber-500/10 ring-1 ring-amber-500/30">Каталог OpenRouter недоступен: {modelsError}. Можно ввести model id вручную.</div>}
+          {modelsError && <div className="admin-alert admin-alert--warning">Каталог OpenRouter недоступен: {modelsError}. Можно ввести model id вручную.</div>}
 
           <datalist id="openrouter-models">{models.map(m => <option key={m.id} value={m.id} label={modelLabel(m)} />)}</datalist>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <label className="flex flex-col gap-2 min-w-0">
-              <span className="text-sm text-white font-semibold">Черновая модель</span>
+          <div className="admin-grid admin-grid--two">
+            <label className="admin-field">
+              <span className="admin-field__label">Черновая модель</span>
               <input className={inputBase} list="openrouter-models" value={llmForm.draft_model} onChange={e => updateLlmField('draft_model', e.target.value)} placeholder="nvidia/nemotron-3-super-120b-a12b:free" disabled={llmLoading || llmSaving} />
-              <small className="text-xs text-slate-500">{formatPrice(selectedDraftModel)}</small>
+              <small className="admin-field__hint">{formatPrice(selectedDraftModel)}</small>
             </label>
-            <label className="flex flex-col gap-2 min-w-0">
-              <span className="text-sm text-white font-semibold">Verifier-модель</span>
+            <label className="admin-field">
+              <span className="admin-field__label">Verifier-модель</span>
               <input className={inputBase} list="openrouter-models" value={llmForm.verifier_model} onChange={e => updateLlmField('verifier_model', e.target.value)} placeholder="openai/gpt-oss-20b" disabled={llmLoading || llmSaving || llmForm.verification_scheme === 'disabled'} />
-              <small className="text-xs text-slate-500">{llmForm.verification_scheme === 'disabled' ? 'Не используется в схеме «Только черновик»' : formatPrice(selectedVerifierModel)}</small>
+              <small className="admin-field__hint">{llmForm.verification_scheme === 'disabled' ? 'Не используется в схеме «Только черновик»' : formatPrice(selectedVerifierModel)}</small>
             </label>
-            <label className="flex flex-col gap-2 min-w-0">
-              <span className="text-sm text-white font-semibold">Схема верификации</span>
+            <label className="admin-field">
+              <span className="admin-field__label">Схема верификации</span>
               <select className={inputBase} value={llmForm.verification_scheme} onChange={e => updateLlmField('verification_scheme', e.target.value)} disabled={llmLoading || llmSaving}>
                 <option value="disabled">{SCHEME_LABELS.disabled}</option>
                 <option value="threshold">{SCHEME_LABELS.threshold}</option>
                 <option value="always">{SCHEME_LABELS.always}</option>
               </select>
-              <small className="text-xs text-slate-500">{llmForm.verification_scheme === 'threshold' ? 'Verifier включается только ниже порога confidence_avg.' : SCHEME_LABELS[llmForm.verification_scheme]}</small>
+              <small className="admin-field__hint">{llmForm.verification_scheme === 'threshold' ? 'Verifier включается только ниже порога confidence_avg.' : SCHEME_LABELS[llmForm.verification_scheme]}</small>
             </label>
-            <label className="flex flex-col gap-2 min-w-0">
-              <span className="text-sm text-white font-semibold">Порог качества: {Math.round(Number(llmForm.quality_threshold) * 100)}%</span>
-              <input type="range" min="0" max="1" step="0.01" value={llmForm.quality_threshold} onChange={e => updateLlmField('quality_threshold', e.target.value)} disabled={llmLoading || llmSaving || llmForm.verification_scheme !== 'threshold'} className="accent-indigo-500" />
-              <input className={`${inputBase} max-w-[110px]`} type="number" min="0" max="1" step="0.01" value={llmForm.quality_threshold} onChange={e => updateLlmField('quality_threshold', e.target.value)} disabled={llmLoading || llmSaving || llmForm.verification_scheme !== 'threshold'} />
+            <label className="admin-field">
+              <span className="admin-field__label">Порог качества: {Math.round(Number(llmForm.quality_threshold) * 100)}%</span>
+              <input type="range" min="0" max="1" step="0.01" value={llmForm.quality_threshold} onChange={e => updateLlmField('quality_threshold', e.target.value)} disabled={llmLoading || llmSaving || llmForm.verification_scheme !== 'threshold'} className="admin-range" />
+              <input className="admin-input admin-input--narrow" type="number" min="0" max="1" step="0.01" value={llmForm.quality_threshold} onChange={e => updateLlmField('quality_threshold', e.target.value)} disabled={llmLoading || llmSaving || llmForm.verification_scheme !== 'threshold'} />
             </label>
           </div>
 
-          {formInvalid && <div className="rounded-lg p-3 text-sm text-amber-300 bg-amber-500/10 ring-1 ring-amber-500/30">Укажите черновую модель{verifierRequired ? ' и verifier-модель' : ''}.</div>}
+          {formInvalid && <div className="admin-alert admin-alert--warning">Укажите черновую модель{verifierRequired ? ' и verifier-модель' : ''}.</div>}
 
-          <div className="space-y-1 rounded-xl bg-slate-950/40 ring-1 ring-white/5 p-4 text-sm text-slate-400 leading-relaxed">
-            <div><strong className="text-white">Сценарий:</strong> {SCHEME_LABELS[llmForm.verification_scheme]}.</div>
-            <div><strong className="text-white">Экономика:</strong> максимум токенов уходит в draft-модель; verifier получает только черновик и слабые места.</div>
+          <div className="admin-summary">
+            <div><strong>Сценарий:</strong> {SCHEME_LABELS[llmForm.verification_scheme]}.</div>
+            <div><strong>Экономика:</strong> максимум токенов уходит в draft-модель; verifier получает только черновик и слабые места.</div>
           </div>
 
-          <div className="flex justify-end">
-            <button type="submit" className="rounded-xl bg-indigo-500/20 ring-1 ring-indigo-400/40 text-indigo-400 px-4 py-2.5 text-sm font-semibold hover:bg-indigo-500/30 hover:ring-indigo-400 transition disabled:opacity-50 cursor-pointer" disabled={llmSaving || llmLoading || formInvalid}>
+          <div className="admin-actions">
+            <button type="submit" className="admin-save-button" disabled={llmSaving || llmLoading || formInvalid}>
               {llmSaving ? 'Сохранение…' : 'Сохранить LLM-настройки'}
             </button>
           </div>
@@ -185,49 +186,45 @@ export default function AdminPage({ currentUser }) {
       </section>
 
       {/* Users */}
-      <section className="space-y-4">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold text-white">👥 Управление пользователями</h2>
+      <section className="admin-section">
+        <div className="admin-section__header">
+          <h2 className="admin-section__title">👥 Управление пользователями</h2>
           <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
             {loading ? '…' : '↻ Обновить'}
           </Button>
         </div>
 
-        {error && <div className="rounded-lg p-3 text-sm text-rose-300 bg-rose-500/10 ring-1 ring-rose-500/30">{error}</div>}
-        {!loading && !error && users.length === 0 && <div className="text-center py-16 text-slate-400 text-sm">Пользователей нет</div>}
+        {error && <div className="admin-alert admin-alert--error">{error}</div>}
+        {!loading && !error && users.length === 0 && <div className="admin-empty">Пользователей нет</div>}
 
         {users.length > 0 && (
-          <div className="overflow-hidden rounded-xl ring-1 ring-slate-800">
-            <div className="grid grid-cols-[1fr_1fr_90px_90px_150px] items-center bg-slate-900/60 border-b border-slate-800">
+          <div className="admin-table">
+            <div className="admin-table__header">
               {['Пользователь','Email','Роль','Статус','Действие'].map(h => (
-                <span key={h} className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-slate-500 text-center first:text-left">{h}</span>
+                <span key={h} className="admin-table__head-cell">{h}</span>
               ))}
             </div>
             {users.map(u => {
               const r = ROLE_LABELS[u.role] || ROLE_LABELS.user
               const isSelf = u.user_id === currentUser.user_id
               return (
-                <div key={u.user_id} className={`grid grid-cols-[1fr_1fr_90px_90px_150px] items-center border-b border-slate-800 last:border-0 hover:bg-slate-900/40 transition ${isSelf ? 'bg-indigo-500/5' : ''}`}>
-                  <div className="px-4 py-3 text-sm text-white font-medium flex items-center gap-2 min-w-0">
-                    <span className="truncate">{u.display_name}</span>
-                    {isSelf && <span className="text-xs text-slate-500 shrink-0">(вы)</span>}
+                <div key={u.user_id} className={`admin-table__row ${isSelf ? 'admin-table__row--self' : ''}`}>
+                  <div className="admin-table__cell admin-table__cell--user">
+                    <span className="admin-table__truncate">{u.display_name}</span>
+                    {isSelf && <span className="admin-table__self">(вы)</span>}
                   </div>
-                  <div className="px-4 py-3 text-xs text-slate-500 truncate min-w-0">{u.email}</div>
-                  <div className="px-4 py-3 text-center">
-                    <span className={`text-xs font-semibold rounded px-2.5 py-0.5 uppercase tracking-wide ${r.bg} ${r.color}`}>{r.label}</span>
+                  <div className="admin-table__cell admin-table__cell--email">{u.email}</div>
+                  <div className="admin-table__cell admin-table__cell--center">
+                    <Badge tone={r.tone}>{r.label}</Badge>
                   </div>
-                  <div className="px-4 py-3 text-center">
-                    <span className={`text-xs font-medium ${u.is_active ? 'text-emerald-400' : 'text-rose-400'}`}>{u.is_active ? 'Активен' : 'Отключён'}</span>
+                  <div className="admin-table__cell admin-table__cell--center">
+                    <span className={`admin-status admin-status--${u.is_active ? 'active' : 'inactive'}`}>{u.is_active ? 'Активен' : 'Отключён'}</span>
                   </div>
-                  <div className="px-4 py-3 text-center">
+                  <div className="admin-table__cell admin-table__cell--center">
                     {isSelf ? (
-                      <span className="text-xs text-slate-500">—</span>
+                      <span className="admin-table__dash">—</span>
                     ) : (
-                      <button className={`text-xs font-medium rounded-md px-3 py-1 border transition cursor-pointer ${
-                        u.role === 'admin'
-                          ? 'text-amber-400 border-amber-400/30 bg-amber-500/10 hover:bg-amber-500/15 hover:border-amber-400'
-                          : 'text-emerald-400 border-emerald-400/30 bg-emerald-500/10 hover:bg-emerald-500/15 hover:border-emerald-400'
-                      }`} onClick={() => toggleRole(u)} disabled={busy === u.user_id}>
+                      <button className={`admin-role-button admin-role-button--${u.role === 'admin' ? 'admin' : 'user'}`} onClick={() => toggleRole(u)} disabled={busy === u.user_id}>
                         {busy === u.user_id ? '…' : u.role === 'admin' ? '↓ Снять admin' : '↑ Сделать admin'}
                       </button>
                     )}
