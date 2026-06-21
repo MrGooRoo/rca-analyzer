@@ -202,6 +202,11 @@
   - ✅ Добавлен `frontend/src/components/AnalysisSteps.css`
   - ✅ Сохранены блоки: sticky-навигация по шагам, состояния done/active/pending и переход к секциям формы
   - ✅ Проверка: `npm run build` во frontend → успешно
+- [x] **SimilarIncidentsPanel.jsx мигрирован с Tailwind-классов на чистый CSS** (20.06.2026)
+  - ✅ `SimilarIncidentsPanel.jsx`: заменены старые Tailwind-классы на семантические CSS-классы
+  - ✅ Добавлен `frontend/src/components/SimilarIncidentsPanel.css`
+  - ✅ Сохранены блоки: заголовок, поиск, фильтры, статусы загрузки/ошибки, список похожих карточек
+  - ✅ Проверка: `npm run build` во frontend → успешно
 - [x] **P2/P6 — явные UI-состояния анализа** (14.06.2026)
   - ✅ Страница анализа разделена на состояния: ВВОД → АНАЛИЗ → РЕЗУЛЬТАТ
   - ✅ После результата `IncidentForm` скрывается, не смешивается с результатом
