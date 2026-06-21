@@ -2,9 +2,20 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17 LLM Conductor полностью реализован
+## Статус: 🟢 Рабочая версия — п.17 LLM Conductor реализован, frontend очищен от Tailwind-остатков
 
-**Дата обновления:** 2026-06-20
+**Дата обновления:** 2026-06-21
+
+## Frontend: общий проход по Tailwind-остаткам (21.06.2026)
+- [x] Найдены и переведены последние Tailwind-подобные `className` в:
+  `AnalysisProgress.jsx`, `SingleAnalysisProgress.jsx`, `BowtieDiagram.jsx`,
+  `SimilarIncidentsHint.jsx`, `HistoryPage.jsx`.
+- [x] Добавлены семантические CSS-файлы:
+  `AnalysisProgress.css`, `SingleAnalysisProgress.css`, `BowtieDiagram.css`,
+  `SimilarIncidentsHint.css`, `HistoryPage.css`.
+- [x] Удалён временный `frontend/src/tailwind-compat.css` и импорт из `index.css`.
+- [x] Сканер Tailwind-подобных классов показал: `tailwind-like residues: 0`.
+- [x] Проверки: `npm run build` во frontend → успешно; `git diff --check` → OK.
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`

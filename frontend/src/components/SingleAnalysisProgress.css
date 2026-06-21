@@ -1,0 +1,92 @@
+.single-analysis-progress {
+  margin: 16px 0;
+  padding: 20px;
+  border: 1px solid rgba(10, 132, 255, 0.3);
+  border-radius: var(--radius-lg, 16px);
+  background: linear-gradient(90deg, rgba(88, 86, 214, 0.12), rgba(44, 44, 46, 0.72));
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.single-analysis-progress--error {
+  border-color: rgba(255, 69, 58, 0.3);
+  background: linear-gradient(90deg, rgba(255, 69, 58, 0.12), rgba(44, 44, 46, 0.72));
+}
+
+.single-analysis-progress__header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.single-analysis-progress__title-group {
+  min-width: 0;
+}
+
+.single-analysis-progress__eyebrow {
+  margin-bottom: 4px;
+  color: #818cf8;
+  font-size: var(--text-xs, 11px);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.single-analysis-progress__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--text, #f5f5f7);
+  font-size: var(--text-lg, 17px);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.single-analysis-progress__icon {
+  flex: 0 0 auto;
+  font-size: var(--text-lg, 17px);
+  line-height: 1;
+}
+
+.single-analysis-progress__bar {
+  height: 8px;
+  margin-bottom: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 999px;
+  background: rgba(44, 44, 46, 0.95);
+  overflow: hidden;
+}
+
+.single-analysis-progress__bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--primary, #0a84ff), var(--success, #30d158));
+  transition: width 300ms ease;
+}
+
+.single-analysis-progress__bar-fill--error {
+  background: linear-gradient(90deg, #ff453a, #ffd60a);
+}
+
+.single-analysis-progress__footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.single-analysis-progress__message {
+  color: var(--text-tertiary, #636366);
+  font-size: var(--text-sm, 13px);
+}
+
+.single-analysis-progress__percent {
+  color: var(--text, #f5f5f7);
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
