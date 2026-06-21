@@ -4,7 +4,7 @@
 
 ## Статус: 🟢 Рабочая версия — п.17 LLM Conductor полностью реализован
 
-**Дата обновления:** 2026-06-17
+**Дата обновления:** 2026-06-20
 
 ## Инфраструктура
 - Репозиторий: `MrGooRoo/rca-analyzer`
@@ -151,7 +151,7 @@
   - ✅ `SimilarIncidentsHint` — лёгкий индикатор-счётчик в форме: «🔗 Найдено 3 похожих инцидента»
   - ✅ Полный блок `SimilarIncidentsPanel` — только в ResultView (автопоиск после анализа)
   - ✅ Нет дублей: одна строчка в форме, полный блок в результате
-- [x] **UI-kit + Tailwind + Toast + AuthContext** (13.06.2026)
+- [x] **UI-kit + Tailwind-совместимость + Toast + AuthContext** (13.06.2026)
   - ✅ Tailwind CSS v4: @tailwindcss/vite плагин, только utilities (без reset — не ломает существующие стили)
   - ✅ cn() утилита: clsx + tailwind-merge для корректного слияния классов
   - ✅ Button: варианты primary/secondary/ghost/danger/outline, размеры sm/md/lg, loading-спиннер
@@ -161,6 +161,7 @@
   - ✅ methodologies.js: метаданные методологий (иконки, описания, цвета)
   - ✅ AuthContext: чистая архитектура авторизации (login/register/logout/refresh)
   - ✅ main.jsx: обёрнуто в AuthProvider + ToastProvider
+  - ✅ `tailwind-compat.css`: временный слой совместимости для старых Tailwind-классов после удаления зависимости
 - [x] **App.jsx мигрирован на UI-kit** (14.06.2026)
   - ✅ `useAuth()` из AuthContext: убрана дублирующая auth-логика
   - ✅ `useToast()` вместо `<div className="alert alert-error">`
@@ -170,6 +171,12 @@
   - ✅ `AuthContext` регистрирует `setAuthLostHandler` — при любом 401 user сбрасывается в null
   - ✅ `AuthPage.jsx`: убран проп `onAuth`, напрямую `useAuth().login/register`
   - ✅ `App.css` почищен: удалены `.nav-btn`, `.nav-btn--active`, `.btn-logout`, `.btn-back`, `.alert-error`
+- [x] **AuthPage.jsx мигрирован с Tailwind-классов на чистый CSS** (20.06.2026)
+  - ✅ `AuthPage.jsx`: заменены `min-h-screen/flex/.../bg-slate-...` на семантические классы
+  - ✅ Добавлен `frontend/src/components/AuthPage.css`
+  - ✅ Экран входа визуально сохранён: центральная карточка, переключатель «Вход/Регистрация», поля и кнопка
+  - ✅ Проверка: `npm run build` во frontend → успешно
+  - ✅ Скриншот: `/root/rca-preview/authpage-clean.png`
 - [x] **P2/P6 — явные UI-состояния анализа** (14.06.2026)
   - ✅ Страница анализа разделена на состояния: ВВОД → АНАЛИЗ → РЕЗУЛЬТАТ
   - ✅ После результата `IncidentForm` скрывается, не смешивается с результатом

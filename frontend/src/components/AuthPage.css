@@ -1,0 +1,103 @@
+/* ---- Auth Page ---- */
+
+.auth-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background:
+    radial-gradient(circle at 50% 0%, rgba(10, 132, 255, 0.16), transparent 34%),
+    radial-gradient(circle at 12% 20%, rgba(99, 102, 241, 0.10), transparent 28%),
+    var(--bg, #000);
+}
+
+.auth-card {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 32px;
+  border-radius: var(--radius-xl, 20px);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+  background:
+    linear-gradient(180deg, rgba(30, 41, 59, 0.86), rgba(15, 23, 42, 0.78)),
+    var(--surface, #1c1c1e);
+  box-shadow: var(--shadow-lg, 0 8px 32px rgba(0, 0, 0, 0.5));
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.auth-logo {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  color: var(--text, #f5f5f7);
+  font-size: var(--text-xl, 20px);
+  font-weight: 700;
+  letter-spacing: -0.025em;
+  user-select: none;
+}
+
+.auth-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 4px;
+  border-radius: var(--radius-md, 12px);
+  background: rgba(30, 41, 59, 0.95);
+}
+
+.auth-tab {
+  flex: 1;
+  min-height: 40px;
+  border: 0;
+  border-radius: var(--radius-sm, 8px);
+  background: transparent;
+  color: var(--text-secondary, #98989d);
+  font-size: var(--text-sm, 13px);
+  font-weight: 600;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    color 0.15s ease,
+    box-shadow 0.15s ease;
+}
+
+.auth-tab:hover {
+  color: var(--text, #f5f5f7);
+}
+
+.auth-tab--active {
+  background: rgba(15, 23, 42, 0.95);
+  color: var(--text, #f5f5f7);
+  box-shadow: var(--shadow-sm, 0 1px 2px rgba(0, 0, 0, 0.3));
+}
+
+.auth-form {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.auth-error {
+  padding: 10px 12px;
+  border-radius: var(--radius-md, 12px);
+  border: 1px solid rgba(255, 69, 58, 0.30);
+  background: rgba(255, 69, 58, 0.10);
+  color: #fda4af;
+  font-size: var(--text-sm, 13px);
+  line-height: 1.45;
+}
+
+@media (max-width: 480px) {
+  .auth-page {
+    padding: 12px;
+  }
+
+  .auth-card {
+    padding: 24px;
+  }
+}

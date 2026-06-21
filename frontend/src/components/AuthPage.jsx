@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import { Button } from './ui/Button.jsx'
 import { Input } from './ui/Field.jsx'
 import { useToast } from './ui/Toast.jsx'
+import './AuthPage.css'
 
 export default function AuthPage() {
   const { login, register } = useAuth()
@@ -36,11 +37,10 @@ export default function AuthPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-[400px] rounded-2xl bg-slate-900/60 ring-1 ring-slate-800 p-8 flex flex-col gap-6 shadow-xl shadow-black/20">
-        {/* Logo */}
-        <div className="flex items-center justify-center gap-2 text-xl font-bold tracking-tight text-white">
-          <svg width="36" height="36" viewBox="0 0 28 28" fill="none">
+    <div className="auth-page">
+      <div className="auth-card">
+        <div className="auth-logo" aria-label="RCA Analyzer">
+          <svg width="36" height="36" viewBox="0 0 28 28" fill="none" aria-hidden="true">
             <circle cx="14" cy="14" r="13" stroke="#4f8ef7" strokeWidth="2"/>
             <path d="M8 20 L14 8 L20 20" stroke="#4f8ef7" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
             <path d="M10 16 H18" stroke="#4f8ef7" strokeWidth="2" strokeLinecap="round"/>
@@ -48,30 +48,28 @@ export default function AuthPage() {
           <span>RCA Analyzer</span>
         </div>
 
-        {/* Tabs */}
-        <div className="flex rounded-lg bg-slate-800 p-0.5 gap-0.5">
+        <div className="auth-tabs" role="tablist" aria-label="Выбор действия">
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === 'login'}
+            className={`auth-tab ${mode === 'login' ? 'auth-tab--active' : ''}`}
             onClick={() => { setMode('login'); setError(null) }}
-            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
-              mode === 'login'
-                ? 'bg-slate-900 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >Вход</button>
+          >
+            Вход
+          </button>
           <button
             type="button"
+            role="tab"
+            aria-selected={mode === 'register'}
+            className={`auth-tab ${mode === 'register' ? 'auth-tab--active' : ''}`}
             onClick={() => { setMode('register'); setError(null) }}
-            className={`flex-1 py-2 rounded-md text-sm font-medium transition-all ${
-              mode === 'register'
-                ? 'bg-slate-900 text-white shadow'
-                : 'text-slate-400 hover:text-white'
-            }`}
-          >Регистрация</button>
+          >
+            Регистрация
+          </button>
         </div>
 
-        {/* Form */}
-        <form className="flex flex-col gap-4" onSubmit={submit}>
+        <form className="auth-form" onSubmit={submit}>
           {mode === 'register' && (
             <Input
               label="Имя"
@@ -106,12 +104,12 @@ export default function AuthPage() {
           />
 
           {error && (
-            <div className="rounded-lg bg-rose-500/10 ring-1 ring-rose-500/30 text-rose-300 text-sm px-3 py-2.5">
+            <div className="auth-error" role="alert">
               {error}
             </div>
           )}
 
-          <Button type="submit" size="lg" loading={loading} className="mt-1">
+          <Button type="submit" size="lg" loading={loading}>
             {mode === 'login' ? 'Войти' : 'Зарегистрироваться'}
           </Button>
         </form>
