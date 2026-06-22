@@ -104,7 +104,7 @@ async def test_user_list_results_filters_by_user_id():
     """Обычный user: list_results вызывается с его user_id."""
     _setup(USER_A)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.list_results = AsyncMock(return_value=[_result()])
 
@@ -127,7 +127,7 @@ async def test_admin_list_results_no_user_filter():
     """Admin: list_results вызывается с user_id=None (видит всё)."""
     _setup(ADMIN)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.list_results = AsyncMock(return_value=[_result()])
 
@@ -153,7 +153,7 @@ async def test_user_can_get_own_result():
     """User A может получить свой результат."""
     _setup(USER_A)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-aaa"))
 
@@ -173,7 +173,7 @@ async def test_user_cannot_get_other_users_result():
     """User A не может получить результат User B."""
     _setup(USER_A)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-bbb"))
 
@@ -192,7 +192,7 @@ async def test_admin_can_get_any_result():
     """Admin может получить результат любого пользователя."""
     _setup(ADMIN)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-bbb"))
 
@@ -216,7 +216,7 @@ async def test_user_cannot_delete_other_users_result():
     """User A не может удалить результат User B."""
     _setup(USER_A)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-bbb"))
             mock_repo.delete_result = AsyncMock(return_value=True)
@@ -237,7 +237,7 @@ async def test_user_can_delete_own_result():
     """User A может удалить свой результат."""
     _setup(USER_A)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-aaa"))
             mock_repo.delete_result = AsyncMock(return_value=True)
@@ -258,7 +258,7 @@ async def test_admin_can_delete_any_result():
     """Admin может удалить результат любого пользователя."""
     _setup(ADMIN)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-bbb"))
             mock_repo.delete_result = AsyncMock(return_value=True)
@@ -284,7 +284,7 @@ async def test_user_cannot_update_rec_of_other_users_result():
     """User A не может обновить рекомендацию результата User B."""
     _setup(USER_A)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-bbb"))
 
@@ -304,7 +304,7 @@ async def test_admin_can_update_rec_of_any_result():
     """Admin может обновить рекомендацию любого результата."""
     _setup(ADMIN)
     try:
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = MockRepo.return_value
             mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-bbb"))
             mock_repo.update_recommendation_status = AsyncMock(return_value=True)

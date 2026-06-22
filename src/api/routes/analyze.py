@@ -1,13 +1,6 @@
 """
 FastAPI-роутер: анализ инцидентов.
 
-Защищённые эндпоинты требуют auth-cookie или Bearer-токен.
-Результаты привязываются к user_id текущего пользователя.
-
-Роли:
-  - admin: видит, редактирует и удаляет любые результаты.
-  - user:  видит и управляет только своими записями.
-
 Архитектура:
   API (тонкие роуты)
     → AnalysisPersistenceService (use-case слой)
@@ -28,7 +21,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import get_db
-from src.db.repository import RCARepository
+from src.db.repository import compute_incident_hash
 from src.domain.models import (
     AnalysisRequest,
     AnalysisSession,
@@ -49,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1", tags=["analysis"])
 
-# Module-level service instances (backward compat for tests patching _service)
 _service = AnalysisService()
 _persistence = AnalysisPersistenceService(service_getter=lambda: _service)
 
@@ -58,23 +50,31 @@ CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 
 
 def _check_owner_or_admin(result: RCAResult, current_user: UserInfo) -> None:
-    """Проверить, что пользователь — владелец записи или admin."""
     if current_user.role == "admin":
         return
     if result.user_id and result.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Доступ запрещён")
 
 
+def _compare_results(
+    results: list[RCAResult], current_user: CurrentUser,
+) -> ComparisonResult:
+    if len(results) < 2:
+        raise HTTPException(status_code=400, detail="Для сравнения нужно минимум 2 результата")
+    for r in results:
+        _check_owner_or_admin(r, current_user)
+    return _service.compare(results)
+
+
+def _user_id_filter(current_user: UserInfo) -> str | None:
+    return None if current_user.role == "admin" else current_user.user_id
+
+
 # ---------------------------------------------------------------------------
 # POST /api/v1/analyze
 # ---------------------------------------------------------------------------
 
-@router.post(
-    "/analyze",
-    response_model=RCAResult,
-    status_code=status.HTTP_201_CREATED,
-    summary="Запустить RCA-анализ инцидента",
-)
+@router.post("/analyze", response_model=RCAResult, status_code=status.HTTP_201_CREATED)
 async def analyze_incident(
     request: AnalysisRequest,
     db: DbSession,
@@ -82,7 +82,7 @@ async def analyze_incident(
 ) -> RCAResult:
     llm_settings = await load_llm_settings(db)
     try:
-        result = await _persistence.run_single(
+        return await _persistence.run_single(
             request, current_user.user_id, llm_settings=llm_settings, db=db,
         )
     except MethodologyNotSupportedError as exc:
@@ -91,33 +91,17 @@ async def analyze_incident(
         logger.error("[API] LLM error: %s", exc)
         raise HTTPException(status_code=502, detail="LLM не вернул валидный ответ.") from exc
 
-    return result
-
 
 # ---------------------------------------------------------------------------
 # POST /api/v1/analyze-stream  — SSE прогресс для одиночного анализа
 # ---------------------------------------------------------------------------
 
-@router.post(
-    "/analyze-stream",
-    status_code=status.HTTP_200_OK,
-    summary="Запустить RCA-анализ инцидента (SSE-статус выполнения)",
-)
+@router.post("/analyze-stream", status_code=status.HTTP_200_OK)
 async def analyze_stream(
     request: AnalysisRequest,
     db: DbSession,
     current_user: CurrentUser,
 ):
-    """SSE-эндпоинт для одиночного анализа.
-
-    События:
-      {"status": "started", "methodology": "five_why", "name": "5 Почему"}
-      {"status": "stage", "stage": "preparing", "percent": 10, "message": "..."}
-      {"status": "stage", "stage": "llm",       "percent": 40, "message": "..."}
-      {"status": "stage", "stage": "parsing",   "percent": 80, "message": "..."}
-      {"status": "done",  "result": <RCAResult>}
-      {"status": "error", "message": "..."}
-    """
     llm_settings = await load_llm_settings(db)
 
     async def event_generator():
@@ -133,12 +117,7 @@ async def analyze_stream(
 # POST /api/v1/analyze-multi
 # ---------------------------------------------------------------------------
 
-@router.post(
-    "/analyze-multi",
-    response_model=list[RCAResult],
-    status_code=status.HTTP_201_CREATED,
-    summary="Запустить анализ несколькими методиками",
-)
+@router.post("/analyze-multi", response_model=list[RCAResult], status_code=status.HTTP_201_CREATED)
 async def analyze_multi(
     request: MultiAnalysisRequest,
     db: DbSession,
@@ -146,10 +125,9 @@ async def analyze_multi(
 ) -> list[RCAResult]:
     llm_settings = await load_llm_settings(db)
     try:
-        results = await _persistence.run_multi(
+        return await _persistence.run_multi(
             request, current_user.user_id, llm_settings=llm_settings, db=db,
         )
-        return results
     except MethodologyNotSupportedError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     except LLMResponseValidationError as exc:
@@ -164,18 +142,12 @@ async def analyze_multi(
 # POST /api/v1/analyze-multi-stream  — SSE прогресс по методологиям
 # ---------------------------------------------------------------------------
 
-@router.post(
-    "/analyze-multi-stream",
-    status_code=status.HTTP_200_OK,
-    summary="Запустить анализ несколькими методиками (SSE-поток прогресса)",
-)
+@router.post("/analyze-multi-stream", status_code=status.HTTP_200_OK)
 async def analyze_multi_stream(
     request: MultiAnalysisRequest,
     db: DbSession,
     current_user: CurrentUser,
 ):
-    """SSE-эндпоинт: запускает все методологии параллельно и отправляет события
-    по мере завершения каждой. DB-сессии короткоживущие."""
     llm_settings = await load_llm_settings(db)
 
     async def event_generator():
@@ -191,21 +163,16 @@ async def analyze_multi_stream(
 # GET /api/v1/methodologies
 # ---------------------------------------------------------------------------
 
-@router.get("/methodologies", summary="Список реализованных методик RCA")
+@router.get("/methodologies")
 async def list_methodologies() -> dict:
-    svc = AnalysisService()
-    return {"supported": [m.value for m in svc.supported_methodologies()]}
+    return {"supported": [m.value for m in _service.supported_methodologies()]}
 
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/results
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/results",
-    response_model=list[RCAResult],
-    summary="Список результатов (admin — все, user — свои)",
-)
+@router.get("/results", response_model=list[RCAResult])
 async def list_results(
     db: DbSession,
     current_user: CurrentUser,
@@ -213,76 +180,49 @@ async def list_results(
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[RCAResult]:
-    repo = RCARepository(db)
-    user_id_filter = None if current_user.role == "admin" else current_user.user_id
-    return await repo.list_results(
-        user_id=user_id_filter,
-        incident_id=incident_id,
-        limit=limit,
-        offset=offset,
+    return await _persistence.list_results(
+        db, user_id=_user_id_filter(current_user),
+        incident_id=incident_id, limit=limit, offset=offset,
     )
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/results/compare  (ДО /results/{result_id} — порядок важен!)
+# GET /api/v1/results/compare  (ДО /results/{result_id})
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/results/compare",
-    response_model=ComparisonResult,
-    summary="Сравнить результаты анализа по сессии",
-)
+@router.get("/results/compare", response_model=ComparisonResult)
 async def compare_results(
     db: DbSession,
     current_user: CurrentUser,
     incident_id: str | None = Query(None),
     session_id: str | None = Query(None),
 ) -> ComparisonResult:
-    repo = RCARepository(db)
-
     if session_id:
-        session = await repo.get_session(session_id)
+        session = await _persistence.get_session(session_id, db)
         if session is None:
             raise HTTPException(status_code=404, detail="Сессия не найдена")
-        results = session.results
-    elif incident_id:
-        user_id_filter = None if current_user.role == "admin" else current_user.user_id
-        results = await repo.list_results(
-            user_id=user_id_filter, incident_id=incident_id,
-        )
-    else:
-        raise HTTPException(
-            status_code=400,
-            detail="Укажите incident_id или session_id",
-        )
+        return _compare_results(session.results, current_user)
 
-    if len(results) < 2:
-        raise HTTPException(
-            status_code=400,
-            detail="Для сравнения нужно минимум 2 результата",
+    if incident_id:
+        results = await _persistence.list_results(
+            db, user_id=_user_id_filter(current_user), incident_id=incident_id,
         )
-    for r in results:
-        _check_owner_or_admin(r, current_user)
+        return _compare_results(results, current_user)
 
-    return _service.compare(results)
+    raise HTTPException(status_code=400, detail="Укажите incident_id или session_id")
 
 
 # ---------------------------------------------------------------------------
 # GET /api/v1/results/{result_id}
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/results/{result_id}",
-    response_model=RCAResult,
-    summary="Получить результат анализа",
-)
+@router.get("/results/{result_id}", response_model=RCAResult)
 async def get_result(
     result_id: str,
     db: DbSession,
     current_user: CurrentUser,
 ) -> RCAResult:
-    repo = RCARepository(db)
-    result = await repo.get_result(result_id)
+    result = await _persistence.get_result(result_id, db)
     if result is None:
         raise HTTPException(status_code=404, detail="Результат не найден")
     _check_owner_or_admin(result, current_user)
@@ -293,22 +233,17 @@ async def get_result(
 # DELETE /api/v1/results/{result_id}
 # ---------------------------------------------------------------------------
 
-@router.delete(
-    "/results/{result_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
-    summary="Удалить результат анализа",
-)
+@router.delete("/results/{result_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def delete_result(
     result_id: str,
     db: DbSession,
     current_user: CurrentUser,
 ) -> None:
-    repo = RCARepository(db)
-    result = await repo.get_result(result_id)
+    result = await _persistence.get_result(result_id, db)
     if result is None:
         raise HTTPException(status_code=404, detail="Результат не найден")
     _check_owner_or_admin(result, current_user)
-    deleted = await repo.delete_result(result_id)
+    deleted = await _persistence.delete_result(result_id, db)
     if not deleted:
         raise HTTPException(status_code=404, detail="Результат не найден")
 
@@ -321,11 +256,7 @@ class RecommendationStatusUpdate(BaseModel):
     status: str = Field(..., min_length=1)
 
 
-@router.patch(
-    "/results/{result_id}/recommendations/{rec_id}",
-    status_code=status.HTTP_200_OK,
-    summary="Обновить статус рекомендации",
-)
+@router.patch("/results/{result_id}/recommendations/{rec_id}")
 async def update_recommendation_status(
     result_id: str,
     rec_id: str,
@@ -333,12 +264,11 @@ async def update_recommendation_status(
     db: DbSession,
     current_user: CurrentUser,
 ) -> dict:
-    repo = RCARepository(db)
-    result = await repo.get_result(result_id)
+    result = await _persistence.get_result(result_id, db)
     if result is None:
         raise HTTPException(status_code=404, detail="Результат не найден")
     _check_owner_or_admin(result, current_user)
-    updated = await repo.update_recommendation_status(result_id, rec_id, body.status)
+    updated = await _persistence.update_recommendation_status(result_id, rec_id, body.status, db)
     if not updated:
         raise HTTPException(status_code=404, detail="Рекомендация не найдена")
     return {"ok": True}
@@ -348,21 +278,15 @@ async def update_recommendation_status(
 # GET /api/v1/sessions
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/sessions",
-    response_model=list[AnalysisSession],
-    summary="Список исследований",
-)
+@router.get("/sessions", response_model=list[AnalysisSession])
 async def list_sessions(
     db: DbSession,
     current_user: CurrentUser,
     limit: int = Query(20, ge=1, le=100),
     offset: int = Query(0, ge=0),
 ) -> list[AnalysisSession]:
-    repo = RCARepository(db)
-    user_id_filter = None if current_user.role == "admin" else current_user.user_id
-    return await repo.list_sessions(
-        user_id=user_id_filter, limit=limit, offset=offset,
+    return await _persistence.list_sessions(
+        db, user_id=_user_id_filter(current_user), limit=limit, offset=offset,
     )
 
 
@@ -370,18 +294,13 @@ async def list_sessions(
 # GET /api/v1/sessions/{session_id}
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/sessions/{session_id}",
-    response_model=AnalysisSession,
-    summary="Получить исследование по ID",
-)
+@router.get("/sessions/{session_id}", response_model=AnalysisSession)
 async def get_session(
     session_id: str,
     db: DbSession,
     current_user: CurrentUser,
 ) -> AnalysisSession:
-    repo = RCARepository(db)
-    session = await repo.get_session(session_id)
+    session = await _persistence.get_session(session_id, db)
     if session is None:
         raise HTTPException(status_code=404, detail="Сессия не найдена")
     if current_user.role != "admin":
@@ -391,14 +310,10 @@ async def get_session(
 
 
 # ---------------------------------------------------------------------------
-# GET /api/v1/incidents/similar  (deprecated — используйте POST)
+# GET /api/v1/incidents/similar  (deprecated)
 # ---------------------------------------------------------------------------
 
-@router.get(
-    "/incidents/similar",
-    response_model=list[SimilarIncident],
-    summary="[deprecated] Найти похожие инциденты (GET-версия)",
-)
+@router.get("/incidents/similar", response_model=list[SimilarIncident])
 async def find_similar_incidents_get(
     db: DbSession,
     current_user: CurrentUser,
@@ -408,13 +323,9 @@ async def find_similar_incidents_get(
     exclude_result_id: str | None = Query(None),
     exclude_incident_id: str | None = Query(None),
 ) -> list[SimilarIncident]:
-    repo = RCARepository(db)
-    user_id_filter = None if current_user.role == "admin" else current_user.user_id
-    t = threshold if threshold is not None else 0.15
-    # Lazy backfill: доиндексировать записи без embeddings текущей модели
-    await repo.backfill_missing_embeddings(user_id=user_id_filter, limit=100)
-    return await repo.find_similar_incidents(
-        text=text, user_id=user_id_filter, limit=limit, threshold=t,
+    return await _persistence.find_similar_incidents(
+        text=text, db=db, user_id=_user_id_filter(current_user),
+        limit=limit, threshold=threshold or 0.15,
         exclude_result_id=exclude_result_id, exclude_incident_id=exclude_incident_id,
     )
 
@@ -433,34 +344,19 @@ class SimilarIncidentsRequest(BaseModel):
     exclude_incident_id: str | None = None
 
 
-@router.post(
-    "/incidents/similar",
-    response_model=list[SimilarIncident],
-    summary="Найти похожие инциденты",
-)
+@router.post("/incidents/similar", response_model=list[SimilarIncident])
 async def find_similar_incidents(
     body: SimilarIncidentsRequest,
     db: DbSession,
     current_user: CurrentUser,
 ) -> list[SimilarIncident]:
-    repo = RCARepository(db)
-    user_id_filter = None if current_user.role == "admin" else current_user.user_id
-
-    threshold_val = body.threshold if body.threshold is not None else 0.15
-
-    # Lazy backfill: доиндексировать записи без embeddings текущей модели
-    await repo.backfill_missing_embeddings(user_id=user_id_filter, limit=100)
-
     exclude_hash = None
     if body.incident_title and body.incident_description:
-        from src.db.repository import compute_incident_hash
         exclude_hash = compute_incident_hash(body.incident_title, body.incident_description)
 
-    return await repo.find_similar_incidents(
-        text=body.text,
-        user_id=user_id_filter,
-        limit=body.limit,
-        threshold=threshold_val,
+    return await _persistence.find_similar_incidents(
+        text=body.text, db=db, user_id=_user_id_filter(current_user),
+        limit=body.limit, threshold=body.threshold or 0.15,
         exclude_result_id=body.exclude_result_id,
         exclude_incident_id=body.exclude_incident_id,
         exclude_incident_hash=exclude_hash,

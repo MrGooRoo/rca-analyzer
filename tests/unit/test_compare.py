@@ -347,7 +347,7 @@ class TestCompareEndpoint:
         app.dependency_overrides[get_current_user] = _override_user(admin_user)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
                 mock_repo = AsyncMock()
                 mock_repo.list_results = AsyncMock(return_value=[])
                 MockRepo.return_value = mock_repo
@@ -368,7 +368,7 @@ class TestCompareEndpoint:
         app.dependency_overrides[get_current_user] = _override_user(admin_user)
 
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
                 mock_repo = AsyncMock()
                 mock_repo.list_results = AsyncMock(return_value=[r1, r2])
                 MockRepo.return_value = mock_repo

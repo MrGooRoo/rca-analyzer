@@ -106,7 +106,7 @@ class TestSessionsEndpoints:
 
     @pytest.mark.asyncio
     async def test_list_sessions(self, async_client):
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.list_sessions = AsyncMock(return_value=[_mock_session()])
             MockRepo.return_value = mock_repo
@@ -121,7 +121,7 @@ class TestSessionsEndpoints:
 
     @pytest.mark.asyncio
     async def test_get_session(self, async_client):
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.get_session = AsyncMock(return_value=_mock_session())
             MockRepo.return_value = mock_repo
@@ -136,7 +136,7 @@ class TestSessionsEndpoints:
 
     @pytest.mark.asyncio
     async def test_get_session_not_found(self, async_client):
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.get_session = AsyncMock(return_value=None)
             MockRepo.return_value = mock_repo
@@ -162,7 +162,7 @@ class TestSessionsEndpoints:
             summary="Сравнение 2 методик.",
         )
 
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo, \
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo, \
              patch("src.api.routes.analyze._service") as mock_service:
             mock_repo = AsyncMock()
             from src.domain.models import AnalysisSession

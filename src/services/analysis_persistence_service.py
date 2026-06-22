@@ -5,6 +5,7 @@ Use-case слой персистенции для анализа инциден�
   API → PersistenceService → AnalysisService + RCARepository
 
 Unit of Work: один commit на границе use-case (кроме SSE — там короткие сессии).
+Read-операции также проходят через PersistenceService для единообразия.
 """
 
 from __future__ import annotations
@@ -24,11 +25,13 @@ from src.db.repository import RCARepository
 from src.domain.methodologies import METHODOLOGY_NAMES_RU
 from src.domain.models import (
     AnalysisRequest,
+    AnalysisSession,
     LLMResponseValidationError,
     LLMSettings,
     MethodologyNotSupportedError,
     MultiAnalysisRequest,
     RCAResult,
+    SimilarIncident,
 )
 from src.services.analysis_service import AnalysisService
 
@@ -48,6 +51,26 @@ def _incident_to_session_kwargs(incident: Any) -> dict[str, Any]:
         incident_type=incident.incident_type,
         incident_severity=incident.severity,
         incident_data_json=incident.model_dump_json(exclude_none=True),
+    )
+
+
+def _save_kwargs(
+    result: RCAResult,
+    user_id: str,
+    session_id: str,
+    incident: Any,
+) -> dict[str, Any]:
+    """Подготовить kwargs для repo.save_result — единое место, чтобы не дублировать."""
+    return dict(
+        result=result,
+        user_id=user_id,
+        session_id=session_id,
+        incident_title=incident.title,
+        incident_description=incident.description,
+        incident_date=incident.incident_date,
+        incident_location=incident.location or None,
+        incident_type=incident.incident_type,
+        incident_severity=incident.severity,
     )
 
 
@@ -71,6 +94,39 @@ def _is_legacy_signature_error(exc: TypeError) -> bool:
     return "llm_settings" in message and "unexpected keyword argument" in message
 
 
+# ---------------------------------------------------------------------------
+# Helper: управление сессией с rollback
+# ---------------------------------------------------------------------------
+
+
+class _SessionManager:
+    """Контекстный менеджер для сессии БД.
+
+    Поддерживает два режима:
+    - own_session=True: создаёт и закрывает свою сессию (async with)
+    - own_session=False: использует переданную сессию (без управления жизнью)
+    """
+
+    def __init__(self, db: AsyncSession | None = None) -> None:
+        self._own_session = db is None
+        self.session = db  # может быть None
+
+    async def __aenter__(self) -> AsyncSession:
+        if self._own_session:
+            self.session = AsyncSessionLocal()
+            await self.session.__aenter__()
+        return self.session
+
+    async def __aexit__(self, *args: Any) -> None:
+        if self._own_session:
+            await self.session.__aexit__(*args)
+
+
+# ---------------------------------------------------------------------------
+# Use-case слой
+# ---------------------------------------------------------------------------
+
+
 class AnalysisPersistenceService:
     """
     Use-case слой: анализ + персистенция.
@@ -88,7 +144,7 @@ class AnalysisPersistenceService:
         self._get_service = service_getter or (lambda: AnalysisService())
 
     # ------------------------------------------------------------------
-    # Non-SSE: один commit на весь use-case (Unit of Work)
+    # Write: Non-SSE (один commit на весь use-case)
     # ------------------------------------------------------------------
 
     async def run_single(
@@ -99,48 +155,31 @@ class AnalysisPersistenceService:
         db: AsyncSession | None = None,
     ) -> RCAResult:
         """Одиночный анализ: одна сессия + один commit."""
-        own_session = db is None
-        if own_session:
-            session = AsyncSessionLocal()
-            await session.__aenter__()
-        else:
-            session = db
+        async with _SessionManager(db) as session:
+            try:
+                result = await self._analyze_with_settings(request, llm_settings)
+                result.incident_id = str(uuid.uuid4())
 
-        try:
-            result = await self._analyze_with_settings(request, llm_settings)
-            result.incident_id = str(uuid.uuid4())
+                repo = RCARepository(session, auto_commit=False)
+                session_orm = await repo.create_session(
+                    user_id=user_id,
+                    **_incident_to_session_kwargs(request.incident),
+                )
+                result.session_id = session_orm.id
 
-            repo = RCARepository(session, auto_commit=False)
-            session_orm = await repo.create_session(
-                user_id=user_id,
-                **_incident_to_session_kwargs(request.incident),
-            )
-            result.session_id = session_orm.id
+                await repo.save_result(
+                    **_save_kwargs(result, user_id, session_orm.id, request.incident),
+                )
 
-            await repo.save_result(
-                result,
-                user_id=user_id,
-                session_id=session_orm.id,
-                incident_title=request.incident.title,
-                incident_description=request.incident.description,
-                incident_date=request.incident.incident_date,
-                incident_location=request.incident.location or None,
-                incident_type=request.incident.incident_type,
-                incident_severity=request.incident.severity,
-            )
-
-            await session.commit()
-            result.user_id = user_id
-            return result
-        except (MethodologyNotSupportedError, LLMResponseValidationError):
-            await session.rollback()
-            raise
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            if own_session:
-                await session.__aexit__(None, None, None)
+                await session.commit()
+                result.user_id = user_id
+                return result
+            except (MethodologyNotSupportedError, LLMResponseValidationError):
+                await session.rollback()
+                raise
+            except Exception:
+                await session.rollback()
+                raise
 
     async def run_multi(
         self,
@@ -150,51 +189,34 @@ class AnalysisPersistenceService:
         db: AsyncSession | None = None,
     ) -> list[RCAResult]:
         """Multi-анализ: одна сессия + N результатов + один commit."""
-        own_session = db is None
-        if own_session:
-            session = AsyncSessionLocal()
-            await session.__aenter__()
-        else:
-            session = db
+        async with _SessionManager(db) as session:
+            try:
+                results = await self._analyze_multi_with_settings(request, llm_settings)
 
-        try:
-            results = await self._analyze_multi_with_settings(request, llm_settings)
-
-            repo = RCARepository(session, auto_commit=False)
-            session_orm = await repo.create_session(
-                user_id=user_id,
-                **_incident_to_session_kwargs(request.incident),
-            )
-
-            for result in results:
-                result.session_id = session_orm.id
-                await repo.save_result(
-                    result,
+                repo = RCARepository(session, auto_commit=False)
+                session_orm = await repo.create_session(
                     user_id=user_id,
-                    session_id=session_orm.id,
-                    incident_title=request.incident.title,
-                    incident_description=request.incident.description,
-                    incident_date=request.incident.incident_date,
-                    incident_location=request.incident.location or None,
-                    incident_type=request.incident.incident_type,
-                    incident_severity=request.incident.severity,
+                    **_incident_to_session_kwargs(request.incident),
                 )
-                result.user_id = user_id
 
-            await session.commit()
-            return results
-        except (MethodologyNotSupportedError, LLMResponseValidationError):
-            await session.rollback()
-            raise
-        except Exception:
-            await session.rollback()
-            raise
-        finally:
-            if own_session:
-                await session.__aexit__(None, None, None)
+                for result in results:
+                    result.session_id = session_orm.id
+                    await repo.save_result(
+                        **_save_kwargs(result, user_id, session_orm.id, request.incident),
+                    )
+                    result.user_id = user_id
+
+                await session.commit()
+                return results
+            except (MethodologyNotSupportedError, LLMResponseValidationError):
+                await session.rollback()
+                raise
+            except Exception:
+                await session.rollback()
+                raise
 
     # ------------------------------------------------------------------
-    # SSE: короткоживущие DB-сессии (LLM-вызовы без удержания соединения)
+    # Write: SSE (короткоживущие DB-сессии)
     # ------------------------------------------------------------------
 
     async def stream_single(
@@ -205,17 +227,17 @@ class AnalysisPersistenceService:
     ) -> AsyncIterator[str]:
         """SSE-генератор: короткая сессия для create, LLM, короткая сессия для save.
 
-        Возвращает SSE-строки с префиксом "data: " (как stream_multi).
+        Возвращает SSE-строки с префиксом "data: ".
         """
         # Фаза 1: создать сессию (короткая транзакция)
-        async with AsyncSessionLocal() as db:
-            repo = RCARepository(db, auto_commit=False)
+        async with AsyncSessionLocal() as session:
+            repo = RCARepository(session, auto_commit=False)
             session_orm = await repo.create_session(
                 user_id=user_id,
                 **_incident_to_session_kwargs(request.incident),
             )
             session_id = session_orm.id
-            await db.commit()
+            await session.commit()
 
         # Фаза 2: LLM-анализ (без БД)
         result: RCAResult | None = None
@@ -238,20 +260,12 @@ class AnalysisPersistenceService:
 
         # Фаза 3: сохранить результат (короткая транзакция)
         try:
-            async with AsyncSessionLocal() as db:
-                repo = RCARepository(db, auto_commit=False)
+            async with AsyncSessionLocal() as session:
+                repo = RCARepository(session, auto_commit=False)
                 await repo.save_result(
-                    result,
-                    user_id=user_id,
-                    session_id=session_id,
-                    incident_title=request.incident.title,
-                    incident_description=request.incident.description,
-                    incident_date=request.incident.incident_date,
-                    incident_location=request.incident.location or None,
-                    incident_type=request.incident.incident_type,
-                    incident_severity=request.incident.severity,
+                    **_save_kwargs(result, user_id, session_id, request.incident),
                 )
-                await db.commit()
+                await session.commit()
         except Exception as exc:
             logger.error("[Persistence] Ошибка сохранения результата в stream_single: %s", exc)
             yield "data: " + json.dumps({"status": "error", "message": "Не удалось сохранить результат анализа."}) + "\n\n"
@@ -277,14 +291,14 @@ class AnalysisPersistenceService:
         incident_id = str(uuid.uuid4())
 
         # Создать сессию (короткая транзакция)
-        async with AsyncSessionLocal() as db:
-            repo = RCARepository(db, auto_commit=False)
+        async with AsyncSessionLocal() as session:
+            repo = RCARepository(session, auto_commit=False)
             session_orm = await repo.create_session(
                 user_id=user_id,
                 **_incident_to_session_kwargs(request.incident),
             )
             session_id = session_orm.id
-            await db.commit()
+            await session.commit()
 
         queue: asyncio.Queue = asyncio.Queue()
 
@@ -318,20 +332,12 @@ class AnalysisPersistenceService:
                 result = payload
                 result.session_id = session_id
                 try:
-                    async with AsyncSessionLocal() as db:
-                        repo = RCARepository(db, auto_commit=False)
+                    async with AsyncSessionLocal() as session:
+                        repo = RCARepository(session, auto_commit=False)
                         await repo.save_result(
-                            result,
-                            user_id=user_id,
-                            session_id=session_id,
-                            incident_title=request.incident.title,
-                            incident_description=request.incident.description,
-                            incident_date=request.incident.incident_date,
-                            incident_location=request.incident.location or None,
-                            incident_type=request.incident.incident_type,
-                            incident_severity=request.incident.severity,
+                            **_save_kwargs(result, user_id, session_id, request.incident),
                         )
-                        await db.commit()
+                        await session.commit()
                     result.user_id = user_id
                 except Exception as exc:
                     logger.error("[StreamMulti] Ошибка сохранения %s: %s", name, exc)
@@ -377,6 +383,78 @@ class AnalysisPersistenceService:
 
         results_json = [r.model_dump(mode="json") for r in results]
         yield "data: " + json.dumps({"status": "done", "results": results_json}) + "\n\n"
+
+    # ------------------------------------------------------------------
+    # Read: get / list — делегируют в RCARepository
+    # ------------------------------------------------------------------
+
+    async def get_result(
+        self, result_id: str, db: AsyncSession,
+    ) -> RCAResult | None:
+        repo = RCARepository(db)
+        return await repo.get_result(result_id)
+
+    async def list_results(
+        self,
+        db: AsyncSession,
+        user_id: str | None = None,
+        incident_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[RCAResult]:
+        repo = RCARepository(db)
+        return await repo.list_results(
+            user_id=user_id, incident_id=incident_id, limit=limit, offset=offset,
+        )
+
+    async def delete_result(self, result_id: str, db: AsyncSession) -> bool:
+        repo = RCARepository(db)
+        return await repo.delete_result(result_id)
+
+    async def update_recommendation_status(
+        self, result_id: str, rec_id: str, status: str, db: AsyncSession,
+    ) -> bool:
+        repo = RCARepository(db)
+        return await repo.update_recommendation_status(result_id, rec_id, status)
+
+    async def get_session(
+        self, session_id: str, db: AsyncSession,
+    ) -> AnalysisSession | None:
+        repo = RCARepository(db)
+        return await repo.get_session(session_id)
+
+    async def list_sessions(
+        self,
+        db: AsyncSession,
+        user_id: str | None = None,
+        limit: int = 20,
+        offset: int = 0,
+    ) -> list[AnalysisSession]:
+        repo = RCARepository(db)
+        return await repo.list_sessions(user_id=user_id, limit=limit, offset=offset)
+
+    async def find_similar_incidents(
+        self,
+        text: str,
+        db: AsyncSession,
+        user_id: str | None = None,
+        limit: int = 5,
+        threshold: float = 0.15,
+        exclude_result_id: str | None = None,
+        exclude_incident_id: str | None = None,
+        exclude_incident_hash: str | None = None,
+    ) -> list[SimilarIncident]:
+        repo = RCARepository(db)
+        await repo.backfill_missing_embeddings(user_id=user_id, limit=100)
+        return await repo.find_similar_incidents(
+            text=text,
+            user_id=user_id,
+            limit=limit,
+            threshold=threshold,
+            exclude_result_id=exclude_result_id,
+            exclude_incident_id=exclude_incident_id,
+            exclude_incident_hash=exclude_incident_hash,
+        )
 
     # ------------------------------------------------------------------
     # Внутренние helpers — обёртки над AnalysisService

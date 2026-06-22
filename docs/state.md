@@ -6,15 +6,13 @@
 
 **Дата обновления:** 2026-06-22
 
-## Рефакторинг: PersistenceService + Unit of Work (22.06.2026)
-- [x] Создан `src/services/analysis_persistence_service.py` — use-case слой между API и Repository
-- [x] `RCARepository` теперь принимает `auto_commit=False` — commit на границе use-case
-- [x] `run_single()` — одиночный анализ с одним commit
-- [x] `run_multi()` — multi-анализ с одним commit на все методики
-- [x] `stream_single()` / `stream_multi()` — короткоживущие DB-сессии для SSE
-- [x] `analyze.py` — тонкие роуты, вся персистенция в PersistenceService
-- [x] API-контракты не изменились, те же 5 эндпоинтов
-- [x] Проверки: 285 passed, ruff clean
+## Рефакторинг: PersistenceService — полноценный use-case слой (22.06.2026)
+- [x] `_save_kwargs()` helper — единое место для save_result kwargs (убрано дублирование)
+- [x] `_SessionManager` — контекстный менеджер сессии с rollback (вместо __aenter__/__aexit__ вручную)
+- [x] Read-операции (get_result, list_results, get_session, list_sessions)
+  и delete/update тоже через PersistenceService — полное единообразие
+- [x] CI: добавлен `cache: pip` и `cache: npm` — ускорение установки зависимостей
+- [x] analyze.py: -36% строк (467 → 299), все эндпоинты через _persistence
 
 ## P0 Security: Rate limiting + Account lockout (22.06.2026)
 - [x] In-memory rate limiter: `src/api/middleware/rate_limiter.py` — sliding window, 10 запросов за 15 минут по IP

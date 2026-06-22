@@ -141,7 +141,7 @@ class TestAnalyzeEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_result_not_found(self, async_client):
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.get_result = AsyncMock(return_value=None)
             MockRepo.return_value = mock_repo
@@ -154,7 +154,7 @@ class TestAnalyzeEndpoint:
             mock_service.analyze = AsyncMock(return_value=mock_rca_result)
             await async_client.post("/api/v1/analyze", json=valid_request_payload)
 
-        with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_repo = AsyncMock()
             mock_repo.get_result = AsyncMock(return_value=mock_rca_result)
             MockRepo.return_value = mock_repo

@@ -73,7 +73,7 @@ def _similar_item() -> SimilarIncident:
 
 @pytest.mark.asyncio
 async def test_find_similar_incidents_success_for_user(async_client) -> None:
-    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+    with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
         repo = AsyncMock()
         repo.backfill_missing_embeddings = AsyncMock(return_value=0)
         repo.find_similar_incidents = AsyncMock(return_value=[_similar_item()])
@@ -98,7 +98,7 @@ async def test_find_similar_incidents_success_for_user(async_client) -> None:
 async def test_find_similar_incidents_admin_searches_all_users(async_client) -> None:
     app.dependency_overrides[get_current_user] = _override_user(ADMIN_USER)
 
-    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+    with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
         repo = AsyncMock()
         repo.backfill_missing_embeddings = AsyncMock(return_value=0)
         repo.find_similar_incidents = AsyncMock(return_value=[])
@@ -127,7 +127,7 @@ async def test_find_similar_incidents_validation_error(async_client) -> None:
 
 @pytest.mark.asyncio
 async def test_post_similar_incidents_success(async_client) -> None:
-    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+    with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
         repo = AsyncMock()
         repo.backfill_missing_embeddings = AsyncMock(return_value=0)
         repo.find_similar_incidents = AsyncMock(return_value=[_similar_item()])
@@ -151,7 +151,7 @@ async def test_post_similar_incidents_long_text_no_431(async_client) -> None:
     long_text = "Работник упал со стремянки при выполнении работ на высоте. " * 80
     long_text = long_text[:5000]
 
-    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+    with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
         repo = AsyncMock()
         repo.backfill_missing_embeddings = AsyncMock(return_value=0)
         repo.find_similar_incidents = AsyncMock(return_value=[])
@@ -168,7 +168,7 @@ async def test_post_similar_incidents_long_text_no_431(async_client) -> None:
 
 @pytest.mark.asyncio
 async def test_post_similar_incidents_passes_excludes(async_client) -> None:
-    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+    with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
         repo = AsyncMock()
         repo.backfill_missing_embeddings = AsyncMock(return_value=0)
         repo.find_similar_incidents = AsyncMock(return_value=[])
@@ -207,7 +207,7 @@ async def test_post_similar_incidents_text_too_long_rejected(async_client) -> No
 @pytest.mark.asyncio
 async def test_similar_incidents_include_incident_context(async_client) -> None:
     """Похожие инциденты должны содержать описание происшествия для контекста."""
-    with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+    with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
         repo = AsyncMock()
         repo.backfill_missing_embeddings = AsyncMock(return_value=0)
         repo.find_similar_incidents = AsyncMock(return_value=[_similar_item()])
