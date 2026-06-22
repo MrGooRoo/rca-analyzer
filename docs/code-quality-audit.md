@@ -120,10 +120,11 @@ Unit (методики, compare, embeddings), API (analyze, sessions, CSRF, role
 |--------|--------|
 | CSRF double-submit | ✅ |
 | httpOnly cookies | ✅ |
-| RBAC | ✅ |
+| CSRF + RBAC | ✅ |
 | Refresh rotation | ✅ |
-| Rate limiting / captcha на register | ❌ |
-| Account lockout | ❌ |
+| Rate limiting / captcha на register | ✅ (in-memory sliding window) |
+| Account lockout | ✅ (5 попыток → 15 мин блокировки) |
+| max_length на полях title/description | ✅ (Pydantic Field(max_length=...)) |
 | Роль из JWT, не из БД на каждый запрос | ⚠️ |
 | `COOKIE_SECURE=false` по умолчанию | ⚠️ prod |
 | Пароль min 6 символов | ⚠️ |

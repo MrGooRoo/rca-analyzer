@@ -17,6 +17,11 @@
 - [x] Настройки через env: `MAX_FAILED_LOGIN_ATTEMPTS`, `LOCKOUT_MINUTES`, `RATE_LIMIT_MAX_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS`
 - [x] Проверки: 285 passed, ruff clean
 
+## P1: max_length + .env.example + CI (22.06.2026)
+- [x] Добавлены `max_length` на все строковые поля в `Victim` и `IncidentInput` (Pydantic)
+- [x] Обновлён `.env.example` — добавлены секции rate limiting и account lockout
+- [x] GitHub Actions CI: `.github/workflows/ci.yml` — pytest + ruff + npm build на каждый push/PR
+
 ## Frontend: общий проход по Tailwind-остаткам (21.06.2026)
 - [x] Найдены и переведены последние Tailwind-подобные `className` в:
   `AnalysisProgress.jsx`, `SingleAnalysisProgress.jsx`, `BowtieDiagram.jsx`,
