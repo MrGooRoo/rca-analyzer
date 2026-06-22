@@ -2,9 +2,19 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17 LLM Conductor, P0 security (rate limit + account lockout)
+## Статус: 🟢 Рабочая версия — PersistenceService + P0/P1 security
 
 **Дата обновления:** 2026-06-22
+
+## Рефакторинг: PersistenceService + Unit of Work (22.06.2026)
+- [x] Создан `src/services/analysis_persistence_service.py` — use-case слой между API и Repository
+- [x] `RCARepository` теперь принимает `auto_commit=False` — commit на границе use-case
+- [x] `run_single()` — одиночный анализ с одним commit
+- [x] `run_multi()` — multi-анализ с одним commit на все методики
+- [x] `stream_single()` / `stream_multi()` — короткоживущие DB-сессии для SSE
+- [x] `analyze.py` — тонкие роуты, вся персистенция в PersistenceService
+- [x] API-контракты не изменились, те же 5 эндпоинтов
+- [x] Проверки: 285 passed, ruff clean
 
 ## P0 Security: Rate limiting + Account lockout (22.06.2026)
 - [x] In-memory rate limiter: `src/api/middleware/rate_limiter.py` — sliding window, 10 запросов за 15 минут по IP

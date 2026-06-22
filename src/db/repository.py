@@ -82,11 +82,14 @@ class RCARepository:
         self,
         session: AsyncSession,
         embedding_service: EmbeddingService | None = None,
+        *,
+        auto_commit: bool = True,
     ) -> None:
         self._session = session
         self._embeddings = embedding_service or get_embedding_service()
         # Локальный фолбэк, если внешний embedding-провайдер недоступен.
         self._fallback_embeddings = LocalHashEmbeddingService()
+        self._auto_commit = auto_commit
 
     async def _embed(self, text: str) -> tuple[list[float], str, int]:
         """
@@ -224,7 +227,8 @@ class RCARepository:
             ),
         )
 
-        await self._session.commit()
+        if self._auto_commit:
+            await self._session.commit()
 
     # ------------------------------------------------------------------
     # Чтение
@@ -333,7 +337,8 @@ class RCARepository:
             updated += 1
 
         if updated:
-            await self._session.commit()
+            if self._auto_commit:
+                await self._session.commit()
         return updated
 
     async def find_similar_incidents(
@@ -525,7 +530,8 @@ class RCARepository:
         if row is None:
             return False
         await self._session.delete(row)
-        await self._session.commit()
+        if self._auto_commit:
+            await self._session.commit()
         return True
 
     async def update_recommendation_status(
@@ -539,7 +545,8 @@ class RCARepository:
         if rec is None:
             return False
         rec.status = status
-        await self._session.commit()
+        if self._auto_commit:
+            await self._session.commit()
         return True
 
     # ------------------------------------------------------------------

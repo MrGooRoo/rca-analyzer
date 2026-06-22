@@ -165,7 +165,16 @@ class TestSessionsEndpoints:
         with patch("src.api.routes.analyze.RCARepository") as MockRepo, \
              patch("src.api.routes.analyze._service") as mock_service:
             mock_repo = AsyncMock()
-            mock_repo.list_results_by_session = AsyncMock(return_value=[r1, r2])
+            from src.domain.models import AnalysisSession
+            mock_session = AnalysisSession(
+                id="sess-multi",
+                created_at=datetime(2026, 6, 13, 10, 0),
+                user_id="test-user-001",
+                incident_title="Сравнение",
+                incident_description="Сравнение методик",
+                results=[r1, r2],
+            )
+            mock_repo.get_session = AsyncMock(return_value=mock_session)
             MockRepo.return_value = mock_repo
 
             mock_service.compare.return_value = comparison
@@ -207,7 +216,7 @@ class TestSessionsEndpoints:
         mock_result = _mock_result(session_id=None)
 
         with patch("src.api.routes.analyze._service") as mock_service, \
-             patch("src.api.routes.analyze.RCARepository") as MockRepo:
+             patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
             mock_service.analyze = AsyncMock(return_value=mock_result)
 
             mock_repo = AsyncMock()

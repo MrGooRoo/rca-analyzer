@@ -134,7 +134,7 @@ class TestAnalyzeStreamEndpoint:
         with patch("src.api.routes.analyze._service") as mock_service:
             mock_service.analyze_stream = _mock_service_stream(mock_rca_result)
 
-            with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
                 mock_repo = AsyncMock()
                 mock_repo.create_session = AsyncMock(return_value=_Session())
                 MockRepo.return_value = mock_repo
@@ -160,7 +160,7 @@ class TestAnalyzeStreamEndpoint:
         with patch("src.api.routes.analyze._service") as mock_service:
             mock_service.analyze_stream = _mock_service_error()
 
-            with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
                 mock_repo = AsyncMock()
                 mock_repo.create_session = AsyncMock(return_value=_Session())
                 MockRepo.return_value = mock_repo
@@ -183,7 +183,7 @@ class TestAnalyzeStreamEndpoint:
         with patch("src.api.routes.analyze._service") as mock_service:
             mock_service.analyze_stream = _mock_service_stream(mock_rca_result)
 
-            with patch("src.api.routes.analyze.RCARepository") as MockRepo:
+            with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
                 mock_repo = AsyncMock()
                 mock_repo.create_session = AsyncMock(return_value=_Session())
                 MockRepo.return_value = mock_repo

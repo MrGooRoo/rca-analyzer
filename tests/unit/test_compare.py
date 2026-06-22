@@ -341,8 +341,8 @@ class TestAnalyzeMultiEndpoint:
 class TestCompareEndpoint:
 
     @pytest.mark.asyncio
-    async def test_compare_no_results_returns_404(self, admin_user):
-        """Нет результатов для incident_id → 404."""
+    async def test_compare_no_results_returns_400(self, admin_user):
+        """Нет результатов для incident_id → 400."""
         app.dependency_overrides[get_db] = _override_db()
         app.dependency_overrides[get_current_user] = _override_user(admin_user)
 
@@ -356,7 +356,7 @@ class TestCompareEndpoint:
                 )
 
         app.dependency_overrides.clear()
-        assert response.status_code == 404
+        assert response.status_code == 400
 
     @pytest.mark.asyncio
     async def test_compare_success(self, admin_user):
