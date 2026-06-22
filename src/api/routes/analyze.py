@@ -17,8 +17,6 @@ FastAPI-роутер: анализ инцидентов.
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
 from typing import Annotated
 
@@ -123,12 +121,10 @@ async def analyze_stream(
     llm_settings = await load_llm_settings(db)
 
     async def event_generator():
-        stream = _persistence.stream_single(
+        async for chunk in _persistence.stream_single(
             request, current_user.user_id, llm_settings=llm_settings,
-        )
-        async for event in stream:
-            yield f"data: {json.dumps(event)}\n\n"
-            await asyncio.sleep(0.02)
+        ):
+            yield chunk
 
     return StreamingResponse(event_generator(), media_type="text/event-stream")
 
