@@ -373,10 +373,30 @@
     (`causal_nodes.node_id/parent_id`, `recommendations.rec_id/cause_id`), чтобы сохранять id с префиксами
     вроде `imm-<uuid>`, `contrib-<uuid>`, `r111...` без `StringDataRightTruncationError`.
 
+## Проверки (после Phase E + Embedding DI + SSE hardening)
+- `python -m pytest tests/ -q` → **291 passed, 1 deselected (slow)**
+- `ruff check` → **All checks passed!**
+- `npm run build` во frontend → **успешно**
+
+- [x] **Phase E — partial failure в sync /analyze-multi** (22.06.2026)
+  - ✅ `MethodologyFailure` + `MultiAnalysisResponse` модели
+  - ✅ При ошибке одной методики успешные сохраняются, ошибки возвращаются отдельно
+  - ✅ Санитизация ошибок (≤200 символов, без traceback)
+  - ✅ +6 тестов (4 unit + 2 API)
+- [x] **Phase C — Embedding DI** (22.06.2026)
+  - ✅ `EmbeddingFn` protocol в `src/integrations/embeddings/protocol.py`
+  - ✅ `RCARepository.__init__()` принимает `embed_fn` для инъекции
+  - ✅ `PersistenceService` создаёт `embed_fn` с автофолбэком на `LocalHashEmbeddingService`
+  - ✅ `embed_fn` передаётся во все 7 мест создания `RCARepository`
+  - ✅ Убрана прямая зависимость `db` → `services`
+- [x] **SSE hardening (Phase D)** (22.06.2026)
+  - ✅ Заголовки: `Cache-Control: no-cache`, `X-Accel-Buffering: no`, `Connection: keep-alive`
+  - ✅ Heartbeat: `{"status":"ping"}` каждые 30 секунд в оба SSE-стрима
+  - ✅ Корректная отмена heartbeat-таска при завершении стрима
+
 ## В работе / следующий приоритет
 - [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
-- [ ] P1 по [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md): persistence service, Unit of Work, partial failure в `analyze_multi`.
 
 ## Аудит качества кода (15.06.2026)
 - [x] **Документация аудита** — [code-quality-audit.md](code-quality-audit.md)

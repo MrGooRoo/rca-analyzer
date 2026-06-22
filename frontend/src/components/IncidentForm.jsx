@@ -97,6 +97,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   const [inputMode, setInputMode] = useState('manual')
   const [dragOver, setDragOver] = useState(false)
   const [expandedVictims, setExpandedVictims] = useState({})
+  const [step, setStep] = useState(1)      // Feedback #4: поэтапный ввод
+  const [showAdvanced, setShowAdvanced] = useState(false)  // Feedback #6: переключатель
   const fileInputRef = useRef(null)
 
   const onDraftChangeRef = useRef(onDraftChange)
@@ -104,6 +106,22 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   useEffect(() => { onDraftChangeRef.current?.(form) }, [form])
 
   const busy = loading || uploading
+
+  const STEPS = [
+    { num: 1, label: 'Основное', icon: '📋' },
+    { num: 2, label: 'Детали', icon: '🔍' },
+    { num: 3, label: 'Анализ', icon: '⚙️' },
+  ]
+
+  function canProceed() {
+    if (step === 1) return form.title.trim().length >= 5 && form.description.trim().length >= 20
+    if (step === 2) return true
+    if (step === 3) return isMulti() ? form.methodologies.length >= 2 : true
+    return false
+  }
+
+  function nextStep() { if (canProceed()) setStep(s => Math.min(s + 1, 3)) }
+  function prevStep() { setStep(s => Math.max(s - 1, 1)) }
 
   function set(field, value) { setForm(f => ({ ...f, [field]: value })) }
   function isMulti() { return form.mode === 'multi' }
@@ -196,9 +214,23 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
   return (
     <form className="incident-form" onSubmit={handleSubmit}>
+      {/* Step indicator */}
+      <div className="incident-steps">
+        {STEPS.map(s => (
+          <button key={s.num} type="button"
+            className={`incident-step ${step === s.num ? 'incident-step--active' : ''} ${step > s.num ? 'incident-step--done' : ''}`}
+            onClick={() => s.num < step && setStep(s.num)} disabled={busy}>
+            <span className="incident-step__icon">{s.num < step ? '✓' : s.icon}</span>
+            <span className="incident-step__label">{s.label}</span>
+          </button>
+        ))}
+        <div className="incident-steps__track">
+          <div className="incident-steps__fill" style={{ width: `${((step - 1) / 2) * 100}%` }} />
+        </div>
+      </div>
       <h2 className="incident-form__title">Новый анализ инцидента</h2>
 
-      {/* ══════════ БЛОК 1: Данные инцидента ══════════ */}
+      {(step === 1 || step === 2) && (
       <Card>
         <CardHeader><BlockHeader number="1">Данные инцидента</BlockHeader></CardHeader>
         <CardBody className="incident-card-body--stack">
@@ -296,6 +328,18 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
             </div>
           </div>
 
+          {/* Show advanced toggle */}
+          <div className="incident-advanced-toggle">
+            <label className="incident-toggle">
+              <input type="checkbox" checked={showAdvanced || step === 2}
+                onChange={e => setShowAdvanced(e.target.checked)}
+                disabled={busy || step === 2} />
+              <span className="incident-toggle__slider" />
+              <span className="incident-toggle__label">Показать расширенные поля</span>
+            </label>
+          </div>
+
+          {(step === 2 || showAdvanced) && (<>
           {/* 1.2 Фото */}
           <div className="incident-section">
             <SubLabel icon="📷">Фото с места происшествия</SubLabel>
@@ -393,10 +437,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
               ))}
             </div>
           </div>
+          </>)} {/* end advanced fields */}
         </CardBody>
       </Card>
+      )}
 
-      {/* ══════════ БЛОК 2: Параметры анализа ══════════ */}
+      {step === 3 && (<>
       <Card>
         <CardHeader><BlockHeader number="2">Параметры анализа</BlockHeader></CardHeader>
         <CardBody className="incident-card-body--stack">
@@ -461,6 +507,17 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
       <Button type="submit" variant="primary" size="lg" className="incident-submit" disabled={busy || (isMulti() && form.methodologies.length < 2)} loading={loading}>
         {loading ? 'Анализирую…' : isMulti() ? `⚖️ Сравнить (${form.methodologies.length} методик)` : '▶ Запустить анализ'}
       </Button>
+      </>)}
+
+      {/* Step navigation */}
+      {!loading && (
+        <div className="incident-nav">
+          {step > 1 && <Button type="button" variant="secondary" onClick={prevStep} disabled={busy}>← Назад</Button>}
+          {step < 3 && <Button type="button" variant="primary" onClick={nextStep} disabled={busy || !canProceed()}>
+            {step === 1 ? 'Детали →' : 'Параметры анализа →'}
+          </Button>}
+        </div>
+      )}
     </form>
   )
 }
