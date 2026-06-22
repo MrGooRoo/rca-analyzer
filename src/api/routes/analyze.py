@@ -29,12 +29,14 @@ from src.domain.models import (
     LLMResponseValidationError,
     MethodologyNotSupportedError,
     MultiAnalysisRequest,
+    MultiAnalysisResponse,
     RCAResult,
     SimilarIncident,
 )
 from src.services.analysis_persistence_service import (
     AnalysisPersistenceService,
     load_llm_settings,
+    with_heartbeat,
 )
 from src.services.analysis_service import AnalysisService
 
@@ -96,6 +98,13 @@ async def analyze_incident(
 # POST /api/v1/analyze-stream  — SSE прогресс для одиночного анализа
 # ---------------------------------------------------------------------------
 
+_SSE_HEADERS = {
+    "Cache-Control": "no-cache",
+    "X-Accel-Buffering": "no",
+    "Connection": "keep-alive",
+}
+
+
 @router.post("/analyze-stream", status_code=status.HTTP_200_OK)
 async def analyze_stream(
     request: AnalysisRequest,
@@ -105,24 +114,24 @@ async def analyze_stream(
     llm_settings = await load_llm_settings(db)
 
     async def event_generator():
-        async for chunk in _persistence.stream_single(
+        async for chunk in with_heartbeat(_persistence.stream_single(
             request, current_user.user_id, llm_settings=llm_settings,
-        ):
+        )):
             yield chunk
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 # ---------------------------------------------------------------------------
 # POST /api/v1/analyze-multi
 # ---------------------------------------------------------------------------
 
-@router.post("/analyze-multi", response_model=list[RCAResult], status_code=status.HTTP_201_CREATED)
+@router.post("/analyze-multi", response_model=MultiAnalysisResponse, status_code=status.HTTP_201_CREATED)
 async def analyze_multi(
     request: MultiAnalysisRequest,
     db: DbSession,
     current_user: CurrentUser,
-) -> list[RCAResult]:
+) -> MultiAnalysisResponse:
     llm_settings = await load_llm_settings(db)
     try:
         return await _persistence.run_multi(
@@ -151,12 +160,12 @@ async def analyze_multi_stream(
     llm_settings = await load_llm_settings(db)
 
     async def event_generator():
-        async for chunk in _persistence.stream_multi(
+        async for chunk in with_heartbeat(_persistence.stream_multi(
             request, current_user.user_id, llm_settings=llm_settings,
-        ):
+        )):
             yield chunk
 
-    return StreamingResponse(event_generator(), media_type="text/event-stream")
+    return StreamingResponse(event_generator(), media_type="text/event-stream", headers=_SSE_HEADERS)
 
 
 # ---------------------------------------------------------------------------

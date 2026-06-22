@@ -17,6 +17,7 @@ from src.domain.models import (
     LLMSettings,
     MethodologyNotSupportedError,
     MethodologyType,
+    MultiAnalysisResponse,
     RCAResult,
 )
 from src.services.analysis_service import AnalysisService
@@ -221,4 +222,126 @@ class TestAnalysisService:
 
         assert events[-1]["status"] == "error"
         assert events[-1]["code"] == 500
+
+
+class TestAnalyzeMulti:
+
+    @pytest.mark.asyncio
+    async def test_all_success(self, request_obj, valid_llm_payload):
+        """Все методологии возвращают результат."""
+        service = AnalysisService(
+            llm_client=_mock_llm(valid_llm_payload),
+            prompt_renderer=_mock_renderer(),
+        )
+        incident = IncidentInput(
+            title="Test", description="Test",
+            incident_type="injury", severity="moderate",
+        )
+        multi_req = MagicMock()
+        multi_req.methodologies = [MethodologyType.FIVE_WHY, MethodologyType.ISHIKAWA]
+        multi_req.language = "ru"
+        multi_req.detail_level = 2
+        multi_req.incident = incident
+
+        resp = await service.analyze_multi(multi_req)
+
+        assert isinstance(resp, MultiAnalysisResponse)
+        assert len(resp.results) == 2
+        assert len(resp.failures) == 0
+        # Все результаты получают одинаковый incident_id
+        assert resp.results[0].incident_id == resp.results[1].incident_id
+
+    @pytest.mark.asyncio
+    async def test_partial_failure(self, request_obj, valid_llm_payload):
+        """Одна методология успешна, одна падает."""
+        failing_llm = MagicMock()
+        failing_llm.__aenter__ = AsyncMock(return_value=failing_llm)
+        failing_llm.__aexit__ = AsyncMock(return_value=False)
+
+        # Первый вызов успешен, второй — падает
+        failing_llm.complete = AsyncMock(side_effect=[
+            valid_llm_payload,  # five_why успех
+            Exception("LLM timeout"),  # ishikawa падает
+        ])
+
+        with patch("src.services.analysis_service.OpenRouterClient", return_value=failing_llm):
+            service = AnalysisService(
+                prompt_renderer=_mock_renderer(),
+            )
+            incident = IncidentInput(
+                title="Test", description="Test",
+                incident_type="injury", severity="moderate",
+            )
+            multi_req = MagicMock()
+            multi_req.methodologies = [MethodologyType.FIVE_WHY, MethodologyType.ISHIKAWA]
+            multi_req.language = "ru"
+            multi_req.detail_level = 2
+            multi_req.incident = incident
+
+            resp = await service.analyze_multi(multi_req)
+
+        assert len(resp.results) == 1
+        assert len(resp.failures) == 1
+        assert resp.results[0].methodology == MethodologyType.FIVE_WHY
+        assert resp.failures[0].methodology == MethodologyType.ISHIKAWA
+        assert "LLM timeout" in resp.failures[0].error
+
+    @pytest.mark.asyncio
+    async def test_all_fail(self, request_obj):
+        """Все методологии падают — пустой results, все ошибки в failures."""
+        failing_llm = MagicMock()
+        failing_llm.__aenter__ = AsyncMock(return_value=failing_llm)
+        failing_llm.__aexit__ = AsyncMock(return_value=False)
+        failing_llm.complete = AsyncMock(
+            side_effect=Exception("LLM unavailable")
+        )
+
+        with patch("src.services.analysis_service.OpenRouterClient", return_value=failing_llm):
+            service = AnalysisService(
+                prompt_renderer=_mock_renderer(),
+            )
+            incident = IncidentInput(
+                title="Test", description="Test",
+                incident_type="injury", severity="moderate",
+            )
+            multi_req = MagicMock()
+            multi_req.methodologies = [MethodologyType.FIVE_WHY, MethodologyType.ISHIKAWA]
+            multi_req.language = "ru"
+            multi_req.detail_level = 2
+            multi_req.incident = incident
+
+            resp = await service.analyze_multi(multi_req)
+
+        assert len(resp.results) == 0
+        assert len(resp.failures) == 2
+
+    @pytest.mark.asyncio
+    async def test_failure_sanitization(self, request_obj):
+        """Ошибка с длинным traceback санитизируется (≤200 символов)."""
+        failing_llm = MagicMock()
+        failing_llm.__aenter__ = AsyncMock(return_value=failing_llm)
+        failing_llm.__aexit__ = AsyncMock(return_value=False)
+        long_error = "x" * 500
+        failing_llm.complete = AsyncMock(
+            side_effect=Exception(long_error)
+        )
+
+        with patch("src.services.analysis_service.OpenRouterClient", return_value=failing_llm):
+            service = AnalysisService(
+                prompt_renderer=_mock_renderer(),
+            )
+            incident = IncidentInput(
+                title="Test", description="Test",
+                incident_type="injury", severity="moderate",
+            )
+            multi_req = MagicMock()
+            multi_req.methodologies = [MethodologyType.FIVE_WHY]
+            multi_req.language = "ru"
+            multi_req.detail_level = 2
+            multi_req.incident = incident
+
+            resp = await service.analyze_multi(multi_req)
+
+        assert len(resp.failures) == 1
+        assert len(resp.failures[0].error) <= 203  # 200 + "..."
 

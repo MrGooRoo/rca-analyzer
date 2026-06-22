@@ -11,6 +11,7 @@ Read-операции также проходят через PersistenceService 
 from __future__ import annotations
 
 import asyncio
+import inspect
 import json
 import logging
 import uuid
@@ -30,15 +31,81 @@ from src.domain.models import (
     LLMSettings,
     MethodologyNotSupportedError,
     MultiAnalysisRequest,
+    MultiAnalysisResponse,
     RCAResult,
     SimilarIncident,
 )
+from src.integrations.embeddings.protocol import EmbeddingFn
 from src.services.analysis_service import AnalysisService
+from src.services.embedding_service import (
+    EmbeddingServiceError,
+    LocalHashEmbeddingService,
+    get_embedding_service,
+)
 
 logger = logging.getLogger(__name__)
 
 _SAVE_ERROR_MESSAGE = "Не удалось сохранить результат в базе данных"
 _ANALYSIS_ERROR_MESSAGE = "Ошибка анализа методики"
+
+# SSE heartbeat — ping каждые 30 секунд, чтобы прокси не обрывали соединение
+_SSE_HEARTBEAT_INTERVAL = 30.0
+
+
+async def with_heartbeat(main_stream: AsyncIterator[str]) -> AsyncIterator[str]:
+    """Вставить heartbeat-события в основной SSE-поток.
+
+    Heartbeat генерирует {"status":"ping"} каждые _SSE_HEARTBEAT_INTERVAL секунд.
+    Когда основной поток заканчивается — heartbeat отменяется.
+    """
+    hb_queue: asyncio.Queue[str] = asyncio.Queue()
+
+    async def _heartbeat_loop() -> None:
+        while True:
+            await asyncio.sleep(_SSE_HEARTBEAT_INTERVAL)
+            hb_queue.put_nowait("data: " + json.dumps({"status": "ping"}) + "\n\n")
+
+    hb_task = asyncio.create_task(_heartbeat_loop())
+
+    try:
+        async for item in main_stream:
+            # Drain any heartbeat pings that accumulated since last event
+            while not hb_queue.empty():
+                yield hb_queue.get_nowait()
+            yield item
+    finally:
+        hb_task.cancel()
+        await asyncio.gather(hb_task, return_exceptions=True)
+
+# Кэшированный фолбэк для эмбеддингов
+_FALLBACK_EMBEDDINGS = LocalHashEmbeddingService()
+
+
+def _make_embed_fn() -> EmbeddingFn:
+    """Создать embed_fn с автоматическим fallback на локальный hashing.
+
+    Используется PersistenceService для инъекции в RCARepository,
+    чтобы embedding-логика жила в use-case слое, а не в repository.
+    """
+    primary = get_embedding_service()
+
+    async def _embed(text: str) -> tuple[list[float], str, int]:
+        try:
+            result = primary.embed(text)
+            if inspect.isawaitable(result):
+                result = await result
+            return list(result), primary.model_name, primary.dimension
+        except EmbeddingServiceError as exc:
+            if primary is _FALLBACK_EMBEDDINGS:
+                raise
+            logger.warning(
+                "[Persistence] embedding-провайдер %s недоступен (%s) — фолбэк на %s",
+                primary.model_name, exc, _FALLBACK_EMBEDDINGS.model_name,
+            )
+            vector = _FALLBACK_EMBEDDINGS.embed(text)
+            return list(vector), _FALLBACK_EMBEDDINGS.model_name, _FALLBACK_EMBEDDINGS.dimension
+
+    return _embed
 
 
 def _incident_to_session_kwargs(incident: Any) -> dict[str, Any]:
@@ -140,8 +207,10 @@ class AnalysisPersistenceService:
     def __init__(
         self,
         service_getter: Callable[[], AnalysisService] | None = None,
+        embed_fn: EmbeddingFn | None = None,
     ) -> None:
         self._get_service = service_getter or (lambda: AnalysisService())
+        self._embed_fn = embed_fn or _make_embed_fn()
 
     # ------------------------------------------------------------------
     # Write: Non-SSE (один commit на весь use-case)
@@ -160,7 +229,7 @@ class AnalysisPersistenceService:
                 result = await self._analyze_with_settings(request, llm_settings)
                 result.incident_id = str(uuid.uuid4())
 
-                repo = RCARepository(session, auto_commit=False)
+                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
                 session_orm = await repo.create_session(
                     user_id=user_id,
                     **_incident_to_session_kwargs(request.incident),
@@ -187,19 +256,23 @@ class AnalysisPersistenceService:
         user_id: str,
         llm_settings: LLMSettings | None = None,
         db: AsyncSession | None = None,
-    ) -> list[RCAResult]:
-        """Multi-анализ: одна сессия + N результатов + один commit."""
+    ) -> MultiAnalysisResponse:
+        """Multi-анализ: одна сессия + N результатов + один commit + отчёт об ошибках."""
         async with _SessionManager(db) as session:
             try:
-                results = await self._analyze_multi_with_settings(request, llm_settings)
+                resp = await self._analyze_multi_with_settings(request, llm_settings)
 
-                repo = RCARepository(session, auto_commit=False)
+                if not resp.results and not resp.failures:
+                    # Все методики упали — не создаём пустую сессию
+                    return resp
+
+                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
                 session_orm = await repo.create_session(
                     user_id=user_id,
                     **_incident_to_session_kwargs(request.incident),
                 )
 
-                for result in results:
+                for result in resp.results:
                     result.session_id = session_orm.id
                     await repo.save_result(
                         **_save_kwargs(result, user_id, session_orm.id, request.incident),
@@ -207,7 +280,7 @@ class AnalysisPersistenceService:
                     result.user_id = user_id
 
                 await session.commit()
-                return results
+                return resp
             except (MethodologyNotSupportedError, LLMResponseValidationError):
                 await session.rollback()
                 raise
@@ -231,7 +304,7 @@ class AnalysisPersistenceService:
         """
         # Фаза 1: создать сессию (короткая транзакция)
         async with AsyncSessionLocal() as session:
-            repo = RCARepository(session, auto_commit=False)
+            repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
             session_orm = await repo.create_session(
                 user_id=user_id,
                 **_incident_to_session_kwargs(request.incident),
@@ -261,7 +334,7 @@ class AnalysisPersistenceService:
         # Фаза 3: сохранить результат (короткая транзакция)
         try:
             async with AsyncSessionLocal() as session:
-                repo = RCARepository(session, auto_commit=False)
+                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
                 await repo.save_result(
                     **_save_kwargs(result, user_id, session_id, request.incident),
                 )
@@ -292,7 +365,7 @@ class AnalysisPersistenceService:
 
         # Создать сессию (короткая транзакция)
         async with AsyncSessionLocal() as session:
-            repo = RCARepository(session, auto_commit=False)
+            repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
             session_orm = await repo.create_session(
                 user_id=user_id,
                 **_incident_to_session_kwargs(request.incident),
@@ -333,7 +406,7 @@ class AnalysisPersistenceService:
                 result.session_id = session_id
                 try:
                     async with AsyncSessionLocal() as session:
-                        repo = RCARepository(session, auto_commit=False)
+                        repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
                         await repo.save_result(
                             **_save_kwargs(result, user_id, session_id, request.incident),
                         )
@@ -444,7 +517,7 @@ class AnalysisPersistenceService:
         exclude_incident_id: str | None = None,
         exclude_incident_hash: str | None = None,
     ) -> list[SimilarIncident]:
-        repo = RCARepository(db)
+        repo = RCARepository(db, embed_fn=self._embed_fn)
         await repo.backfill_missing_embeddings(user_id=user_id, limit=100)
         return await repo.find_similar_incidents(
             text=text,
@@ -479,7 +552,7 @@ class AnalysisPersistenceService:
         self,
         request: MultiAnalysisRequest,
         llm_settings: LLMSettings | None,
-    ) -> list[RCAResult]:
+    ) -> MultiAnalysisResponse:
         svc = self._get_service()
         if llm_settings is None:
             return await svc.analyze_multi(request)

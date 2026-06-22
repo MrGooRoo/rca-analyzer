@@ -35,9 +35,11 @@ from src.domain.models import (
     ComparisonResult,
     LLMResponseValidationError,
     LLMSettings,
+    MethodologyFailure,
     MethodologyNotSupportedError,
     MethodologyType,
     MultiAnalysisRequest,
+    MultiAnalysisResponse,
     RCAResult,
     Recommendation,
 )
@@ -77,6 +79,14 @@ def _deduplicate_results(results: list[RCAResult]) -> list[RCAResult]:
     # Сохраняем порядок оригинального списка по method
     original_order = list(dict.fromkeys(r.methodology.value for r in results))
     return [seen[k] for k in original_order if k in seen]
+
+
+def _sanitize_error(exc: Exception) -> str:
+    """Безопасное сообщение об ошибке для внешнего API (без traceback)."""
+    message = str(exc)
+    if len(message) > 200:
+        return message[:200] + "..."
+    return message or "Неизвестная ошибка"
 
 
 class AnalysisService:
@@ -249,7 +259,7 @@ class AnalysisService:
         self,
         request: MultiAnalysisRequest,
         llm_settings: LLMSettings | None = None,
-    ) -> list[RCAResult]:
+    ) -> MultiAnalysisResponse:
         incident_id = str(uuid.uuid4())
 
         single_requests = [
@@ -274,16 +284,24 @@ class AnalysisService:
         )
 
         results: list[RCAResult] = []
-        for item in gathered:
+        failures: list[MethodologyFailure] = []
+        for req, item in zip(single_requests, gathered, strict=True):
             if isinstance(item, Exception):
-                logger.error("[AnalysisService] Ошибка методики в analyze_multi: %s", item)
+                logger.error(
+                    "[AnalysisService] Ошибка методики %s в analyze_multi: %s",
+                    req.methodology.value, item,
+                )
+                failures.append(MethodologyFailure(
+                    methodology=req.methodology,
+                    error=_sanitize_error(item),
+                ))
             else:
                 results.append(cast(RCAResult, item))
 
         for result in results:
             result.incident_id = incident_id
 
-        return list(results)
+        return MultiAnalysisResponse(results=results, failures=failures)
 
     # ------------------------------------------------------------------
     # Сравнение результатов (улучшенная эвристика)

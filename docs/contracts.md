@@ -96,7 +96,7 @@ class IncidentInput(BaseModel):
 ```js
 api.analyze(payload, { signal }?)       // POST /api/v1/analyze        → RCAResult (legacy/sync)
 api.analyzeStream(payload, onEvent, { signal }?) // POST /api/v1/analyze-stream → SSE/RCAResult
-api.analyzeMulti(payload, { signal }?)  // POST /api/v1/analyze-multi  → RCAResult[]
+api.analyzeMulti(payload, { signal }?)  // POST /api/v1/analyze-multi  → MultiAnalysisResponse { results, failures }
 api.analyzeMultiStream(payload, onEvent, { signal }?) // POST /api/v1/analyze-multi-stream → SSE/results
 api.compareResults(id)                  // GET  /api/v1/results/compare?incident_id=... → ComparisonResult
 api.similarIncidents(text, options)     // POST /api/v1/incidents/similar (текст в теле) → SimilarIncident[]
@@ -229,6 +229,26 @@ class MultiAnalysisRequest(BaseModel):
 - `methodologies`: минимум 2, максимум 5 уникальных методик
 - Дубликаты отклоняются с ошибкой валидации (422)
 - Диапазон совпадает с методиками из `MethodologyType`
+
+---
+
+## 11.1 MultiAnalysisResponse — ответ sync multi-анализа (добавлено 22.06.2026)
+
+```python
+class MethodologyFailure(BaseModel):
+    methodology: MethodologyType    # какая методика упала
+    error: str                      # безопасное сообщение об ошибке (≤200 символов, без traceback)
+
+class MultiAnalysisResponse(BaseModel):
+    results: list[RCAResult]           = Field(default_factory=list)   # успешные результаты
+    failures: list[MethodologyFailure] = Field(default_factory=list)   # ошибки по методикам
+```
+
+**Правила:**
+- Если все методики успешны → `results` полный, `failures=[]`
+- Если часть методик упала → `results` содержит успешные, `failures` — ошибки по каждой упавшей
+- Если все методики упали → `results=[]`, `failures` содержит все ошибки
+- Ошибки санитизированы: без traceback, максимум 200 символов
 
 ---
 
@@ -510,7 +530,7 @@ GET /api/v1/results/compare?incident_id=...     → ComparisonResult  # backward
 
 1. **POST /analyze** → создаёт сессию → возвращает `session_id` в `RCAResult` (legacy/sync)
 2. **POST /analyze-stream** → SSE-статус → сохраняет результат и сессию → финальное событие `done` с `RCAResult`
-3. **POST /analyze-multi** → создаёт ОДНУ сессию → все N результатов получают один `session_id`
+3. **POST /analyze-multi** → создаёт ОДНУ сессию → возвращает `MultiAnalysisResponse { results, failures }` — успешные результаты + список ошибок по методикам
 4. **POST /analyze-multi-stream** — аналогично: одна сессия на все методики
 5. **GET /sessions** — история по исследованиям (вместо плоской списка результатов)
 6. **GET /results/compare?session_id=...** — сравнение по сессии

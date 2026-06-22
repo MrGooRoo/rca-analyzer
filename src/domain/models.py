@@ -239,6 +239,18 @@ class ComparisonResult(BaseModel):
     summary: str = ""
 
 
+class MethodologyFailure(BaseModel):
+    """Информация об упавшей методике в multi-анализе."""
+    methodology: MethodologyType
+    error: str
+
+
+class MultiAnalysisResponse(BaseModel):
+    """Результат multi-анализа: успешные результаты + список ошибок по методикам."""
+    results: list[RCAResult] = Field(default_factory=list)
+    failures: list[MethodologyFailure] = Field(default_factory=list)
+
+
 # ----------------------------------------------------------------------
 # Сущность «исследование» (добавлено 13.06.2026)
 # ----------------------------------------------------------------------

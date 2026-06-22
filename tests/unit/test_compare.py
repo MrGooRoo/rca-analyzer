@@ -294,14 +294,57 @@ class TestAnalyzeMultiEndpoint:
 
     @pytest.mark.asyncio
     async def test_analyze_multi_success(self, async_client, multi_payload):
+        from src.domain.models import MultiAnalysisResponse
         mock_result = _make_result(MethodologyType.FIVE_WHY)
         with patch("src.api.routes.analyze._service") as mock_svc:
-            mock_svc.analyze_multi = AsyncMock(return_value=[mock_result, mock_result])
+            mock_svc.analyze_multi = AsyncMock(
+                return_value=MultiAnalysisResponse(
+                    results=[mock_result, mock_result],
+                    failures=[],
+                )
+            )
             response = await async_client.post("/api/v1/analyze-multi", json=multi_payload)
         assert response.status_code == 201
         data = response.json()
-        assert isinstance(data, list)
-        assert len(data) == 2
+        assert isinstance(data, dict)
+        assert len(data["results"]) == 2
+        assert len(data["failures"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_analyze_multi_success_no_db(self, async_client, multi_payload):
+        """Пустой результат без создания сессии."""
+        from src.domain.models import MultiAnalysisResponse
+        with patch("src.api.routes.analyze._service") as mock_svc:
+            mock_svc.analyze_multi = AsyncMock(
+                return_value=MultiAnalysisResponse(results=[], failures=[]),
+            )
+            response = await async_client.post("/api/v1/analyze-multi", json=multi_payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert data["results"] == []
+        assert data["failures"] == []
+
+    @pytest.mark.asyncio
+    async def test_analyze_multi_partial_failure(self, async_client, multi_payload):
+        """1 методика упала, 1 успешна."""
+        from src.domain.models import MethodologyFailure, MultiAnalysisResponse
+        mock_result = _make_result(MethodologyType.FIVE_WHY)
+        with patch("src.api.routes.analyze._service") as mock_svc:
+            mock_svc.analyze_multi = AsyncMock(
+                return_value=MultiAnalysisResponse(
+                    results=[mock_result],
+                    failures=[MethodologyFailure(
+                        methodology=MethodologyType.ISHIKAWA,
+                        error="LLM вернул некорректный JSON",
+                    )],
+                )
+            )
+            response = await async_client.post("/api/v1/analyze-multi", json=multi_payload)
+        assert response.status_code == 201
+        data = response.json()
+        assert len(data["results"]) == 1
+        assert len(data["failures"]) == 1
+        assert data["failures"][0]["methodology"] == "ishikawa"
 
     @pytest.mark.asyncio
     async def test_analyze_multi_too_few(self, async_client, multi_payload):

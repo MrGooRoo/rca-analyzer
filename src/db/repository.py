@@ -29,6 +29,7 @@ from src.domain.models import (
     Recommendation,
     SimilarIncident,
 )
+from src.integrations.embeddings.protocol import EmbeddingFn
 from src.services.embedding_service import (
     EmbeddingService,
     EmbeddingServiceError,
@@ -83,9 +84,11 @@ class RCARepository:
         session: AsyncSession,
         embedding_service: EmbeddingService | None = None,
         *,
+        embed_fn: EmbeddingFn | None = None,
         auto_commit: bool = True,
     ) -> None:
         self._session = session
+        self._embed_fn = embed_fn
         self._embeddings = embedding_service or get_embedding_service()
         # Локальный фолбэк, если внешний embedding-провайдер недоступен.
         self._fallback_embeddings = LocalHashEmbeddingService()
@@ -95,11 +98,12 @@ class RCARepository:
         """
         Построить embedding текущим провайдером (sync или async).
 
-        Возвращает (vector, model_name, dimension) — model_name той модели,
-        которая реально построила вектор. При ошибке внешнего провайдера
-        выполняется фолбэк на LocalHashEmbeddingService, чтобы запись/поиск
-        не падали из-за сетевых проблем.
+        Если embed_fn передан (из use-case слоя), использует его напрямую.
+        Иначе — старый путь: embedding_service → fallback на LocalHashEmbeddingService.
         """
+        if self._embed_fn is not None:
+            return await self._embed_fn(text)
+
         try:
             result = self._embeddings.embed(text)
             if inspect.isawaitable(result):
