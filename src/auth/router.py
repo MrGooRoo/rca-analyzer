@@ -7,6 +7,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from src.api.middleware.rate_limiter import rate_limit_dependency
 from src.auth.cookies import (
     REFRESH_COOKIE_NAME,
     clear_auth_cookies,
@@ -33,7 +34,12 @@ Db = Annotated[AsyncSession, Depends(get_db)]
 
 
 @router.post("/register", response_model=AuthResponse, status_code=201)
-async def register(body: RegisterRequest, response: Response, db: Db) -> AuthResponse:
+async def register(
+    body: RegisterRequest,
+    response: Response,
+    db: Db,
+    _: None = Depends(rate_limit_dependency),
+) -> AuthResponse:
     """Зарегистрировать нового пользователя и установить auth-cookie."""
     user = await register_user(db, body.email, body.display_name, body.password)
     access_token, refresh_token = await issue_auth_tokens(db, user)
@@ -44,7 +50,12 @@ async def register(body: RegisterRequest, response: Response, db: Db) -> AuthRes
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(body: LoginRequest, response: Response, db: Db) -> AuthResponse:
+async def login(
+    body: LoginRequest,
+    response: Response,
+    db: Db,
+    _: None = Depends(rate_limit_dependency),
+) -> AuthResponse:
     """Вход по email + password. Токены устанавливаются в httpOnly cookie."""
     user = await authenticate_user(db, body.email, body.password)
     access_token, refresh_token = await issue_auth_tokens(db, user)

@@ -28,6 +28,10 @@ from src.db.orm_models import RefreshTokenORM, UserORM
 SECRET_KEY: str = os.environ.get("JWT_SECRET", "change-me-in-production-please")
 ALGORITHM = "HS256"
 
+# Максимум неудачных попыток входа перед блокировкой на LOCKOUT_MINUTES минут
+MAX_FAILED_LOGIN_ATTEMPTS: int = int(os.environ.get("MAX_FAILED_LOGIN_ATTEMPTS", "5"))
+LOCKOUT_MINUTES: int = int(os.environ.get("LOCKOUT_MINUTES", "15"))
+
 if "ACCESS_TOKEN_TTL_MINUTES" in os.environ:
     _access_minutes = int(os.environ["ACCESS_TOKEN_TTL_MINUTES"])
 elif "JWT_TTL_HOURS" in os.environ:
@@ -262,8 +266,44 @@ async def authenticate_user(
     user = (
         await db.execute(select(UserORM).where(UserORM.email == normalized_email))
     ).scalar_one_or_none()
+
+    now = utcnow()
+
+    # Проверка блокировки аккаунта
+    if user is not None and user.locked_until is not None:
+        if ensure_utc(user.locked_until) > now:
+            remaining = int((ensure_utc(user.locked_until) - now).total_seconds())
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=f"Аккаунт заблокирован. Повторите через {remaining} секунд.",
+            )
+        # Блокировка истекла — сбрасываем счётчик
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        await db.commit()
+
     if user is None or not verify_password(password, user.hashed_password):
+        # Неудачная попытка — увеличиваем счётчик
+        if user is not None:
+            user.failed_login_attempts = (user.failed_login_attempts or 0) + 1
+            if user.failed_login_attempts >= MAX_FAILED_LOGIN_ATTEMPTS:
+                user.locked_until = now + timedelta(minutes=LOCKOUT_MINUTES)
+                user.failed_login_attempts = 0
+                await db.commit()
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=f"Аккаунт заблокирован на {LOCKOUT_MINUTES} минут из-за множества неудачных попыток входа.",
+                )
+            await db.commit()
         raise HTTPException(status_code=401, detail="Incorrect email or password")
+
     if not user.is_active:
         raise HTTPException(status_code=403, detail="Account disabled")
+
+    # Успешный вход — сбрасываем счётчик попыток
+    if user.failed_login_attempts or user.locked_until is not None:
+        user.failed_login_attempts = 0
+        user.locked_until = None
+        await db.commit()
+
     return user

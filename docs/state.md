@@ -2,9 +2,20 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — п.17 LLM Conductor реализован, frontend очищен от Tailwind-остатков
+## Статус: 🟢 Рабочая версия — п.17 LLM Conductor, P0 security (rate limit + account lockout)
 
-**Дата обновления:** 2026-06-21
+**Дата обновления:** 2026-06-22
+
+## P0 Security: Rate limiting + Account lockout (22.06.2026)
+- [x] In-memory rate limiter: `src/api/middleware/rate_limiter.py` — sliding window, 10 запросов за 15 минут по IP
+- [x] Rate limiter подключён к `/login` и `/register` через FastAPI Depends
+- [x] Account lockout: `failed_login_attempts` + `locked_until` поля в `users` таблице
+- [x] После 5 неудачных попыток входа аккаунт блокируется на 15 минут
+- [x] После истечения блокировки счётчик сбрасывается
+- [x] При успешном входе счётчик обнуляется
+- [x] Миграция Alembic 014
+- [x] Настройки через env: `MAX_FAILED_LOGIN_ATTEMPTS`, `LOCKOUT_MINUTES`, `RATE_LIMIT_MAX_REQUESTS`, `RATE_LIMIT_WINDOW_SECONDS`
+- [x] Проверки: 285 passed, ruff clean
 
 ## Frontend: общий проход по Tailwind-остаткам (21.06.2026)
 - [x] Найдены и переведены последние Tailwind-подобные `className` в:
