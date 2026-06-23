@@ -1,5 +1,15 @@
+/* ══════════════════════════════════════════════════════════════
+   RCA Analyzer — Core Stylesheet
+   ══════════════════════════════════════════════════════════════
+   Порядок импорта важен: tokens → typography → layout → components
+   ══════════════════════════════════════════════════════════════ */
+
+@import './styles/design-tokens.css';
+@import './styles/typography.css';
+@import './styles/layout.css';
+
 /* ==========================================
-   Apple-inspired Design System (Dark Mode)
+   Reset & Base
    ========================================== */
 
 *, *::before, *::after {
@@ -8,73 +18,12 @@
   padding: 0;
 }
 
-:root {
-  /* Colors - Apple-inspired palette */
-  --bg:           #000000;
-  --surface:      #1c1c1e;
-  --surface-2:    #2c2c2e;
-  --surface-3:    #3a3a3c;
-  --border:       #48484a;
-  --border-light: #636366;
-  --text:         #f5f5f7;
-  --text-secondary: #98989d;
-  --text-tertiary:  #636366;
-  
-  /* Accent colors */
-  --primary:      #0a84ff;
-  --primary-hover:#007aff;
-  --success:      #30d158;
-  --warning:      #ffd60a;
-  --error:        #ff453a;
-  
-  /* Shadows - Apple style */
-  --shadow-sm:    0 1px 2px rgba(0, 0, 0, 0.3);
-  --shadow-md:    0 4px 12px rgba(0, 0, 0, 0.4);
-  --shadow-lg:    0 8px 32px rgba(0, 0, 0, 0.5);
-  --shadow-glow:  0 0 20px rgba(10, 132, 255, 0.15);
-  
-  /* Spacing */
-  --space-xs:  4px;
-  --space-sm:  8px;
-  --space-md:  16px;
-  --space-lg:  24px;
-  --space-xl:  32px;
-  --space-2xl: 48px;
-  
-  /* Border radius - Apple style (larger) */
-  --radius-sm:   8px;
-  --radius-md:   12px;
-  --radius-lg:   16px;
-  --radius-xl:   20px;
-  
-  /* Typography */
-  --font: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
-  --font-mono: 'SF Mono', SFMono-Regular, Consolas, monospace;
-  
-  --text-xs:   11px;
-  --text-sm:   13px;
-  --text-base: 15px;
-  --text-lg:   17px;
-  --text-xl:   20px;
-  --text-2xl:  24px;
-  --text-3xl:  32px;
-  
-  /* Transitions */
-  --transition-fast:   150ms ease;
-  --transition-normal: 250ms ease;
-  --transition-slow:   350ms ease;
-}
-
-/* ==========================================
-   Base
-   ========================================== */
-
 body {
   font-family: var(--font);
   font-size: var(--text-base);
-  line-height: 1.5;
-  background: var(--bg);
-  color: var(--text);
+  line-height: var(--leading-normal);
+  background: var(--color-bg);
+  color: var(--color-text-primary);
   min-height: 100dvh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
@@ -98,7 +47,7 @@ input, select, textarea {
 }
 
 a {
-  color: var(--primary);
+  color: var(--accent);
   text-decoration: none;
 }
 
@@ -120,12 +69,12 @@ a:hover {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
+  background: var(--color-border);
   border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: var(--border-light);
+  background: var(--color-border-light);
 }
 
 /* ==========================================
@@ -134,7 +83,7 @@ a:hover {
 
 ::selection {
   background: rgba(10, 132, 255, 0.3);
-  color: var(--text);
+  color: var(--color-text-primary);
 }
 
 /* ==========================================
@@ -142,7 +91,7 @@ a:hover {
    ========================================== */
 
 :focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   border-radius: var(--radius-sm);
 }

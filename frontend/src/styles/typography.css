@@ -1,0 +1,110 @@
+/* ══════════════════════════════════════════════════════════════
+   Typography — Система типографики
+   ══════════════════════════════════════════════════════════════
+   Использует токены из design-tokens.css.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Headings ─────────────────────────────────────────────── */
+
+.typo-h1 {
+  font-size: var(--text-3xl);
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-tight);
+  letter-spacing: -0.02em;
+}
+
+.typo-h2 {
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.typo-h3 {
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+}
+
+.typo-h4 {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-normal);
+}
+
+/* ── Body ──────────────────────────────────────────────────── */
+
+.typo-body {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+}
+
+.typo-body-sm {
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  color: var(--color-text-primary);
+}
+
+/* ── Supporting ────────────────────────────────────────────── */
+
+.typo-caption {
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
+  color: var(--color-text-secondary);
+}
+
+.typo-label {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.typo-error {
+  font-size: var(--text-xs);
+  color: var(--color-error);
+}
+
+.typo-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
+}
+
+/* ── Code ──────────────────────────────────────────────────── */
+
+.typo-code {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: 2px 6px;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text-primary);
+}
+
+.typo-pre {
+  font-family: var(--font-mono);
+  font-size: var(--text-sm);
+  padding: var(--space-md);
+  background: var(--color-surface-2);
+  border-radius: var(--radius-md);
+  overflow-x: auto;
+  line-height: var(--leading-relaxed);
+  color: var(--color-text-primary);
+}
+
+/* ── Eyebrow (SECTION LABEL) ───────────────────────────────── */
+
+.typo-eyebrow {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+/* ── Visual Overrides for semantic text colors ────────────── */
+
+.text-success { color: var(--color-success); }
+.text-warning { color: var(--color-warning); }
+.text-error   { color: var(--color-error); }
+.text-accent  { color: var(--accent); }
+.text-muted   { color: var(--color-text-secondary); }

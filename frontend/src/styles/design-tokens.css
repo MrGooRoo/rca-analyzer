@@ -1,0 +1,144 @@
+/* ══════════════════════════════════════════════════════════════
+   Design Tokens — Brand Book for OT/PB/OOS Ecosystem
+   ══════════════════════════════════════════════════════════════
+   
+   Это единый источник истины для всех визуальных решений.
+   Изменять только здесь — все компоненты подхватят автоматически.
+   
+   Семантические домены:
+     --color-ot  = Охрана труда (RCA core)  — синий
+     --color-pb  = Промбезопасность         — янтарный (future)
+     --color-oos = Окружающая среда          — зелёный (future)
+   
+   Использование в компонентах:
+     color: var(--color-text-primary);
+     background: var(--color-surface);
+     padding: var(--space-md);
+   ══════════════════════════════════════════════════════════════ */
+
+:root {
+  /* ── Apple-inspired Dark Palette ─────────────────────────── */
+  --color-bg:           #000000;
+  --color-surface:      #1c1c1e;
+  --color-surface-2:    #2c2c2e;
+  --color-surface-3:    #3a3a3c;
+
+  --color-border:       #48484a;
+  --color-border-light: #636366;
+
+  --color-text-primary:   #f5f5f7;
+  --color-text-secondary: #98989d;
+  --color-text-tertiary:  #636366;
+
+  /* ── Domain Colors ─────────────────────────────────────────
+     При переключении между ОТ ↔ ПБ ↔ ООС достаточно
+     переопределить --accent. */
+
+  /* Core RCA / Охрана труда (default) */
+  --color-ot:          #0a84ff;
+  --color-ot-hover:    #007aff;
+  --color-ot-subtle:   rgba(10, 132, 255, 0.15);
+  --color-ot-border:   rgba(10, 132, 255, 0.3);
+
+  /* Промбезопасность — янтарный (future) */
+  --color-pb:          #e68a00;
+  --color-pb-hover:    #cc7a00;
+  --color-pb-subtle:   rgba(230, 138, 0, 0.15);
+  --color-pb-border:   rgba(230, 138, 0, 0.3);
+
+  /* Окружающая среда — изумрудный (future) */
+  --color-oos:          #00b894;
+  --color-oos-hover:    #00a381;
+  --color-oos-subtle:   rgba(0, 184, 148, 0.15);
+  --color-oos-border:   rgba(0, 184, 148, 0.3);
+
+  /* Active accent (maps to current domain) */
+  --accent:          var(--color-ot);
+  --accent-hover:    var(--color-ot-hover);
+  --accent-subtle:   var(--color-ot-subtle);
+  --accent-border:   var(--color-ot-border);
+
+  /* State colors */
+  --color-success: #30d158;
+  --color-warning: #ffd60a;
+  --color-error:   #ff453a;
+  --color-info:    #0a84ff;
+
+  /* ── Shadows ─────────────────────────────────────────────── */
+  --shadow-sm:   0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-md:   0 4px 12px rgba(0, 0, 0, 0.4);
+  --shadow-lg:   0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(10, 132, 255, 0.15);
+
+  /* ── Spacing Scale ───────────────────────────────────────── */
+  --space-xs:   4px;
+  --space-sm:   8px;
+  --space-md:   16px;
+  --space-lg:   24px;
+  --space-xl:   32px;
+  --space-2xl:  48px;
+  --space-3xl:  64px;
+
+  /* ── Border Radius ───────────────────────────────────────── */
+  --radius-sm:   8px;
+  --radius-md:   12px;
+  --radius-lg:  16px;
+  --radius-xl:  20px;
+  --radius-full: 9999px;
+
+  /* ── Typography ───────────────────────────────────────────── */
+  --font:      'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+  --font-mono: 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+
+  --text-xs:   11px;
+  --text-sm:   13px;
+  --text-base: 15px;
+  --text-lg:   17px;
+  --text-xl:   20px;
+  --text-2xl:  24px;
+  --text-3xl:  32px;
+  --text-4xl:  40px;
+
+  --leading-tight:   1.2;
+  --leading-normal:  1.5;
+  --leading-relaxed: 1.7;
+
+  --weight-normal: 400;
+  --weight-medium: 500;
+  --weight-semibold: 600;
+  --weight-bold: 700;
+
+  /* ── Transitions ──────────────────────────────────────────── */
+  --transition-fast:   150ms ease;
+  --transition-normal: 250ms ease;
+  --transition-slow:   350ms ease;
+
+  /* ── Backward-compatible aliases ────────────────────────────
+     Старые компоненты (не мигрированные) продолжают работать.
+     Удалить после полной миграции всех CSS-файлов. */
+  --bg:             var(--color-bg);
+  --surface:        var(--color-surface);
+  --surface-2:      var(--color-surface-2);
+  --surface-3:      var(--color-surface-3);
+  --border:         var(--color-border);
+  --border-light:   var(--color-border-light);
+  --text:           var(--color-text-primary);
+  --text-secondary: var(--color-text-secondary);
+  --text-tertiary:  var(--color-text-tertiary);
+  --primary:        var(--accent);
+  --primary-hover:  var(--accent-hover);
+  --success:        var(--color-success);
+  --warning:        var(--color-warning);
+  --error:          var(--color-error);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Domain switching (future use)
+   ══════════════════════════════════════════════════════════════
+   При расширении на ПБ или ООС, обернуть приложение в класс:
+     <div class="domain-pb">  → переключит accent на янтарный
+     <div class="domain-oos"> → переключит accent на зелёный
+   
+   .domain-pb  { --accent: var(--color-pb);  --accent-hover: var(--color-pb-hover);  --accent-subtle: var(--color-pb-subtle);  --accent-border: var(--color-pb-border); }
+   .domain-oos { --accent: var(--color-oos); --accent-hover: var(--color-oos-hover); --accent-subtle: var(--color-oos-subtle); --accent-border: var(--color-oos-border); }
+*/

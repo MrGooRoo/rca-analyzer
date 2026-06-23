@@ -396,7 +396,12 @@
   - ✅ Heartbeat: `{"status":"ping"}` каждые 30 секунд в оба SSE-стрима
   - ✅ Корректная отмена heartbeat-таска при завершении стрима
 
-## Аудит 23.06.2026 — mypy cleanup (hotfix 3.5)
+## Аудит 23.06.2026 — design system / brand book
+- [x] **Design System** — единый brand book: `src/styles/design-tokens.css`, `typography.css`, `layout.css`
+- [x] **Семантические цвета** — доменные токены `--color-ot`, `--color-pb`, `--color-oos` для будущей экосистемы ОТ/ПБ/ООС
+- [x] **Унификация UI-kit** — Button, Card, Field, Toast переведены на CSS-переменные (без хардкода); `index.css` — только reset + импорт
+- [x] **Backward compatibility** — старые имена (`--primary`, `--surface`, `--text`) продолжают работать через алиасы
+- [x] **Build** — 52 modules ✓ (51.75 kB CSS)
 - [x] **Mypy: 0 errors** — 131 → 0 error. Починены: export_service (24), hf_local (3), openrouter (+catalog) (4), embedding_service (2), llm_settings_repo (3), analysis_persistence (4), docx_fields (2), pdf_export (1), domain/auth (3). Всего 12 файлов, ~60+ исправлений.
 - [x] **Mypy config** — strict=false + gradual typing overrides для domain/auth (disallow_untyped_defs)
 - [x] **Password policy** — `min_length=6` → `min_length=10`

@@ -1,4 +1,6 @@
-/* ---- UI Field ---- */
+/* ══════════════════════════════════════════════════════════════
+   UI Field (Input, Textarea, Select) — uses design-tokens.css
+   ══════════════════════════════════════════════════════════════ */
 
 .ui-field {
   display: flex;
@@ -7,23 +9,23 @@
 }
 
 .ui-field__label {
-  font-size: var(--text-sm, 13px);
-  font-weight: 500;
-  color: var(--text-secondary, #98989d);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-medium);
+  color: var(--color-text-secondary);
 }
 
 .ui-field__required {
-  color: var(--error, #ff453a);
+  color: var(--color-error);
 }
 
 .ui-field__hint {
-  font-size: var(--text-xs, 11px);
-  color: var(--text-tertiary, #636366);
+  font-size: var(--text-xs);
+  color: var(--color-text-tertiary);
 }
 
 .ui-field__error {
-  font-size: var(--text-xs, 11px);
-  color: var(--error, #ff453a);
+  font-size: var(--text-xs);
+  color: var(--color-error);
 }
 
 /* Shared input base */
@@ -31,26 +33,26 @@
 .ui-textarea,
 .ui-select {
   width: 100%;
-  border-radius: var(--radius-md, 12px);
-  border: 1px solid var(--border, #48484a);
-  background: var(--surface-2, #2c2c2e);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: var(--color-surface-2);
   padding: 8px 12px;
-  font-size: var(--text-sm, 13px);
-  color: var(--text, #f5f5f7);
-  transition: border-color 0.15s, box-shadow 0.15s;
+  font-size: var(--text-sm);
+  color: var(--color-text-primary);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
 .ui-input:focus,
 .ui-textarea:focus,
 .ui-select:focus {
-  border-color: var(--primary, #0a84ff);
+  border-color: var(--accent);
   box-shadow: 0 0 0 3px rgba(10, 132, 255, 0.15);
   outline: none;
 }
 
 .ui-input::placeholder,
 .ui-textarea::placeholder {
-  color: var(--text-tertiary, #636366);
+  color: var(--color-text-tertiary);
 }
 
 .ui-input:disabled,
@@ -58,7 +60,7 @@
 .ui-select:disabled {
   opacity: 0.5;
   cursor: not-allowed;
-  background: var(--surface-3, #3a3a3c);
+  background: var(--color-surface-3);
 }
 
 .ui-textarea {

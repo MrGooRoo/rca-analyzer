@@ -1,0 +1,123 @@
+/* ══════════════════════════════════════════════════════════════
+   Layout — Сетка, контейнеры, responsive helpers
+   ══════════════════════════════════════════════════════════════
+   Использует токены из design-tokens.css.
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Page Container ───────────────────────────────────────── */
+
+.layout-container {
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 var(--space-lg);
+}
+
+.layout-container--narrow {
+  max-width: 720px;
+}
+
+.layout-container--wide {
+  max-width: 1400px;
+}
+
+/* ── Section spacing ──────────────────────────────────────── */
+
+.layout-section {
+  margin-bottom: var(--space-2xl);
+}
+
+.layout-section--sm {
+  margin-bottom: var(--space-lg);
+}
+
+.layout-section--lg {
+  margin-bottom: var(--space-3xl);
+}
+
+/* ── Flex primitives ──────────────────────────────────────── */
+
+.layout-row {
+  display: flex;
+  align-items: center;
+}
+
+.layout-row--between {
+  justify-content: space-between;
+}
+
+.layout-row--wrap {
+  flex-wrap: wrap;
+}
+
+.layout-row--gap-sm  { gap: var(--space-sm); }
+.layout-row--gap-md  { gap: var(--space-md); }
+.layout-row--gap-lg  { gap: var(--space-lg); }
+.layout-row--gap-xl  { gap: var(--space-xl); }
+
+.layout-col {
+  display: flex;
+  flex-direction: column;
+}
+
+.layout-col--gap-sm  { gap: var(--space-sm); }
+.layout-col--gap-md  { gap: var(--space-md); }
+.layout-col--gap-lg  { gap: var(--space-lg); }
+
+/* ── Grid ──────────────────────────────────────────────────── */
+
+.layout-grid-2 {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+.layout-grid-3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: var(--space-lg);
+}
+
+.layout-grid-auto {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: var(--space-lg);
+}
+
+/* ── Spacer ────────────────────────────────────────────────── */
+
+.layout-spacer {
+  flex: 1;
+}
+
+/* ── Divider ───────────────────────────────────────────────── */
+
+.layout-divider {
+  height: 1px;
+  background: var(--color-border);
+  margin: var(--space-lg) 0;
+  border: none;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  .layout-container {
+    padding: 0 var(--space-md);
+  }
+
+  .layout-grid-2,
+  .layout-grid-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .layout-grid-auto {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 1400px) {
+  .layout-container {
+    padding: 0 var(--space-2xl);
+  }
+}
