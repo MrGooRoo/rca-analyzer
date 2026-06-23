@@ -173,12 +173,12 @@
   line-height: 1.45;
 }
 
-/* Upload zone */
+/* Upload zone — Apple-style drop target */
 
 .incident-upload-zone {
   display: block;
   border-radius: var(--radius-lg);
-  border: 1px solid var(--separator);
+  border: 1px dashed var(--separator-thick);
   background: var(--glass-bg);
   padding: var(--space-lg);
   cursor: pointer;
@@ -186,26 +186,50 @@
     background var(--transition-instant),
     border-color var(--transition-instant),
     box-shadow var(--transition-instant),
-    opacity var(--transition-instant);
+    opacity var(--transition-instant),
+    border-style var(--transition-instant);
+  /* Gentle pulse to signal "drop here" */
+  animation: drop-zone-pulse 3s ease-in-out infinite;
 }
 
-.incident-upload-zone--default:hover {
-  border-color: var(--accent-border);
+@keyframes drop-zone-pulse {
+  0%, 100% { border-color: var(--separator-thick); }
+  50%      { border-color: var(--separator); }
+}
+
+.incident-upload-zone:hover {
+  border-color: var(--accent);
+  border-style: dashed;
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+  animation: none; /* stop pulse on hover, show steady accent */
 }
 
 .incident-upload-zone--dragging {
-  border-color: var(--accent-border);
+  border-style: solid;
+  border-color: var(--accent);
   background: var(--accent-subtle);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
+  animation: none;
 }
 
 .incident-upload-zone--uploaded {
+  border-style: solid;
   border-color: rgba(52, 199, 89, 0.42);
   background: rgba(52, 199, 89, 0.10);
+  animation: none;
 }
 
 .incident-upload-zone--uploading {
+  border-style: solid;
   opacity: 0.75;
   cursor: wait;
+  animation: none;
+}
+
+/* Когда карточка активна (выбрана как способ) — solid accent */
+.incident-choice--active.incident-upload-zone {
+  border-style: solid;
+  animation: none;
 }
 
 .incident-upload-zone__content {
