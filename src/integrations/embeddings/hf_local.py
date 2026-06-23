@@ -65,7 +65,7 @@ class HFLocalEmbeddingService:
         model: str | None = None,
         max_tokens: int | None = None,
     ) -> None:
-        self.hf_model_id = model or os.getenv("HF_EMBEDDING_MODEL", DEFAULT_HF_MODEL)
+        self.hf_model_id = model or os.getenv("HF_EMBEDDING_MODEL", DEFAULT_HF_MODEL) or ""
         self.model_name = f"hf/{self.hf_model_id}"
         self.dimension = EMBEDDING_DIMENSION
         self.max_tokens = max_tokens or int(os.getenv("HF_EMBEDDING_MAX_TOKENS", "512"))
@@ -147,6 +147,9 @@ class HFLocalEmbeddingService:
 
     def _forward(self, text: str) -> list[float]:
         import torch
+
+        assert self._tokenizer is not None, "_load() must be called first"
+        assert self._model is not None, "_load() must be called first"
 
         try:
             with torch.no_grad():

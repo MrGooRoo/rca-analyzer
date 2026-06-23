@@ -246,6 +246,7 @@ def get_embedding_service() -> EmbeddingService:
             DEFAULT_EMBEDDING_MODEL,
             OpenRouterEmbeddingService,
         )
+
         model = os.getenv("OPENROUTER_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL).strip()
         cache_key = f"openrouter:{model}"
         if cache_key not in _service_cache:

@@ -12,7 +12,9 @@ ACCESS_COOKIE_NAME: Final[str] = os.environ.get("ACCESS_COOKIE_NAME", "access_to
 REFRESH_COOKIE_NAME: Final[str] = os.environ.get("REFRESH_COOKIE_NAME", "refresh_token")
 COOKIE_DOMAIN: Final[str | None] = os.environ.get("AUTH_COOKIE_DOMAIN") or None
 COOKIE_PATH: Final[str] = os.environ.get("AUTH_COOKIE_PATH", "/")
-COOKIE_SAMESITE: Final[str] = os.environ.get("AUTH_COOKIE_SAMESITE", "lax").lower()
+allowed: Final[set[str]] = {"lax", "strict", "none"}
+_raw = os.environ.get("AUTH_COOKIE_SAMESITE", "lax").lower()
+COOKIE_SAMESITE: Final[str] = _raw if _raw in allowed else "lax"
 COOKIE_SECURE: Final[bool] = os.environ.get("AUTH_COOKIE_SECURE", "false").lower() in {
     "1",
     "true",

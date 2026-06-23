@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 from datetime import date, datetime, time
 from enum import StrEnum
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator, model_validator
 
@@ -41,7 +41,7 @@ class Victim(BaseModel):
 
     @field_validator('birth_date', mode='before')
     @classmethod
-    def parse_birth_date(cls, v):
+    def parse_birth_date(cls, v: Any) -> date | None:
         """Принимает строку 'YYYY-MM-DD', date или None."""
         if v is None or v == '' or v == 'None':
             return None
@@ -225,7 +225,7 @@ class MultiAnalysisRequest(BaseModel):
 
     @field_validator('methodologies')
     @classmethod
-    def validate_unique_methodologies(cls, v):
+    def validate_unique_methodologies(cls, v: list[MethodologyType]) -> list[MethodologyType]:
         """Убедиться, что методики не повторяются."""
         if len(v) != len(set(v)):
             raise ValueError('Методики не должны повторяться')

@@ -116,7 +116,7 @@ class OpenRouterClient:
         self.max_retries = max_retries or int(os.getenv("OPENROUTER_MAX_RETRIES", "3"))
 
         self._http: httpx.AsyncClient | None = None
-        self.current_model = self.primary_model
+        self.current_model: str = self.primary_model or ""
 
     @classmethod
     def _lock(cls) -> asyncio.Lock:
@@ -223,7 +223,7 @@ class OpenRouterClient:
 
         last_error = None
         for model in models_to_try:
-            self.current_model = model
+            self.current_model = model or ""
             logger.info("[OpenRouter] Попытка вызова модели: %s", model)
             try:
                 return await self._complete_with_retry(

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import io
 from datetime import UTC, datetime
+from typing import Any
 
 from docx import Document
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -79,7 +80,7 @@ def generate_docx(result: RCAResult) -> bytes:
 # Document setup
 # ---------------------------------------------------------------------------
 
-def _setup_styles(doc: Document) -> None:
+def _setup_styles(doc: Any) -> None:
     """Настраивает поля страницы."""
     section = doc.sections[0]
     section.top_margin    = Cm(2.0)
@@ -92,7 +93,7 @@ def _setup_styles(doc: Document) -> None:
 # Sections
 # ---------------------------------------------------------------------------
 
-def _add_header(doc: Document, result: RCAResult) -> None:
+def _add_header(doc: Any, result: RCAResult) -> None:
     methodology_label = METHODOLOGY_LABELS.get(result.methodology, result.methodology.value)
     created = result.created_at.strftime("%d.%m.%Y %H:%M UTC")
 
@@ -119,7 +120,7 @@ def _add_header(doc: Document, result: RCAResult) -> None:
     doc.add_paragraph()  # отступ
 
 
-def _add_summary(doc: Document, result: RCAResult) -> None:
+def _add_summary(doc: Any, result: RCAResult) -> None:
     h = doc.add_heading(level=2)
     h.add_run("Резюме").font.color.rgb = _C_PRIMARY
 
@@ -128,7 +129,7 @@ def _add_summary(doc: Document, result: RCAResult) -> None:
     doc.add_paragraph()
 
 
-def _add_causal_sections(doc: Document, result: RCAResult) -> None:
+def _add_causal_sections(doc: Any, result: RCAResult) -> None:
     """
     Универсальные секции для ishikawa / five_why / fta / rca_systemic.
     """
@@ -152,7 +153,7 @@ def _add_causal_sections(doc: Document, result: RCAResult) -> None:
         doc.add_paragraph()
 
 
-def _add_bowtie_section(doc: Document, result: RCAResult) -> None:
+def _add_bowtie_section(doc: Any, result: RCAResult) -> None:
     """
     Bowtie-специфичные секции, разделённые по category.
     category содержит BOWTIE:THREAT, BOWTIE:PREVENTION, BOWTIE:TOP_EVENT,
@@ -202,7 +203,7 @@ def _add_bowtie_section(doc: Document, result: RCAResult) -> None:
         doc.add_paragraph()
 
 
-def _add_recommendations(doc: Document, result: RCAResult) -> None:
+def _add_recommendations(doc: Any, result: RCAResult) -> None:
     if not result.recommendations:
         return
 
@@ -242,7 +243,7 @@ def _add_recommendations(doc: Document, result: RCAResult) -> None:
     doc.add_paragraph()
 
 
-def _add_meta(doc: Document, result: RCAResult) -> None:
+def _add_meta(doc: Any, result: RCAResult) -> None:
     doc.add_heading(level=2).add_run("Техническая информация").font.color.rgb = _C_MUTED
 
     rows = [

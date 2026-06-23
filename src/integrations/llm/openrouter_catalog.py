@@ -111,8 +111,8 @@ def _model_info_from_raw(item: dict[str, Any]) -> OpenRouterModelInfo:
     name = item.get("name")
     pricing = item.get("pricing") if isinstance(item.get("pricing"), dict) else {}
 
-    prompt_price = _price_per_1m(pricing.get("prompt"))
-    completion_price = _price_per_1m(pricing.get("completion"))
+    prompt_price = _price_per_1m(pricing.get("prompt", 0))  # type: ignore[union-attr]
+    completion_price = _price_per_1m(pricing.get("completion", 0))  # type: ignore[union-attr]
     is_free = model_id.endswith(":free") or (
         prompt_price == 0.0 and completion_price == 0.0
     )

@@ -61,7 +61,7 @@ class OpenRouterEmbeddingService:
         max_retries: int | None = None,
         base_url: str | None = None,
     ) -> None:
-        self.model_name = model or os.getenv("OPENROUTER_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL)
+        self.model_name: str = model or os.getenv("OPENROUTER_EMBEDDING_MODEL", DEFAULT_EMBEDDING_MODEL) or DEFAULT_EMBEDDING_MODEL
         self.dimension = EMBEDDING_DIMENSION
         self.api_key = api_key or os.environ.get("OPENROUTER_API_KEY", "")
         self.timeout = timeout or float(os.getenv("OPENROUTER_EMBEDDING_TIMEOUT", "30"))

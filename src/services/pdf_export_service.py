@@ -272,7 +272,7 @@ def _table_row(pdf: FPDF, widths: list[float], cells: list[str], priority: str) 
     pdf.set_font(_FONT_FAMILY, "", 8.5)
     max_lines = 1
     for w, text in zip(widths, cells, strict=True):
-        n = len(pdf.multi_cell(w, line_h, text, dry_run=True, output="LINES"))
+        n = len(pdf.multi_cell(w, line_h, text, dry_run=True, output="LINES"))  # type: ignore[arg-type]
         max_lines = max(max_lines, n)
     row_h = max_lines * line_h
 

@@ -71,6 +71,7 @@ warn_unused_ignores = true
 strict = false
 exclude = ["tests/"]
 
+# Постепенное ужесточение: эти модули полностью чисты
 [[tool.mypy.overrides]]
 module = "src.domain.*"
 disallow_untyped_defs = true

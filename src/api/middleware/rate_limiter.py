@@ -43,7 +43,16 @@ def _cleanup(key: str, now: float) -> None:
 
 
 def _rate_limit_key(request: Request) -> str:
-    """Сформировать ключ для rate limit: только IP (анонимные login/register)."""
+    """Сформировать ключ для rate limit: только IP (анонимные login/register).
+
+    Порядок приоритета:
+    1. X-Real-IP (устанавливается trusted reverse-proxy, не подделывается)
+    2. X-Forwarded-For (первый адрес; может подделываться без trusted proxy)
+    3. request.client.host (прямое TCP-соединение)
+    """
+    real_ip = request.headers.get("X-Real-IP", "")
+    if real_ip:
+        return real_ip
     forwarded = request.headers.get("X-Forwarded-For", "")
     client_ip = (
         forwarded.split(",")[0].strip()

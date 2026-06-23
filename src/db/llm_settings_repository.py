@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Literal, cast
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -30,7 +30,7 @@ def _orm_to_domain(row: LLMSettingsORM) -> LLMSettings:
         draft_model=row.draft_model,
         verifier_model=row.verifier_model,
         quality_threshold=row.quality_threshold,
-        verification_scheme=row.verification_scheme,
+        verification_scheme=cast('Literal["disabled", "threshold", "always"]', row.verification_scheme),
         updated_at=row.updated_at,
         updated_by=row.updated_by,
     )
@@ -59,7 +59,7 @@ class LLMSettingsRepository:
                 updated_at=datetime.now(UTC),
                 updated_by=None,
             )
-            await _maybe_await(self._session.add(row))
+            await _maybe_await(self._session.add(row))  # type: ignore[func-returns-value]
             await self._session.commit()
             await self._session.refresh(row)
         return _orm_to_domain(row)
@@ -79,7 +79,7 @@ class LLMSettingsRepository:
                 updated_at=now,
                 updated_by=updated_by,
             )
-            await _maybe_await(self._session.add(row))
+            await _maybe_await(self._session.add(row))  # type: ignore[func-returns-value]
         else:
             row.draft_model = body.draft_model
             row.verifier_model = body.verifier_model

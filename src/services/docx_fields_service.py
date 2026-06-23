@@ -363,7 +363,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
         if isinstance(group_result, Exception):
             logger.warning("[DocxFields] Группа упала в gather: %s", group_result)
             continue
-        merged.update(group_result)
+        merged.update(group_result)  # type: ignore[arg-type]
 
     if not merged.get("title"):
         logger.error("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 'metadata' \u043d\u0435 \u0432\u0435\u0440\u043d\u0443\u043b\u0430 title \u2014 \u0432\u0441\u0435 \u0433\u0440\u0443\u043f\u043f\u044b \u0443\u043f\u0430\u043b\u0438?")

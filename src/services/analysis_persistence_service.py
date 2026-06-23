@@ -66,7 +66,7 @@ async def with_heartbeat(main_stream: AsyncIterator[str]) -> AsyncIterator[str]:
     next_task: asyncio.Task[str] | None = None
 
     try:
-        next_task = asyncio.create_task(iterator.__anext__())
+        next_task = asyncio.create_task(iterator.__anext__())  # type: ignore[arg-type]
 
         while True:
             done, _ = await asyncio.wait(
@@ -82,7 +82,7 @@ async def with_heartbeat(main_stream: AsyncIterator[str]) -> AsyncIterator[str]:
                     return
 
                 yield item
-                next_task = asyncio.create_task(iterator.__anext__())
+                next_task = asyncio.create_task(iterator.__anext__())  # type: ignore[arg-type]
             else:
                 yield ping_payload
     finally:
@@ -197,13 +197,14 @@ class _SessionManager:
         self.session = db  # может быть None
 
     async def __aenter__(self) -> AsyncSession:
-        if self._own_session:
+        if self._own_session and self.session is None:
             self.session = AsyncSessionLocal()
             await self.session.__aenter__()
+        assert self.session is not None
         return self.session
 
     async def __aexit__(self, *args: Any) -> None:
-        if self._own_session:
+        if self._own_session and self.session is not None:
             await self.session.__aexit__(*args)
 
 

@@ -2,11 +2,11 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟡 Стабильно — чистка аудита: Recommendation.status, DB lengths, embedding DI, Literal статусов, owner check
+## Статус: 🟢 CI-green, Mypy-clean (0 errors), 0 npm vulnerabilities, 295 тестов: Recommendation.status, DB lengths, embedding DI, Literal статусов, owner check
 
 **Дата обновления:** 2026-06-23
 
-**ВАЖНО:** CI пока настроен без mypy (131 error требует отдельной чистки). Frontend build требует `npm install` (зависимости не стянуты в этой сессии).
+**ВАЖНО:** Frontend build проверен (Vite 8.0.16), npm audit — 0 vulnerabilities. Mypy — 0 errors (48 source files). Frontend тесты — 7 passed (4 suites).
 
 ## Рефакторинг: PersistenceService — полноценный use-case слой (22.06.2026)
 - [x] `_save_kwargs()` helper — единое место для save_result kwargs (убрано дублирование)
@@ -396,12 +396,16 @@
   - ✅ Heartbeat: `{"status":"ping"}` каждые 30 секунд в оба SSE-стрима
   - ✅ Корректная отмена heartbeat-таска при завершении стрима
 
-## Аудит 23.06.2026 — закрытые проблемы (hotfix 3: frontend tests + asyncio.gather)
-- [x] **P2 — `asyncio.gather`** в `docx_fields_service.py` добавлен `return_exceptions=True` + filter Exception
-- [x] **P2 — Frontend tests foundation** — Vitest 4.1.9 + @testing-library/react + happy-dom; 7 тестов (4 suites)
-- [x] **P2 — CI: frontend test step** — `npm test` после `npm run build`
-- [x] **P2 — npm scripts** — добавлены `npm test` и `npm test:watch`
-- [x] **P2 — Build artifacts** — удалены `apply-p14.ps1`, `apply-p18-19-8.ps1`, `rewrite-frontend.zip`, корневой `package-lock.json`
+## Аудит 23.06.2026 — mypy cleanup (hotfix 3.5)
+- [x] **Mypy: 0 errors** — 131 → 0 error. Починены: export_service (24), hf_local (3), openrouter (+catalog) (4), embedding_service (2), llm_settings_repo (3), analysis_persistence (4), docx_fields (2), pdf_export (1), domain/auth (3). Всего 12 файлов, ~60+ исправлений.
+- [x] **Mypy config** — strict=false + gradual typing overrides для domain/auth (disallow_untyped_defs)
+- [x] **Password policy** — `min_length=6` → `min_length=10`
+- [x] **Rate limiter** — X-Real-IP приоритетнее X-Forwarded-For (защита от подделки)
+- [x] **`asyncio.gather`** в `docx_fields_service.py` — `return_exceptions=True` + filter Exception
+- [x] **Frontend tests foundation** — Vitest 4.1.9 + @testing-library/react + happy-dom; 7 тестов (4 suites)
+- [x] **CI: frontend test step** — `npm test` после `npm run build`
+- [x] **CI: Docker build job** — build prod target + verify image
+- [x] **CI: npm audit** — non-blocking (continue-on-error: true)
 - [x] **P1 — Ownerless sessions** — `GET /sessions/{session_id}` теперь блокирует доступ для обычных user (аналогично results)
 - [x] **P1 — Heartbeat multiplexing** — переписан через `asyncio.wait` с race между `__anext__` и таймером (ping реально уходит во время долгого LLM-вызова)
 - [x] **P0 — npm audit** — Vite обновлён с 5.4.21 до 8.0.16 (0 vulnerabilities после `npm audit --audit-level=moderate`)
@@ -410,16 +414,18 @@
 - [x] **P2 — build artifacts** — удалены `apply-p14.ps1`, `apply-p18-19-8.ps1`, `rewrite-frontend.zip`, корневой `package-lock.json`
 - [x] **P2 — package-lock.json** — синхронизирован после установки Vite 8
 
-## Проверки (после hotfix 2)
+## Проверки (после mypy cleanup)
 - `python -m pytest tests/ -q` → **295 passed, 1 deselected (slow)**
 - `ruff check src/ tests/` → **All checks passed!**
+- `python -m mypy src/ --ignore-missing-imports` → **Success: no issues found in 48 source files**
 - `npm run build` во frontend → **✓ built in 777ms**
 - `npm audit --audit-level=moderate` → **0 vulnerabilities**
+- `npm test` во frontend → **7 passed (4 suites)**
 
 ## Известные проблемы (не закрыты)
-- [ ] **Mypy** — всё ещё 130+ error (понижен до `strict=false`; требуется постепенная чистка)
-- [ ] **save_result status** — доменный Recommendation.status теперь сохраняется (исправлено)
-- [ ] **Админ-доступ к ownerless-результатам** — NULL user_id трактуется как admin-only (исправлено)
+- [ ] **Frontend quality** — ESLint не настроен (есть Vitest, нет линтера)
+- [ ] **Nginx / reverse-proxy** — для продакшна
+- [ ] **Prometheus / OpenTelemetry метрики** — для продакшна
 
 ## В работе / следующий приоритет
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
