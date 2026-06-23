@@ -100,6 +100,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   const [step, setStep] = useState(1)      // Feedback #4: поэтапный ввод
   const [showAdvanced, setShowAdvanced] = useState(false)  // Feedback #6: переключатель
   const fileInputRef = useRef(null)
+  const savedFormRef = useRef(null)
 
   const onDraftChangeRef = useRef(onDraftChange)
   useEffect(() => { onDraftChangeRef.current = onDraftChange }, [onDraftChange])
@@ -163,12 +164,16 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
     if (!file.name.toLowerCase().endsWith('.docx')) { setUploadError('Допустимы только файлы формата .docx'); return }
     if (file.size > 10 * 1024 * 1024) { setUploadError('Файл слишком большой (макс. 10 МБ)'); return }
     setUploading(true); setUploadMessage('Начинаем загрузку...'); setUploadError(null); setUploadedFile(file.name); setInputMode('docx')
+    savedFormRef.current = null
     try {
       const fields = await api.uploadReportStream(file, (evt) => {
         if (evt.status === 'reading') setUploadMessage('Извлечение текста из DOCX...')
         else if (evt.status === 'analyzing') setUploadMessage('Анализ текста в LLM...')
       })
-      setForm(prev => ({ ...prev, ...fields }))
+      setForm(prev => {
+        savedFormRef.current = prev
+        return { ...prev, ...fields }
+      })
     } catch (e) { setUploadError(e.message); setUploadedFile(null) }
     finally { setUploading(false) }
   }
@@ -177,7 +182,14 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   function handleDrop(e) { e.preventDefault(); setDragOver(false); const file = e.dataTransfer.files?.[0]; if (file) processFile(file) }
   function handleDragOver(e) { e.preventDefault(); setDragOver(true) }
   function handleDragLeave(e) { e.preventDefault(); setDragOver(false) }
-  function clearUpload() { setUploadedFile(null); setUploadError(null); setUploadMessage('') }
+  function clearUpload() {
+    setUploadedFile(null); setUploadError(null); setUploadMessage('')
+    if (savedFormRef.current) {
+      setForm(savedFormRef.current)
+      savedFormRef.current = null
+    }
+    setInputMode('manual')
+  }
 
   function handleSubmit(e) {
     e.preventDefault()
