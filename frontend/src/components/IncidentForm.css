@@ -173,41 +173,40 @@
   line-height: 1.45;
 }
 
-/* Upload zone — Apple-style drop target */
+/* Upload zone — Apple-style drop target with subtle accent fill */
 
 .incident-upload-zone {
   display: block;
   border-radius: var(--radius-lg);
-  border: 1px dashed var(--separator-thick);
-  background: var(--glass-bg);
+  border: 1px solid var(--separator);
+  background: var(--accent-subtle);
   padding: var(--space-lg);
   cursor: pointer;
   transition:
-    background var(--transition-instant),
-    border-color var(--transition-instant),
-    box-shadow var(--transition-instant),
-    opacity var(--transition-instant),
-    border-style var(--transition-instant);
-  /* Gentle pulse to signal "drop here" */
-  animation: drop-zone-pulse 3s ease-in-out infinite;
+    background var(--transition-normal),
+    border-color var(--transition-normal),
+    box-shadow var(--transition-normal),
+    opacity var(--transition-normal);
+  /* Gentle fill pulse to signal "this is interactive" */
+  animation: drop-zone-breathe 3s ease-in-out infinite;
 }
 
-@keyframes drop-zone-pulse {
-  0%, 100% { border-color: var(--separator-thick); }
-  50%      { border-color: var(--separator); }
+@keyframes drop-zone-breathe {
+  0%, 100% { background: rgba(0, 122, 255, 0.06); }
+  50%      { background: rgba(0, 122, 255, 0.14); }
 }
 
 .incident-upload-zone:hover {
-  border-color: var(--accent);
-  border-style: dashed;
+  border-color: var(--accent-border);
+  background: rgba(0, 122, 255, 0.18);
   box-shadow: 0 0 0 3px var(--accent-subtle);
-  animation: none; /* stop pulse on hover, show steady accent */
+  animation: none;
 }
 
 .incident-upload-zone--dragging {
   border-style: solid;
   border-color: var(--accent);
-  background: var(--accent-subtle);
+  background: rgba(0, 122, 255, 0.22);
   box-shadow: 0 0 0 3px var(--accent-subtle);
   animation: none;
 }
@@ -221,14 +220,9 @@
 
 .incident-upload-zone--uploading {
   border-style: solid;
+  border-color: var(--accent-border);
   opacity: 0.75;
   cursor: wait;
-  animation: none;
-}
-
-/* Когда карточка активна (выбрана как способ) — solid accent */
-.incident-choice--active.incident-upload-zone {
-  border-style: solid;
   animation: none;
 }
 
