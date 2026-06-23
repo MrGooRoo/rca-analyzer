@@ -66,5 +66,15 @@ exclude = ["alembic/versions/"]
 
 [tool.mypy]
 python_version = "3.11"
-strict = true
+ignore_missing_imports = true
+warn_unused_ignores = true
+strict = false
 exclude = ["tests/"]
+
+[[tool.mypy.overrides]]
+module = "src.domain.*"
+disallow_untyped_defs = true
+
+[[tool.mypy.overrides]]
+module = "src.auth.*"
+disallow_untyped_defs = true

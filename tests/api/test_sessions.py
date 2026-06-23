@@ -146,6 +146,68 @@ class TestSessionsEndpoints:
         assert response.status_code == 404
 
     @pytest.mark.asyncio
+    async def test_get_ownerless_session_forbidden_for_user(self, async_client):
+        """Ownerless-сессия (user_id=None) должна быть запрещена обычному user."""
+        ownerless = AnalysisSession(
+            id="sess-ownerless",
+            created_at=datetime(2026, 6, 13, 10, 0),
+            user_id=None,
+            user_display_name="",
+            user_email="",
+            incident_title="Ownerless",
+            incident_description="",
+            incident_date=datetime(2026, 6, 13, 9, 0),
+            incident_location="",
+            incident_type="injury",
+            incident_severity="moderate",
+        )
+
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
+            mock_repo = AsyncMock()
+            mock_repo.get_session = AsyncMock(return_value=ownerless)
+            MockRepo.return_value = mock_repo
+
+            response = await async_client.get("/api/v1/sessions/sess-ownerless")
+
+        assert response.status_code == 403
+
+    @pytest.mark.asyncio
+    async def test_get_ownerless_session_allowed_for_admin(self, async_client):
+        """Admin должен иметь доступ к ownerless-сессии."""
+        from src.auth.service import get_current_user
+
+        ownerless = AnalysisSession(
+            id="sess-ownerless",
+            created_at=datetime(2026, 6, 13, 10, 0),
+            user_id=None,
+            user_display_name="",
+            user_email="",
+            incident_title="Ownerless",
+            incident_description="",
+            incident_date=datetime(2026, 6, 13, 9, 0),
+            incident_location="",
+            incident_type="injury",
+            incident_severity="moderate",
+            results=[],
+        )
+
+        app.dependency_overrides[get_current_user] = _override_user(TEST_ADMIN)
+
+        try:
+            with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
+                mock_repo = AsyncMock()
+                mock_repo.get_session = AsyncMock(return_value=ownerless)
+                MockRepo.return_value = mock_repo
+
+                response = await async_client.get("/api/v1/sessions/sess-ownerless")
+
+            assert response.status_code == 200
+            data = response.json()
+            assert data["id"] == "sess-ownerless"
+        finally:
+            app.dependency_overrides[get_current_user] = _override_user(TEST_USER)
+
+    @pytest.mark.asyncio
     async def test_compare_by_session_id(self, async_client):
         from src.domain.models import ComparisonResult
 

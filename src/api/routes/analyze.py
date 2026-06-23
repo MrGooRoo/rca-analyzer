@@ -313,7 +313,7 @@ async def get_session(
     if session is None:
         raise HTTPException(status_code=404, detail="Сессия не найдена")
     if current_user.role != "admin":
-        if session.user_id and session.user_id != current_user.user_id:
+        if not session.user_id or session.user_id != current_user.user_id:
             raise HTTPException(status_code=403, detail="Доступ запрещён")
     return session
 

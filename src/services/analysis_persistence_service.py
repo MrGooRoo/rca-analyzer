@@ -55,27 +55,40 @@ _SSE_HEARTBEAT_INTERVAL = 30.0
 async def with_heartbeat(main_stream: AsyncIterator[str]) -> AsyncIterator[str]:
     """Вставить heartbeat-события в основной SSE-поток.
 
+    Использует asyncio.wait для мультиплексирования между __anext__ основного стрима
+    и таймером heartbeat. Это гарантирует, что ping уходит клиенту даже во время
+    долгого LLM-вызова (когда основной стрим не выдаёт событий минутами).
+
     Heartbeat генерирует {"status":"ping"} каждые _SSE_HEARTBEAT_INTERVAL секунд.
-    Когда основной поток заканчивается — heartbeat отменяется.
     """
-    hb_queue: asyncio.Queue[str] = asyncio.Queue()
-
-    async def _heartbeat_loop() -> None:
-        while True:
-            await asyncio.sleep(_SSE_HEARTBEAT_INTERVAL)
-            hb_queue.put_nowait("data: " + json.dumps({"status": "ping"}) + "\n\n")
-
-    hb_task = asyncio.create_task(_heartbeat_loop())
+    ping_payload = "data: " + json.dumps({"status": "ping"}) + "\n\n"
+    iterator = main_stream.__aiter__()
+    next_task: asyncio.Task[str] | None = None
 
     try:
-        async for item in main_stream:
-            # Drain any heartbeat pings that accumulated since last event
-            while not hb_queue.empty():
-                yield hb_queue.get_nowait()
-            yield item
+        next_task = asyncio.create_task(iterator.__anext__())
+
+        while True:
+            done, _ = await asyncio.wait(
+                {next_task},
+                timeout=_SSE_HEARTBEAT_INTERVAL,
+                return_when=asyncio.FIRST_COMPLETED,
+            )
+
+            if next_task in done:
+                try:
+                    item = next_task.result()
+                except StopAsyncIteration:
+                    return
+
+                yield item
+                next_task = asyncio.create_task(iterator.__anext__())
+            else:
+                yield ping_payload
     finally:
-        hb_task.cancel()
-        await asyncio.gather(hb_task, return_exceptions=True)
+        if next_task is not None and not next_task.done():
+            next_task.cancel()
+            await asyncio.gather(next_task, return_exceptions=True)
 
 # Кэшированный фолбэк для эмбеддингов
 _FALLBACK_EMBEDDINGS = LocalHashEmbeddingService()

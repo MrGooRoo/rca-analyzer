@@ -42,6 +42,21 @@ DBSession = Annotated[AsyncSession, Depends(get_db)]
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 
+
+async def _read_limited(file: UploadFile, max_size: int) -> bytes:
+    """Читать файл чанками по 1МБ с проверкой лимита до полной загрузки."""
+    chunks: list[bytes] = []
+    total = 0
+    while chunk := await file.read(1024 * 1024):
+        total += len(chunk)
+        if total > max_size:
+            raise HTTPException(
+                status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                detail=f"Файл слишком большой (макс. {max_size // (1024 * 1024)} МБ)",
+            )
+        chunks.append(chunk)
+    return b"".join(chunks)
+
 _NARRATIVE_REQUIRED = ("full_circumstances", "established_facts")
 
 
@@ -142,7 +157,7 @@ async def upload_report(
     file: UploadFile = File(..., description="DOCX-файл отчёта об инциденте"),
 ) -> ExtractedFields:
     filename = file.filename or ""
-    file_bytes = await file.read()
+    file_bytes = await _read_limited(file, MAX_FILE_SIZE)
     _validate_docx_file(filename, file_bytes)
 
     logger.info(
@@ -179,7 +194,7 @@ async def upload_report_stream(
     file: UploadFile = File(..., description="DOCX-файл отчёта об инциденте"),
 ):
     filename = file.filename or ""
-    file_bytes = await file.read()
+    file_bytes = await _read_limited(file, MAX_FILE_SIZE)
 
     try:
         _validate_docx_file(filename, file_bytes)
