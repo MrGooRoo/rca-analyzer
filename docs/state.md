@@ -396,7 +396,12 @@
   - ✅ Heartbeat: `{"status":"ping"}` каждые 30 секунд в оба SSE-стрима
   - ✅ Корректная отмена heartbeat-таска при завершении стрима
 
-## Аудит 23.06.2026 — закрытые проблемы из code-quality-audit (hotfix 2)
+## Аудит 23.06.2026 — закрытые проблемы (hotfix 3: frontend tests + asyncio.gather)
+- [x] **P2 — `asyncio.gather`** в `docx_fields_service.py` добавлен `return_exceptions=True` + filter Exception
+- [x] **P2 — Frontend tests foundation** — Vitest 4.1.9 + @testing-library/react + happy-dom; 7 тестов (4 suites)
+- [x] **P2 — CI: frontend test step** — `npm test` после `npm run build`
+- [x] **P2 — npm scripts** — добавлены `npm test` и `npm test:watch`
+- [x] **P2 — Build artifacts** — удалены `apply-p14.ps1`, `apply-p18-19-8.ps1`, `rewrite-frontend.zip`, корневой `package-lock.json`
 - [x] **P1 — Ownerless sessions** — `GET /sessions/{session_id}` теперь блокирует доступ для обычных user (аналогично results)
 - [x] **P1 — Heartbeat multiplexing** — переписан через `asyncio.wait` с race между `__anext__` и таймером (ping реально уходит во время долгого LLM-вызова)
 - [x] **P0 — npm audit** — Vite обновлён с 5.4.21 до 8.0.16 (0 vulnerabilities после `npm audit --audit-level=moderate`)
