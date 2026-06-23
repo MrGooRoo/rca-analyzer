@@ -133,6 +133,12 @@
   line-height: 1;
 }
 
+.incident-choice__upload-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+  opacity: 0.8;
+}
+
 .incident-choice__text-wrap {
   min-width: 0;
 }

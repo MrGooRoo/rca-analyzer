@@ -292,7 +292,10 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
                   </div>
                 ) : (
                   <div className="incident-choice__content">
-                    <span className="incident-choice__icon">📄</span>
+                    <svg className="incident-choice__upload-icon" width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      <rect x="3" y="18" width="22" height="7" rx="2" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+                      <path d="M14 2V17M14 2L8 8M14 2L20 8" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                    </svg>
                     <div className="incident-choice__text-wrap">
                       <div className="incident-choice__title">Из DOCX-отчёта</div>
                       <div className="incident-choice__text">Нажмите или перетащите .docx сюда — найденные поля подставятся в форму.</div>
