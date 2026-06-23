@@ -242,56 +242,64 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
               <div className="incident-input-mode-help">Выберите, с чего начать ввод исходных данных</div>
             </div>
             <div className="incident-choice-grid" role="tablist" aria-label="Способ заполнения исходных данных">
-              {[
-                { id: 'manual', icon: '⌨️', title: 'Вручную', text: 'Сразу заполнить поля формы самостоятельно.' },
-                { id: 'docx', icon: '📄', title: 'Из DOCX-отчёта', text: 'Подставить найденные поля из файла и дозаполнить недостающее вручную.' },
-              ].map(opt => (
-                <button key={opt.id} type="button" disabled={busy}
-                  className={CardToggle(inputMode === opt.id, busy)}
-                  onClick={() => setInputMode(opt.id)} aria-pressed={inputMode === opt.id}>
+              {/* Вручную — обычная карточка-выбор */}
+              <button key="manual" type="button" disabled={busy}
+                className={CardToggle(inputMode === 'manual' && !uploadedFile, busy)}
+                onClick={() => { clearUpload(); setInputMode('manual') }} aria-pressed={inputMode === 'manual' && !uploadedFile}>
+                <div className="incident-choice__content">
+                  <span className="incident-choice__icon">⌨️</span>
+                  <div className="incident-choice__text-wrap">
+                    <div className="incident-choice__title">Вручную</div>
+                    <div className="incident-choice__text">Сразу заполнить поля формы самостоятельно.</div>
+                  </div>
+                </div>
+              </button>
+
+              {/* DOCX — карточка = зона загрузки */}
+              <div key="docx"
+                className={`incident-choice incident-upload-zone ${
+                  inputMode === 'docx' || uploadedFile ? 'incident-choice--active' : ''
+                } ${
+                  dragOver ? 'incident-upload-zone--dragging' : ''
+                } ${
+                  uploading ? 'incident-upload-zone--uploading' : ''
+                } ${busy ? 'is-disabled' : ''}`}
+                onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
+                onClick={() => {
+                  if (busy || uploading) return
+                  if (!uploadedFile) setInputMode('docx')
+                  fileInputRef.current?.click()
+                }}>
+                <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileSelect} className="incident-file-input" disabled={busy} />
+
+                {uploading ? (
                   <div className="incident-choice__content">
-                    <span className="incident-choice__icon">{opt.icon}</span>
+                    <svg className="incident-spinner" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
                     <div className="incident-choice__text-wrap">
-                      <div className="incident-choice__title">{opt.title}</div>
-                      <div className="incident-choice__text">{opt.text}</div>
+                      <div className="incident-choice__title">{uploadMessage}</div>
                     </div>
                   </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Upload zone */}
-          {inputMode === 'docx' && (
-            <div className={`incident-upload-zone ${
-              dragOver ? 'incident-upload-zone--dragging' : uploadedFile ? 'incident-upload-zone--uploaded' : 'incident-upload-zone--default'
-            } ${uploading ? 'incident-upload-zone--uploading' : ''}`}
-              onDrop={handleDrop} onDragOver={handleDragOver} onDragLeave={handleDragLeave}
-              onClick={() => !busy && fileInputRef.current?.click()}>
-              <input ref={fileInputRef} type="file" accept=".docx" onChange={handleFileSelect} className="incident-file-input" disabled={busy} />
-              <div className="incident-upload-zone__content">
-                {uploading ? (
-                  <>
-                    <svg className="incident-spinner" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" opacity="0.25"/><path d="M4 12a8 8 0 018-8" stroke="currentColor" strokeWidth="3" strokeLinecap="round"/></svg>
-                    <span className="incident-upload-zone__message">{uploadMessage}</span>
-                  </>
                 ) : uploadedFile ? (
-                  <>
-                    <span className="incident-upload-zone__icon">✅</span>
-                    <span className="incident-upload-zone__message">Данные загружены из «{uploadedFile}»</span>
-                    <span className="incident-upload-zone__hint">Проверьте заполненные поля ниже. Если в файле не было части сведений, дозаполните их вручную перед запуском анализа.</span>
-                    <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); clearUpload() }} disabled={busy}>✕ Сбросить файл</Button>
-                  </>
+                  <div className="incident-choice__content">
+                    <span className="incident-choice__icon">✅</span>
+                    <div className="incident-choice__text-wrap">
+                      <div className="incident-choice__title">Загружен: «{uploadedFile}»</div>
+                      <div className="incident-choice__text">Нажмите, чтобы заменить файл, или используйте ✕ для сброса</div>
+                      <Button type="button" variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); clearUpload() }} disabled={busy}>✕ Сбросить</Button>
+                    </div>
+                  </div>
                 ) : (
-                  <>
-                    <span className="incident-upload-zone__icon">📄</span>
-                    <span className="incident-upload-zone__message">Загрузите отчёт DOCX</span>
-                    <span className="incident-upload-zone__hint">Найденные в файле поля подставятся в форму. Если часть данных отсутствует, заполните их вручную ниже.</span>
-                  </>
+                  <div className="incident-choice__content">
+                    <span className="incident-choice__icon">📄</span>
+                    <div className="incident-choice__text-wrap">
+                      <div className="incident-choice__title">Из DOCX-отчёта</div>
+                      <div className="incident-choice__text">Нажмите или перетащите .docx сюда — найденные поля подставятся в форму.</div>
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-          )}
+          </div>
 
           {inputMode === 'docx' && uploadError && (
             <div className="incident-error">
