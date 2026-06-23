@@ -218,6 +218,11 @@
   animation: none;
 }
 
+.incident-upload-zone--idle {
+  background: var(--glass-bg);
+  animation: none;
+}
+
 .incident-upload-zone--uploading {
   border-style: solid;
   border-color: var(--accent-border);

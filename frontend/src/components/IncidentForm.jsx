@@ -260,6 +260,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
                 className={`incident-choice incident-upload-zone ${
                   inputMode === 'docx' || uploadedFile ? 'incident-choice--active' : ''
                 } ${
+                  inputMode === 'manual' && !uploadedFile ? 'incident-upload-zone--idle' : ''
+                } ${
                   dragOver ? 'incident-upload-zone--dragging' : ''
                 } ${
                   uploading ? 'incident-upload-zone--uploading' : ''
