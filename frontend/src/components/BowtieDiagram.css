@@ -1,33 +1,35 @@
+/* ---- Bowtie Diagram — Apple HIG ---- */
+
 .bowtie-diagram {
-  padding: 8px 0;
-  color: #cbd5e1;
-  font-size: var(--text-sm, 13px);
+  padding: var(--space-sm) 0;
+  color: var(--label-primary);
+  font-size: var(--text-footnote);
 }
 
 .bowtie-diagram__legend {
   display: flex;
   flex-wrap: wrap;
   gap: 8px 20px;
-  padding: 8px;
-  margin-bottom: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md, 12px);
-  background: rgba(255, 255, 255, 0.04);
+  padding: var(--space-sm);
+  margin-bottom: var(--space-md);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-md);
+  background: var(--fill-gray);
 }
 
 .bowtie-legend-item {
   display: flex;
   align-items: center;
   gap: 6px;
-  color: var(--text-tertiary, #636366);
-  font-size: var(--text-xs, 11px);
+  color: var(--label-tertiary);
+  font-size: var(--text-caption2);
 }
 
 .bowtie-legend-item__dot,
 .bowtie-node-list__dot {
   width: 8px;
   height: 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   flex: 0 0 auto;
 }
 
@@ -39,20 +41,20 @@
 
 .bowtie-node-list {
   padding: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md, 12px);
-  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-md);
+  background: var(--fill-gray);
 }
 
 .bowtie-node-list__title {
   display: flex;
   align-items: center;
   gap: 6px;
-  margin-bottom: 8px;
-  color: var(--text-tertiary, #636366);
-  font-size: var(--text-xs, 11px);
-  font-weight: 600;
-  letter-spacing: 0.08em;
+  margin-bottom: var(--space-sm);
+  color: var(--label-tertiary);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--ls-wide);
   text-transform: uppercase;
 }
 
@@ -60,9 +62,9 @@
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 8px;
+  gap: var(--space-sm);
   padding: 4px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.05);
+  border-top: 1px solid var(--separator);
 }
 
 .bowtie-node-list__row:first-child {
@@ -71,16 +73,16 @@
 
 .bowtie-node-list__text {
   flex: 1 1 auto;
-  color: #cbd5e1;
-  font-size: var(--text-sm, 13px);
+  color: var(--label-primary);
+  font-size: var(--text-footnote);
   line-height: 1.3;
 }
 
 .bowtie-node-list__confidence {
   flex: 0 0 auto;
   margin-top: 2px;
-  color: #6b7280;
-  font-size: var(--text-xs, 11px);
-  font-weight: 600;
+  color: var(--label-tertiary);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-semibold);
   white-space: nowrap;
 }

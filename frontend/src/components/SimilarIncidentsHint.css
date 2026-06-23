@@ -1,40 +1,42 @@
+/* ---- Similar Incidents Hint — Apple HIG ---- */
+
 .similar-incidents-hint {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-sm);
   padding: 10px 16px;
-  border-radius: var(--radius-md, 12px);
-  font-size: var(--text-sm, 13px);
+  border-radius: var(--radius-md);
+  font-size: var(--text-footnote);
 }
 
 .similar-incidents-hint--loading {
-  border: 1px dashed rgba(88, 86, 214, 0.2);
-  color: var(--text-tertiary, #636366);
-  background: rgba(88, 86, 214, 0.05);
+  border: 1px dashed var(--accent-border);
+  color: var(--label-tertiary);
+  background: var(--accent-subtle);
 }
 
 .similar-incidents-hint--empty {
-  border: 1px solid rgba(142, 142, 147, 0.15);
-  color: var(--text-tertiary, #636366);
-  background: rgba(142, 142, 147, 0.05);
+  border: 1px solid var(--separator);
+  color: var(--label-tertiary);
+  background: var(--fill-gray);
 }
 
 .similar-incidents-hint--found {
-  border: 1px solid rgba(88, 86, 214, 0.2);
-  color: #a5b4fc;
-  background: rgba(88, 86, 214, 0.1);
+  border: 1px solid var(--accent-border);
+  color: var(--accent);
+  background: var(--accent-subtle);
 }
 
 .similar-incidents-hint__spinner {
   width: 14px;
   height: 14px;
-  color: #818cf8;
+  color: var(--accent);
   animation: similar-incidents-hint-spin 1s linear infinite;
 }
 
 .similar-incidents-hint__count {
-  color: #818cf8;
-  font-weight: 600;
+  color: var(--accent);
+  font-weight: var(--weight-semibold);
 }
 
 @keyframes similar-incidents-hint-spin {

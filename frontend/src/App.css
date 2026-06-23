@@ -6,20 +6,20 @@
   min-height: 100vh;
   display: flex;
   flex-direction: column;
-  background: var(--bg);
+  background: var(--bg-primary);
 }
 
-/* ---- Header ---- */
+/* ---- Header (Apple glass) ---- */
 .app-header {
   display: flex;
   align-items: center;
   gap: var(--space-md);
   padding: 0 var(--space-lg);
   height: 52px;
-  background: rgba(28, 28, 30, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-bottom: 1px solid var(--border);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-bottom: 1px solid var(--separator);
   position: sticky;
   top: 0;
   z-index: 100;
@@ -29,9 +29,9 @@
   display: flex;
   align-items: center;
   gap: var(--space-sm);
-  font-weight: 600;
-  font-size: var(--text-lg);
-  color: var(--text);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-callout);
+  color: var(--label-primary);
   user-select: none;
   flex-shrink: 0;
 }
@@ -52,11 +52,11 @@
 
 /* Активная кнопка в навигации (поверх Button variant="ghost") */
 .app-nav-btn--active {
-  background: var(--primary);
+  background: var(--accent);
   color: white;
 }
 .app-nav-btn--active:hover {
-  background: var(--primary-hover);
+  background: var(--accent-hover);
   color: white;
 }
 
@@ -68,8 +68,8 @@
 }
 
 .header-user {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
+  font-size: var(--text-footnote);
+  color: var(--label-secondary);
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -77,8 +77,8 @@
 }
 
 .header-role-badge {
-  font-size: var(--text-xs);
-  font-weight: 600;
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-semibold);
   padding: 2px 8px;
   border-radius: 10px;
   text-transform: uppercase;
@@ -86,35 +86,35 @@
 }
 
 .header-role-badge--admin {
-  background: rgba(255, 214, 10, 0.15);
-  color: var(--warning);
+  background: rgba(255, 204, 0, 0.15);
+  color: var(--color-warning);
 }
 
 .header-role-badge--user {
-  background: rgba(10, 132, 255, 0.15);
-  color: var(--primary);
+  background: rgba(0, 122, 255, 0.15);
+  color: var(--accent);
 }
 
 /* ---- Main ---- */
 .app-main {
   flex: 1;
   width: 100%;
-  max-width: 1200px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: var(--space-2xl) var(--space-lg);
 }
 
-/* ---- Boot alert (used during session check) ---- */
+/* ---- Boot alert ---- */
 .alert {
   padding: var(--space-md);
   border-radius: var(--radius-md);
-  background: var(--surface);
-  border: 1px solid var(--border);
-  font-size: var(--text-sm);
+  background: var(--bg-secondary);
+  border: 1px solid var(--separator);
+  font-size: var(--text-footnote);
   margin-bottom: var(--space-lg);
 }
 
-/* ---- Loading spinner (используется IncidentForm) ---- */
+/* ---- Loading spinner ---- */
 @keyframes spin {
   to { transform: rotate(360deg); }
 }
@@ -171,22 +171,22 @@
   gap: var(--space-lg);
   margin: 0 0 var(--space-lg);
   padding: var(--space-md) var(--space-lg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--separator);
   border-radius: var(--radius-lg);
-  background: var(--surface);
+  background: var(--bg-secondary);
   box-shadow: var(--shadow-sm);
 }
 
 .analysis-cancel-toolbar__title {
-  color: var(--text);
-  font-size: var(--text-md);
-  font-weight: 700;
+  color: var(--label-primary);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-bold);
   margin-bottom: 2px;
 }
 
 .analysis-cancel-toolbar__text {
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote);
   margin: 0;
 }
 
@@ -207,22 +207,22 @@
 .analysis-progress-simple__bar {
   flex: 1;
   height: 6px;
-  background: var(--border);
-  border-radius: 999px;
+  background: var(--separator);
+  border-radius: var(--radius-full);
   overflow: hidden;
 }
 
 .analysis-progress-simple__fill {
   height: 100%;
   width: 100%;
-  background: linear-gradient(90deg, var(--primary), #4f8ef7);
+  background: var(--accent);
   animation: analysis-progress-pulse 1.8s infinite linear;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 
 .analysis-progress-simple__percent {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
+  font-size: var(--text-caption2);
+  color: var(--label-secondary);
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
@@ -232,7 +232,7 @@
   100% { transform: translateX(200%); }
 }
 
-/* ---- Analyze result state ---- */
+/* ---- Analyze result state (Apple glass panel) ---- */
 .analysis-result-toolbar {
   display: flex;
   align-items: center;
@@ -240,18 +240,18 @@
   gap: var(--space-lg);
   margin-bottom: var(--space-xl);
   padding: var(--space-lg);
-  border: 1px solid rgba(10, 132, 255, 0.22);
+  border: 1px solid var(--accent-border);
   border-radius: var(--radius-xl);
-  background:
-    radial-gradient(circle at top left, rgba(10, 132, 255, 0.18), transparent 34%),
-    var(--surface);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
   box-shadow: var(--shadow-md);
 }
 
 .analysis-result-toolbar__title {
-  color: var(--text);
-  font-size: var(--text-xl);
-  line-height: 1.2;
+  color: var(--label-primary);
+  font-size: var(--text-title3);
+  line-height: 1.25;
   margin: 0;
   display: flex;
   flex-direction: column;
@@ -259,10 +259,10 @@
 }
 
 .analysis-result-toolbar__eyebrow {
-  color: var(--primary);
-  font-size: var(--text-xs);
-  font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--accent);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--ls-wide);
   text-transform: uppercase;
 }
 

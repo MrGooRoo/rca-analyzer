@@ -1,14 +1,14 @@
 /* ══════════════════════════════════════════════════════════════
-   Layout — Сетка, контейнеры, responsive helpers
+   Layout — Apple-based spacing grid
    ══════════════════════════════════════════════════════════════
-   Использует токены из design-tokens.css.
+   8pt baseline grid, Apple HIG margins.
    ══════════════════════════════════════════════════════════════ */
 
-/* ── Page Container ───────────────────────────────────────── */
+/* ── Page Container (Apple 20pt margins on large, 16pt on mobile) ── */
 
 .layout-container {
   width: 100%;
-  max-width: 1200px;
+  max-width: 1120px;
   margin: 0 auto;
   padding: 0 var(--space-lg);
 }
@@ -21,7 +21,7 @@
   max-width: 1400px;
 }
 
-/* ── Section spacing ──────────────────────────────────────── */
+/* ── Section spacing (8pt grid) ───────────────────────────── */
 
 .layout-section {
   margin-bottom: var(--space-2xl);
@@ -90,13 +90,27 @@
   flex: 1;
 }
 
-/* ── Divider ───────────────────────────────────────────────── */
+/* ── Divider (Apple-style separator) ──────────────────────── */
 
 .layout-divider {
   height: 1px;
-  background: var(--color-border);
+  background: var(--separator);
   margin: var(--space-lg) 0;
   border: none;
+}
+
+/* ── Glass panel (Apple vibrancy) ─────────────────────────── */
+
+.glass-panel {
+  background: var(--glass-bg);
+  border: 1px solid var(--glass-border);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+}
+
+.glass-panel--heavy {
+  background: var(--glass-bg-heavy);
+  border: 1px solid var(--glass-border-heavy);
 }
 
 /* ── Responsive ────────────────────────────────────────────── */

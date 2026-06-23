@@ -1,21 +1,22 @@
-/* ---- Analysis Steps ---- */
+/* ---- Analysis Steps — Apple HIG ---- */
 
 .analysis-steps {
   position: sticky;
   top: 52px;
   z-index: 50;
   margin-inline: -16px;
-  margin-bottom: var(--space-xl, 24px);
-  background: rgba(15, 23, 42, 0.80);
-  border-bottom: 1px solid rgba(148, 163, 184, 0.18);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  backdrop-filter: blur(12px);
+  margin-bottom: var(--space-xl);
+  background: var(--glass-bg-heavy);
+  border-bottom: 1px solid var(--separator);
+  box-shadow: var(--shadow-md);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
 }
 
 .analysis-steps__inner {
   display: grid;
-  grid-template-columns: repeat(1, minmax(0, 1fr));
-  gap: var(--space-md, 12px);
+  grid-template-columns: 1fr;
+  gap: var(--space-md);
   max-width: 1120px;
   margin: 0 auto;
   padding: 12px 16px;
@@ -24,21 +25,21 @@
 .analysis-step {
   display: flex;
   align-items: center;
-  gap: var(--space-md, 12px);
+  gap: var(--space-md);
 }
 
 .analysis-step__button {
   display: flex;
   align-items: center;
-  gap: var(--space-md, 12px);
+  gap: var(--space-md);
   width: 100%;
   border: 0;
-  border-radius: var(--radius-lg, 16px);
+  border-radius: var(--radius-lg);
   background: transparent;
-  padding: 8px;
+  padding: var(--space-sm);
   text-align: left;
   cursor: default;
-  transition: background 0.15s ease;
+  transition: background var(--transition-instant);
 }
 
 .analysis-step__button--clickable {
@@ -46,12 +47,14 @@
 }
 
 .analysis-step__button--clickable:hover {
-  background: rgba(30, 41, 59, 0.60);
+  background: var(--fill-gray);
 }
 
 .analysis-step__button:disabled {
   cursor: default;
 }
+
+/* Step numbers — Apple pill-style circles */
 
 .analysis-step__number {
   width: 32px;
@@ -60,35 +63,35 @@
   flex: 0 0 auto;
   align-items: center;
   justify-content: center;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 2px solid;
-  font-size: var(--text-sm, 13px);
-  font-weight: 800;
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-heavy);
   flex-shrink: 0;
   transition:
-    background 0.15s ease,
-    border-color 0.15s ease,
-    color 0.15s ease,
-    box-shadow 0.15s ease;
+    background var(--transition-instant),
+    border-color var(--transition-instant),
+    color var(--transition-instant),
+    box-shadow var(--transition-instant);
 }
 
 .analysis-step__number--done {
-  border-color: rgba(52, 211, 153, 0.80);
-  background: rgba(52, 211, 153, 0.10);
-  color: #34d399;
+  border-color: rgba(52, 199, 89, 0.80);
+  background: rgba(52, 199, 89, 0.10);
+  color: var(--color-success);
 }
 
 .analysis-step__number--active {
-  border-color: rgba(94, 92, 230, 0.80);
-  background: rgba(94, 92, 230, 0.10);
-  color: #c7d2fe;
-  box-shadow: 0 0 0 3px rgba(94, 92, 230, 0.10);
+  border-color: var(--accent-border);
+  background: var(--accent-subtle);
+  color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-subtle);
 }
 
 .analysis-step__number--pending {
-  border-color: rgba(71, 85, 105, 0.80);
-  background: rgba(30, 41, 59, 0.80);
-  color: var(--text-secondary, #98989d);
+  border-color: var(--separator-thick);
+  background: var(--bg-tertiary);
+  color: var(--label-secondary);
 }
 
 .analysis-step__text {
@@ -103,43 +106,45 @@
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-sm, 13px);
-  font-weight: 800;
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-heavy);
 }
 
 .analysis-step__label--done {
-  color: var(--text-secondary, #98989d);
+  color: var(--label-secondary);
 }
 
 .analysis-step__label--active {
-  color: var(--text, #f5f5f7);
+  color: var(--label-primary);
 }
 
 .analysis-step__label--pending {
-  color: var(--text-secondary, #98989d);
+  color: var(--label-secondary);
 }
 
 .analysis-step__hint {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--text-secondary, #98989d);
-  font-size: var(--text-xs, 11px);
+  color: var(--label-secondary);
+  font-size: var(--text-caption2);
 }
+
+/* Step divider line */
 
 .analysis-step__divider {
   width: 32px;
   height: 2px;
-  border-radius: 999px;
-  transition: background 0.15s ease;
+  border-radius: var(--radius-full);
+  transition: background var(--transition-instant);
 }
 
 .analysis-step__divider--done {
-  background: #34d399;
+  background: var(--color-success);
 }
 
 .analysis-step__divider--pending {
-  background: rgba(71, 85, 105, 0.90);
+  background: var(--separator-thick);
 }
 
 @media (min-width: 640px) {
@@ -154,7 +159,7 @@
   }
 
   .analysis-steps__inner {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     padding-inline: 24px;
   }
 }

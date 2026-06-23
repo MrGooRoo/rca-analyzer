@@ -1,49 +1,49 @@
-/* ---- Similar Incidents Panel ---- */
+/* ---- Similar Incidents Panel — Apple HIG ---- */
 
 .similar-panel {
-  margin-block: var(--space-xl, 24px);
-  padding: var(--space-xl, 24px);
-  border-radius: var(--radius-xl, 20px);
-  border: 1px solid rgba(94, 92, 230, 0.20);
-  background: linear-gradient(135deg, rgba(94, 92, 230, 0.05), rgba(52, 211, 153, 0.05));
+  margin-block: var(--space-xl);
+  padding: var(--space-xl);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--separator);
+  background: var(--bg-secondary);
 }
 
 .similar-panel--compact {
-  margin-top: var(--space-lg, 16px);
+  margin-top: var(--space-lg);
 }
 
 .similar-panel--spaced {
-  margin-bottom: var(--space-xl, 24px);
+  margin-bottom: var(--space-xl);
 }
 
 .similar-panel__header {
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: var(--space-lg, 20px);
+  gap: var(--space-lg);
   flex-wrap: wrap;
 }
 
 .similar-panel__title {
   margin: 0 0 4px;
-  color: var(--text, #f5f5f7);
-  font-size: var(--text-lg, 18px);
-  font-weight: 700;
+  color: var(--label-primary);
+  font-size: var(--text-callout);
+  font-weight: var(--weight-bold);
 }
 
 .similar-panel__description {
   margin: 0;
-  color: var(--text-secondary, #98989d);
-  font-size: var(--text-sm, 13px);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote);
   line-height: 1.5;
 }
 
 .similar-panel__filters {
   display: flex;
   align-items: center;
-  gap: var(--space-md, 12px);
+  gap: var(--space-md);
   flex-wrap: wrap;
-  margin-top: var(--space-lg, 20px);
+  margin-top: var(--space-lg);
 }
 
 .similar-filter {
@@ -56,48 +56,50 @@
 }
 
 .similar-filter__dash {
-  color: var(--text-secondary, #98989d);
+  color: var(--label-secondary);
 }
 
 .similar-panel__status {
-  margin-top: var(--space-lg, 20px);
-  padding: 16px;
-  border-radius: var(--radius-md, 12px);
-  background: rgba(30, 41, 59, 0.60);
-  color: var(--text-secondary, #98989d);
-  font-size: var(--text-sm, 13px);
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--bg-tertiary);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote);
 }
 
 .similar-panel__alert {
-  margin-top: var(--space-lg, 20px);
-  padding: 16px;
-  border-radius: var(--radius-md, 12px);
+  margin-top: var(--space-lg);
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
   border: 1px solid;
-  font-size: var(--text-sm, 13px);
+  font-size: var(--text-footnote);
 }
 
 .similar-panel__alert--error {
-  color: #fda4af;
-  border-color: rgba(255, 69, 58, 0.30);
-  background: rgba(255, 69, 58, 0.10);
+  color: #ffa8a0;
+  border-color: rgba(255, 59, 48, 0.30);
+  background: rgba(255, 59, 48, 0.10);
 }
 
 .similar-panel__list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-lg, 20px);
-  margin-top: var(--space-lg, 20px);
+  gap: var(--space-lg);
+  margin-top: var(--space-lg);
 }
 
+/* Similar card */
+
 .similar-card {
-  border-radius: var(--radius-lg, 16px);
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  background: rgba(15, 23, 42, 0.72);
-  padding: var(--space-lg, 20px);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--separator);
+  background: var(--glass-bg);
+  padding: var(--space-lg);
   transition:
-    border-color 0.15s ease,
-    box-shadow 0.15s ease,
-    transform 0.15s ease;
+    border-color var(--transition-instant),
+    box-shadow var(--transition-instant),
+    transform var(--transition-instant);
 }
 
 .similar-card--clickable {
@@ -105,17 +107,17 @@
 }
 
 .similar-card--clickable:hover {
-  border-color: rgba(94, 92, 230, 0.72);
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+  border-color: var(--accent-border);
+  box-shadow: var(--shadow-lg);
   transform: translateY(-2px);
 }
 
 .similar-card__badges {
   display: flex;
   align-items: center;
-  gap: var(--space-sm, 8px);
+  gap: var(--space-sm);
   flex-wrap: wrap;
-  margin-bottom: var(--space-lg, 20px);
+  margin-bottom: var(--space-lg);
 }
 
 .similar-card__open {
@@ -123,56 +125,56 @@
 }
 
 .similar-card__context {
-  margin-bottom: var(--space-lg, 20px);
-  padding: var(--space-lg, 20px);
-  border-left: 2px solid rgba(94, 92, 230, 0.60);
-  border-radius: var(--radius-md, 12px);
-  background: rgba(94, 92, 230, 0.05);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-lg);
+  border-left: 2px solid var(--accent-border);
+  border-radius: var(--radius-md);
+  background: var(--accent-subtle);
 }
 
 .similar-card__context-title {
   margin-bottom: 4px;
-  color: var(--text, #f5f5f7);
-  font-size: var(--text-base, 16px);
-  font-weight: 800;
+  color: var(--label-primary);
+  font-size: var(--text-subhead);
+  font-weight: var(--weight-heavy);
 }
 
 .similar-card__context-text {
   margin: 0;
-  color: var(--text-secondary, #98989d);
-  font-size: var(--text-sm, 13px);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote);
   line-height: 1.5;
 }
 
 .similar-card__context-meta {
   display: flex;
-  gap: 16px;
+  gap: var(--space-md);
   flex-wrap: wrap;
   margin-top: 4px;
-  color: var(--text-secondary, #98989d);
-  font-size: var(--text-xs, 11px);
+  color: var(--label-secondary);
+  font-size: var(--text-caption2);
 }
 
 .similar-card__summary {
   margin: 0;
-  color: var(--text-tertiary, #d1d5db);
-  font-size: var(--text-base, 16px);
+  color: var(--label-tertiary);
+  font-size: var(--text-subhead);
   line-height: 1.5;
 }
 
 .similar-card__section {
-  margin-top: var(--space-lg, 20px);
-  color: var(--text-secondary, #98989d);
-  font-size: var(--text-sm, 13px);
+  margin-top: var(--space-lg);
+  color: var(--label-secondary);
+  font-size: var(--text-footnote);
   line-height: 1.5;
 }
 
 .similar-card__section strong {
-  color: var(--text, #f5f5f7);
+  color: var(--label-primary);
 }
 
 .similar-card__section ul {
-  margin: 8px 0 0;
+  margin: var(--space-sm) 0 0;
   padding-left: 24px;
 }
 
@@ -182,10 +184,10 @@
 
 .similar-card__ids {
   display: flex;
-  gap: 16px;
+  gap: var(--space-md);
   flex-wrap: wrap;
-  margin-top: var(--space-lg, 20px);
-  color: var(--text-secondary, #98989d);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: var(--text-xs, 11px);
+  margin-top: var(--space-lg);
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+  font-size: var(--text-caption2);
 }
