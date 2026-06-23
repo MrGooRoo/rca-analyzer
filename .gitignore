@@ -30,3 +30,4 @@ node_modules/
 # Frontend build output
 frontend/dist/
 test.db
+apple-demo.html
