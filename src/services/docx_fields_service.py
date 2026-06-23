@@ -338,7 +338,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
             "description",
             _SYSTEM_DESCRIPTION,
             user_prompt,
-            max_tokens=8192,  # \u0443\u0432\u0435\u043b\u0438\u0447\u0435\u043d\u043e \u0441 4096 \u2014 \u0434\u043e\u0441\u0442\u0430\u0442\u043e\u0447\u043d\u043e \u0434\u043b\u044f \u0434\u043b\u0438\u043d\u043d\u044b\u0445 \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u0439
+            max_tokens=8192,
             required_keys={"description"},
         ),
         _extract_group(
@@ -355,10 +355,14 @@ async def extract_fields_from_text(report_text: str) -> dict:
             max_tokens=8192,
             required_keys={"victims_list"},
         ),
+        return_exceptions=True,
     )
 
     merged: dict = {}
     for group_result in results:
+        if isinstance(group_result, Exception):
+            logger.warning("[DocxFields] Группа упала в gather: %s", group_result)
+            continue
         merged.update(group_result)
 
     if not merged.get("title"):
