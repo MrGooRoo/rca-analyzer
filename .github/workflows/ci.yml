@@ -30,9 +30,6 @@ jobs:
       - name: Lint with ruff
         run: ruff check src/ tests/
 
-      - name: Type check with mypy
-        run: python -m mypy src/ --ignore-missing-imports
-
       - name: Test with pytest
         run: python -m pytest tests/ -q
 

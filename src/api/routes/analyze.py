@@ -11,7 +11,7 @@ FastAPI-роутер: анализ инцидентов.
 from __future__ import annotations
 
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import StreamingResponse
@@ -54,7 +54,7 @@ CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 def _check_owner_or_admin(result: RCAResult, current_user: UserInfo) -> None:
     if current_user.role == "admin":
         return
-    if result.user_id and result.user_id != current_user.user_id:
+    if not result.user_id or result.user_id != current_user.user_id:
         raise HTTPException(status_code=403, detail="Доступ запрещён")
 
 
@@ -262,7 +262,7 @@ async def delete_result(
 # ---------------------------------------------------------------------------
 
 class RecommendationStatusUpdate(BaseModel):
-    status: str = Field(..., min_length=1)
+    status: Literal["open", "in_progress", "done", "cancelled", "closed"]
 
 
 @router.patch("/results/{result_id}/recommendations/{rec_id}")

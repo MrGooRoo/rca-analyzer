@@ -108,6 +108,11 @@ def _make_embed_fn() -> EmbeddingFn:
     return _embed
 
 
+def _get_embedding_model_name() -> str:
+    """Получить model_name первичного embedding-провайдера."""
+    return get_embedding_service().model_name
+
+
 def _incident_to_session_kwargs(incident: Any) -> dict[str, Any]:
     """Подготовить kwargs для RCARepository.create_session из IncidentInput."""
     return dict(
@@ -208,9 +213,11 @@ class AnalysisPersistenceService:
         self,
         service_getter: Callable[[], AnalysisService] | None = None,
         embed_fn: EmbeddingFn | None = None,
+        embedding_model_name: str | None = None,
     ) -> None:
         self._get_service = service_getter or (lambda: AnalysisService())
         self._embed_fn = embed_fn or _make_embed_fn()
+        self._embedding_model_name = embedding_model_name or _get_embedding_model_name()
 
     # ------------------------------------------------------------------
     # Write: Non-SSE (один commit на весь use-case)
@@ -229,7 +236,7 @@ class AnalysisPersistenceService:
                 result = await self._analyze_with_settings(request, llm_settings)
                 result.incident_id = str(uuid.uuid4())
 
-                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
+                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
                 session_orm = await repo.create_session(
                     user_id=user_id,
                     **_incident_to_session_kwargs(request.incident),
@@ -266,7 +273,7 @@ class AnalysisPersistenceService:
                     # Все методики упали — не создаём пустую сессию
                     return resp
 
-                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
+                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
                 session_orm = await repo.create_session(
                     user_id=user_id,
                     **_incident_to_session_kwargs(request.incident),
@@ -304,7 +311,7 @@ class AnalysisPersistenceService:
         """
         # Фаза 1: создать сессию (короткая транзакция)
         async with AsyncSessionLocal() as session:
-            repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
+            repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
             session_orm = await repo.create_session(
                 user_id=user_id,
                 **_incident_to_session_kwargs(request.incident),
@@ -334,7 +341,7 @@ class AnalysisPersistenceService:
         # Фаза 3: сохранить результат (короткая транзакция)
         try:
             async with AsyncSessionLocal() as session:
-                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
+                repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
                 await repo.save_result(
                     **_save_kwargs(result, user_id, session_id, request.incident),
                 )
@@ -365,7 +372,7 @@ class AnalysisPersistenceService:
 
         # Создать сессию (короткая транзакция)
         async with AsyncSessionLocal() as session:
-            repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
+            repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
             session_orm = await repo.create_session(
                 user_id=user_id,
                 **_incident_to_session_kwargs(request.incident),
@@ -406,7 +413,7 @@ class AnalysisPersistenceService:
                 result.session_id = session_id
                 try:
                     async with AsyncSessionLocal() as session:
-                        repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn)
+                        repo = RCARepository(session, auto_commit=False, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
                         await repo.save_result(
                             **_save_kwargs(result, user_id, session_id, request.incident),
                         )
@@ -517,7 +524,7 @@ class AnalysisPersistenceService:
         exclude_incident_id: str | None = None,
         exclude_incident_hash: str | None = None,
     ) -> list[SimilarIncident]:
-        repo = RCARepository(db, embed_fn=self._embed_fn)
+        repo = RCARepository(db, embed_fn=self._embed_fn, embedding_model_name=self._embedding_model_name)
         await repo.backfill_missing_embeddings(user_id=user_id, limit=100)
         return await repo.find_similar_incidents(
             text=text,

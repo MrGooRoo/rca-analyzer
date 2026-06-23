@@ -153,6 +153,8 @@ class TestSessionsEndpoints:
                            methodology=MethodologyType.FIVE_WHY)
         r2 = _mock_result(result_id="r-2", session_id="sess-multi",
                            methodology=MethodologyType.ISHIKAWA)
+        r1.user_id = "test-user-001"
+        r2.user_id = "test-user-001"
 
         comparison = ComparisonResult(
             incident_id="inc-001",

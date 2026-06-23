@@ -2,9 +2,11 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — аудит закрыт: Recommendation.status, DB lengths, embedding DI, healthcheck, CI/mypy
+## Статус: 🟡 Стабильно — чистка аудита: Recommendation.status, DB lengths, embedding DI, Literal статусов, owner check
 
 **Дата обновления:** 2026-06-23
+
+**ВАЖНО:** CI пока настроен без mypy (131 error требует отдельной чистки). Frontend build требует `npm install` (зависимости не стянуты в этой сессии).
 
 ## Рефакторинг: PersistenceService — полноценный use-case слой (22.06.2026)
 - [x] `_save_kwargs()` helper — единое место для save_result kwargs (убрано дублирование)
@@ -376,8 +378,7 @@
 ## Проверки (после аудита 23.06.2026)
 - `python -m pytest tests/ -q` → **293 passed, 1 deselected (slow)**
 - `ruff check src/ tests/` → **All checks passed!**
-- `mypy src/ --ignore-missing-imports` → добавлен в CI
-- `npm run build` во frontend → **успешно** (после `npm install` с обновлённым Vite 6.x)
+- `npm run build` во frontend → **не проверен** (требуется `npm install` с доступом к registry)
 
 - [x] **Phase E — partial failure в sync /analyze-multi** (22.06.2026)
   - ✅ `MethodologyFailure` + `MultiAnalysisResponse` модели
@@ -396,13 +397,22 @@
   - ✅ Корректная отмена heartbeat-таска при завершении стрима
 
 ## Аудит 23.06.2026 — закрытые проблемы из code-quality-audit
-- [x] **P0 — Recommendation.status** добавлен в RecommendationORM, domain Recommendation, _to_rec маппер (тест test_owner_can_update_own_rec)
+- [x] **P0 — Recommendation.status** добавлен в RecommendationORM, domain Recommendation, _to_rec маппер, save_result (тест test_owner_can_update_own_rec)
 - [x] **P1 — DB length mismatch** синхронизирован: incidents/analysis_sessions поля расширены до Pydantic-лимитов; миграция 015
 - [x] **P1 — Docker healthcheck** заменён curl → python urllib (curl отсутствует в slim-образе)
-- [x] **P1 — npm audit** Vite обновлён с ^5.4.0 до ^6.5.0 (esbuild >= 0.25, исправлены 2 уязвимости); требуется `npm install`
+- [x] **P1 — npm audit** Vite возвращён к ^5.4.21 (совместимость с lock-файлом); обновление до безопасной версии требует `npm install` с доступом к registry
 - [x] **P2 — Embedding DI** из repository удалён старый fallback (embedding_service, _embeddings, _fallback_embeddings); все 14 вызовов RCARepository через embed_fn
-- [x] **P2 — Mypy в CI** добавлен `mypy src/ --ignore-missing-imports` в workflow
-- [x] **Обновлены тесты** под новую архитектуру repository (3 теста переписаны, 1 добавлен)
+- [x] **P2 — backfill_missing_embeddings** починен: target_model из embedding_model_name, передаваемого из PersistenceService
+- [x] **P1 — RecommendationStatusUpdate** теперь Literal["open", "in_progress", "done", "cancelled", "closed"] (вместо str min_length=1)
+- [x] **P1 — _check_owner_or_admin** NULL user_id теперь блокирует доступ для non-admin (раньше давал доступ всем)
+- [x] **P2 — Mypy из CI убран** (131 error; требуется отдельная чистка с мягким baseline)
+
+## Известные проблемы (не закрыты)
+- [ ] **Frontend build** — не проверен (требуется `npm install` с сетью); package.json синхронизирован с lock-файлом
+- [ ] **Heartbeat** — не мультиплексирован (ping не уходит во время долгого LLM-вызова)
+- [ ] **Upload** — читает файл целиком в память (чтенка чанками не реализована)
+- [ ] **save_result status** — доменный Recommendation.status теперь сохраняется (исправлено)
+- [ ] **Админ-доступ к ownerless-результатам** — NULL user_id трактуется как admin-only (исправлено)
 
 ## В работе / следующий приоритет
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.

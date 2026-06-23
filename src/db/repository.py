@@ -80,10 +80,12 @@ class RCARepository:
         session: AsyncSession,
         *,
         embed_fn: EmbeddingFn | None = None,
+        embedding_model_name: str | None = None,
         auto_commit: bool = True,
     ) -> None:
         self._session = session
         self._embed_fn = embed_fn
+        self._embedding_model_name = embedding_model_name
         self._auto_commit = auto_commit
 
     async def _embed(self, text: str) -> tuple[list[float], str, int]:
@@ -186,6 +188,7 @@ class RCARepository:
                     category=rec.category,
                     cause_id=rec.cause_id,
                     responsible=rec.responsible,
+                    status=rec.status,
                 ),
             )
 
@@ -266,7 +269,13 @@ class RCARepository:
         записи «другой модели» не перезаписываются (чтобы не было churn
         local → external → local при перебоях сети).
         """
-        target_model = self._embeddings.model_name
+        target_model = self._embedding_model_name
+        if not target_model:
+            logger.warning(
+                "[Embeddings] backfill_missing_embeddings: embedding_model_name не задан, "
+                "пропускаем backfill"
+            )
+            return 0
         stmt = (
             select(RCAResultORM, ResultEmbeddingORM)
             .outerjoin(ResultEmbeddingORM, ResultEmbeddingORM.result_id == RCAResultORM.result_id)
