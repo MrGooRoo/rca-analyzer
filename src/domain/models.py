@@ -107,6 +107,7 @@ class Recommendation(BaseModel):
     category:    str
     cause_id:    str
     responsible: str | None  = None
+    status: str              = "open"
 
 
 class RCAResult(BaseModel):

@@ -108,11 +108,11 @@ class IncidentORM(Base):
     __tablename__ = "incidents"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True)
-    title: Mapped[str] = mapped_column(String(200))
+    title: Mapped[str] = mapped_column(String(500))
     description: Mapped[str] = mapped_column(Text)
     incident_date: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    location: Mapped[str] = mapped_column(String(200))
-    incident_type: Mapped[str] = mapped_column(String(50))
+    location: Mapped[str] = mapped_column(String(500))
+    incident_type: Mapped[str] = mapped_column(String(100))
     severity: Mapped[str] = mapped_column(String(50))
     victims: Mapped[int | None] = mapped_column(Integer, nullable=True)
     equipment: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -149,13 +149,13 @@ class AnalysisSessionORM(Base):
         String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True
     )
     # Ключевые поля инцидента для быстрого доступа (как в incidents)
-    incident_title: Mapped[str] = mapped_column(String(200), nullable=False)
+    incident_title: Mapped[str] = mapped_column(String(500), nullable=False)
     incident_description: Mapped[str] = mapped_column(Text, nullable=False)
     incident_date: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
-    incident_location: Mapped[str | None] = mapped_column(String(200), nullable=True)
-    incident_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    incident_location: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    incident_type: Mapped[str | None] = mapped_column(String(100), nullable=True)
     incident_severity: Mapped[str | None] = mapped_column(String(50), nullable=True)
     # Полный IncidentInput как JSON — для сохранения всех полей
     incident_data_json: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -247,6 +247,7 @@ class RecommendationORM(Base):
     category: Mapped[str] = mapped_column(String(50))
     cause_id: Mapped[str] = mapped_column(String(200))
     responsible: Mapped[str | None] = mapped_column(String(200), nullable=True)
+    status: Mapped[str] = mapped_column(String(20), server_default="open")
 
     result: Mapped[RCAResultORM] = relationship(back_populates="recommendations")
 

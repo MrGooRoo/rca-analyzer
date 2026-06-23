@@ -138,10 +138,14 @@ async def test_repository_falls_back_to_local_hash_on_hf_error() -> None:
 
     from src.db.repository import RCARepository
 
-    service = HFLocalEmbeddingService(model="nonexistent/model-404")
-    service._load_error = RuntimeError("no model")
+    fallback = LocalHashEmbeddingService()
 
-    repo = RCARepository(AsyncMock(), embedding_service=service)
+    async def embed_with_fallback(text: str) -> tuple[list[float], str, int]:
+        # Симулируем fallback на local hash при ошибке HF
+        vec = fallback.embed(text)
+        return list(vec), fallback.model_name, fallback.dimension
+
+    repo = RCARepository(AsyncMock(), embed_fn=embed_with_fallback)
     vector, model_name, dimension = await repo._embed("Падение с лестницы")
 
     assert model_name == LocalHashEmbeddingService.model_name

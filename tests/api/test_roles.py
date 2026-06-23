@@ -318,3 +318,25 @@ async def test_admin_can_update_rec_of_any_result():
             assert r.status_code == 200
     finally:
         _teardown()
+
+
+@pytest.mark.asyncio
+async def test_owner_can_update_own_rec():
+    """Владелец результата может обновить статус своей рекомендации."""
+    _setup(USER_A)
+    try:
+        with patch("src.services.analysis_persistence_service.RCARepository") as MockRepo:
+            mock_repo = MockRepo.return_value
+            mock_repo.get_result = AsyncMock(return_value=_result(user_id="user-aaa"))
+            mock_repo.update_recommendation_status = AsyncMock(return_value=True)
+
+            async with _client() as c:
+                r = await c.patch(
+                    "/api/v1/results/res-1/recommendations/r1",
+                    json={"status": "closed"},
+                    headers={CSRF_HEADER_NAME: _CSRF},
+                )
+            assert r.status_code == 200
+            assert r.json() == {"ok": True}
+    finally:
+        _teardown()

@@ -2,9 +2,9 @@
 
 > Обновлять при каждом значимом изменении.
 
-## Статус: 🟢 Рабочая версия — PersistenceService + P0/P1 security
+## Статус: 🟢 Рабочая версия — аудит закрыт: Recommendation.status, DB lengths, embedding DI, healthcheck, CI/mypy
 
-**Дата обновления:** 2026-06-22
+**Дата обновления:** 2026-06-23
 
 ## Рефакторинг: PersistenceService — полноценный use-case слой (22.06.2026)
 - [x] `_save_kwargs()` helper — единое место для save_result kwargs (убрано дублирование)
@@ -373,10 +373,11 @@
     (`causal_nodes.node_id/parent_id`, `recommendations.rec_id/cause_id`), чтобы сохранять id с префиксами
     вроде `imm-<uuid>`, `contrib-<uuid>`, `r111...` без `StringDataRightTruncationError`.
 
-## Проверки (после Phase E + Embedding DI + SSE hardening)
-- `python -m pytest tests/ -q` → **291 passed, 1 deselected (slow)**
-- `ruff check` → **All checks passed!**
-- `npm run build` во frontend → **успешно**
+## Проверки (после аудита 23.06.2026)
+- `python -m pytest tests/ -q` → **293 passed, 1 deselected (slow)**
+- `ruff check src/ tests/` → **All checks passed!**
+- `mypy src/ --ignore-missing-imports` → добавлен в CI
+- `npm run build` во frontend → **успешно** (после `npm install` с обновлённым Vite 6.x)
 
 - [x] **Phase E — partial failure в sync /analyze-multi** (22.06.2026)
   - ✅ `MethodologyFailure` + `MultiAnalysisResponse` модели
@@ -394,8 +395,16 @@
   - ✅ Heartbeat: `{"status":"ping"}` каждые 30 секунд в оба SSE-стрима
   - ✅ Корректная отмена heartbeat-таска при завершении стрима
 
+## Аудит 23.06.2026 — закрытые проблемы из code-quality-audit
+- [x] **P0 — Recommendation.status** добавлен в RecommendationORM, domain Recommendation, _to_rec маппер (тест test_owner_can_update_own_rec)
+- [x] **P1 — DB length mismatch** синхронизирован: incidents/analysis_sessions поля расширены до Pydantic-лимитов; миграция 015
+- [x] **P1 — Docker healthcheck** заменён curl → python urllib (curl отсутствует в slim-образе)
+- [x] **P1 — npm audit** Vite обновлён с ^5.4.0 до ^6.5.0 (esbuild >= 0.25, исправлены 2 уязвимости); требуется `npm install`
+- [x] **P2 — Embedding DI** из repository удалён старый fallback (embedding_service, _embeddings, _fallback_embeddings); все 14 вызовов RCARepository через embed_fn
+- [x] **P2 — Mypy в CI** добавлен `mypy src/ --ignore-missing-imports` в workflow
+- [x] **Обновлены тесты** под новую архитектуру repository (3 теста переписаны, 1 добавлен)
+
 ## В работе / следующий приоритет
-- [ ] Feedback #4/#6: поэтапный ввод и переключатель параметров анализа.
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 
 ## Аудит качества кода (15.06.2026)

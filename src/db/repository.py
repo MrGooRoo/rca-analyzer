@@ -31,12 +31,8 @@ from src.domain.models import (
 )
 from src.integrations.embeddings.protocol import EmbeddingFn
 from src.services.embedding_service import (
-    EmbeddingService,
-    EmbeddingServiceError,
-    LocalHashEmbeddingService,
     build_result_embedding_text,
     cosine_similarity,
-    get_embedding_service,
 )
 
 logger = logging.getLogger(__name__)
@@ -82,46 +78,22 @@ class RCARepository:
     def __init__(
         self,
         session: AsyncSession,
-        embedding_service: EmbeddingService | None = None,
         *,
         embed_fn: EmbeddingFn | None = None,
         auto_commit: bool = True,
     ) -> None:
         self._session = session
         self._embed_fn = embed_fn
-        self._embeddings = embedding_service or get_embedding_service()
-        # Локальный фолбэк, если внешний embedding-провайдер недоступен.
-        self._fallback_embeddings = LocalHashEmbeddingService()
         self._auto_commit = auto_commit
 
     async def _embed(self, text: str) -> tuple[list[float], str, int]:
-        """
-        Построить embedding текущим провайдером (sync или async).
-
-        Если embed_fn передан (из use-case слоя), использует его напрямую.
-        Иначе — старый путь: embedding_service → fallback на LocalHashEmbeddingService.
-        """
-        if self._embed_fn is not None:
-            return await self._embed_fn(text)
-
-        try:
-            result = self._embeddings.embed(text)
-            if inspect.isawaitable(result):
-                result = await result
-            return list(result), self._embeddings.model_name, self._embeddings.dimension
-        except EmbeddingServiceError as exc:
-            if self._embeddings is self._fallback_embeddings:
-                raise
-            logger.warning(
-                "[Embeddings] провайдер %s недоступен (%s) — фолбэк на %s",
-                self._embeddings.model_name, exc, self._fallback_embeddings.model_name,
+        """Построить embedding через embed_fn (из use-case слоя)."""
+        if self._embed_fn is None:
+            raise RuntimeError(
+                "RCARepository._embed() вызван без embed_fn. "
+                "Передайте embed_fn через PersistenceService."
             )
-            vector = self._fallback_embeddings.embed(text)
-            return (
-                vector,
-                self._fallback_embeddings.model_name,
-                self._fallback_embeddings.dimension,
-            )
+        return await self._embed_fn(text)
 
     async def _session_call(self, method_name: str, *args) -> None:
         """
@@ -666,6 +638,7 @@ def _orm_to_domain(row: RCAResultORM) -> RCAResult:
         return Recommendation(
             id=r.rec_id, text=r.text, priority=r.priority,
             category=r.category, cause_id=r.cause_id, responsible=r.responsible,
+            status=r.status,
         )
 
     nodes = row.causal_nodes

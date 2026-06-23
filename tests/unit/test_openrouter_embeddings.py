@@ -186,48 +186,53 @@ async def test_embed_empty_text_returns_zero_vector() -> None:
 
 
 # ---------------------------------------------------------------------------
-# Фолбэк в репозитории
+# ---------------------------------------------------------------------------
+# Repository _embed via embed_fn (поведение вынесено в PersistenceService._make_embed_fn)
 # ---------------------------------------------------------------------------
 
-@pytest.mark.asyncio
-async def test_repository_falls_back_to_local_on_provider_error() -> None:
-    from unittest.mock import AsyncMock
-
-    from src.db.repository import RCARepository
-    from src.services.embedding_service import EMBEDDING_MODEL_NAME
-
-    class FailingService:
-        model_name = "openai/text-embedding-3-small"
-        dimension = EMBEDDING_DIMENSION
-
-        async def embed(self, text: str) -> list[float]:
-            raise EmbeddingServiceError("network down")
-
-    repo = RCARepository(AsyncMock(), embedding_service=FailingService())
-    vector, model_name, dimension = await repo._embed("Падение с лестницы")
-
-    assert model_name == EMBEDDING_MODEL_NAME  # локальный фолбэк
-    assert dimension == EMBEDDING_DIMENSION
-    assert len(vector) == EMBEDDING_DIMENSION
-    assert any(v != 0 for v in vector)
-
 
 @pytest.mark.asyncio
-async def test_repository_uses_async_provider_result() -> None:
+async def test_repository_embed_uses_embed_fn() -> None:
     from unittest.mock import AsyncMock
 
     from src.db.repository import RCARepository
 
-    class AsyncOkService:
-        model_name = "external/test-model"
-        dimension = EMBEDDING_DIMENSION
+    expected = ([0.1, 0.2, 0.3], "test-model", 3)
 
-        async def embed(self, text: str) -> list[float]:
-            vec = [0.0] * EMBEDDING_DIMENSION
-            vec[0] = 1.0
-            return vec
+    async def mock_embed(text: str):
+        return expected
 
-    repo = RCARepository(AsyncMock(), embedding_service=AsyncOkService())
+    repo = RCARepository(AsyncMock(), embed_fn=mock_embed)
+    result = await repo._embed("тест")
+
+    assert result == expected
+
+
+@pytest.mark.asyncio
+async def test_repository_embed_raises_without_embed_fn() -> None:
+    from unittest.mock import AsyncMock
+
+    from src.db.repository import RCARepository
+
+    repo = RCARepository(AsyncMock())
+    import pytest
+    with pytest.raises(RuntimeError, match="без embed_fn"):
+        await repo._embed("тест")
+
+
+@pytest.mark.asyncio
+async def test_repository_embed_async_embed_fn() -> None:
+    from unittest.mock import AsyncMock
+
+    from src.db.repository import RCARepository
+    from src.services.embedding_service import EMBEDDING_DIMENSION
+
+    async def async_embed(text: str):
+        vec = [0.0] * EMBEDDING_DIMENSION
+        vec[0] = 1.0
+        return vec, "external/test-model", EMBEDDING_DIMENSION
+
+    repo = RCARepository(AsyncMock(), embed_fn=async_embed)
     vector, model_name, dimension = await repo._embed("текст")
 
     assert model_name == "external/test-model"
