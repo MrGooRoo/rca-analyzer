@@ -538,5 +538,34 @@ export const api = {
       req('POST', `/api/v1/admin/providers/${id}/scan`, undefined, { authRequired: true }),
     listProviderModels: (id) =>
       req('GET', `/api/v1/admin/providers/${id}/models`, undefined, { authRequired: true }),
-  },
+    },
+}
+
+/**
+ * Универсальный метод для произвольных API вызовов.
+ * Автоматически подставляет credentials (+ CSRF для мутирующих).
+ * path — полный URL (относительный).
+ */
+export function fetchJson(path, init = {}) {
+  const method = (init.method || 'GET').toUpperCase()
+  const headers = { ...init.headers }
+  const token = readCsrfToken()
+  if (!SAFE_METHODS.has(method) && token) {
+    headers['X-CSRF-Token'] = token
+  }
+  if (init.body && !headers['Content-Type']) {
+    headers['Content-Type'] = 'application/json'
+  }
+  return fetch(path, {
+    method,
+    headers,
+    body: init.body,
+    credentials: 'include',
+    signal: init.signal,
+  }).then(r => {
+    if (r.status === 204) return null
+    if (r.headers.get('content-type')?.includes('application/json')) return r.json()
+    if (r.ok) return null
+    return r.text().then(t => { throw new Error(t || `HTTP ${r.status}`) })
+  })
 }

@@ -1,6 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { api } from '../api.js'
 import SimilarIncidentsHint from './SimilarIncidentsHint.jsx'
+import ModelSelector from './ModelSelector.jsx'
 import { Button } from './ui/Button.jsx'
 import { Input, Textarea, Select } from './ui/Field.jsx'
 import { Card, CardHeader, CardBody } from './ui/Card.jsx'
@@ -506,6 +507,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
               ))}
             </div>
           </div>
+
+          <ModelSelector disabled={busy} />
         </CardBody>
       </Card>
 
