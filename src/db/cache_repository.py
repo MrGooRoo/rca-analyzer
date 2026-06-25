@@ -3,7 +3,6 @@
 
 Хранит и извлекает результаты extract_fields_from_text() по SHA-256 хешу файла.
 """
-
 from __future__ import annotations
 
 import json
@@ -100,7 +99,7 @@ class ExtractionCacheRepository:
         return json.loads(row.extracted_fields_json)
 
     async def list_all(self) -> list[dict]:
-        """Вернуть список всех записей кэша (file_hash, incident_hash, created_at, hit_count)."""
+        """Вернуть список всех записей кэша."""
         from sqlalchemy import desc
         stmt = select(DocxExtractionCacheORM).order_by(desc(DocxExtractionCacheORM.created_at)).limit(200)
         rows = (await self._session.execute(stmt)).scalars().all()
@@ -110,6 +109,23 @@ class ExtractionCacheRepository:
                 "incident_hash": r.incident_hash,
                 "created_at": r.created_at.isoformat() if r.created_at else None,
                 "hit_count": r.hit_count,
+                "extracted_fields_json": r.extracted_fields_json,
             }
             for r in rows
         ]
+
+    async def get_by_hash(self, file_hash: str) -> dict | None:
+        """Вернуть одну запись с полными данными."""
+        stmt = select(DocxExtractionCacheORM).where(
+            DocxExtractionCacheORM.file_hash == file_hash
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            return None
+        return {
+            "file_hash": row.file_hash,
+            "incident_hash": row.incident_hash,
+            "created_at": row.created_at.isoformat() if row.created_at else None,
+            "hit_count": row.hit_count,
+            "extracted_fields_json": row.extracted_fields_json,
+        }

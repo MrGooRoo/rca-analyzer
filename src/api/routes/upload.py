@@ -31,6 +31,7 @@ from src.db.base import get_db
 from src.db.cache_repository import ExtractionCacheRepository
 from src.db.repository import compute_incident_hash
 from src.domain.models import LLMResponseValidationError
+from src.services.analysis_persistence_service import load_llm_settings
 from src.services.docx_cache_service import _is_complete, get_or_extract
 from src.services.docx_extractor import extract_text_from_docx
 from src.services.docx_fields_service import extract_fields_from_text
@@ -168,7 +169,8 @@ async def upload_report(
     )
 
     try:
-        fields = await get_or_extract(file_bytes, db)
+        llm_settings = await load_llm_settings(db)
+        fields = await get_or_extract(file_bytes, db, llm_settings=llm_settings)
     except LLMResponseValidationError as exc:
         logger.error("[Upload] LLM не вернул валидный ответ: %s", exc)
         raise HTTPException(

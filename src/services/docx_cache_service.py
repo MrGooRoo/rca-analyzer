@@ -33,6 +33,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.db.cache_repository import ExtractionCacheRepository
 from src.db.repository import compute_incident_hash
+from src.domain.models import LLMSettings
 from src.services.docx_fields_service import extract_fields_from_text
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,7 @@ def _is_complete(fields: dict) -> bool:
     return True
 
 
-async def get_or_extract(file_bytes: bytes, session: AsyncSession) -> dict:
+async def get_or_extract(file_bytes: bytes, session: AsyncSession, llm_settings: LLMSettings | None = None) -> dict:
     """
     Вернуть поля инцидента из кэша или вызвать LLM-извлечение.
 
@@ -87,7 +88,7 @@ async def get_or_extract(file_bytes: bytes, session: AsyncSession) -> dict:
         "[DocxCache] Кэш-промах: hash=%s... — запускаю LLM-извлечение",
         file_hash[:16],
     )
-    fields = await extract_fields_from_text_from_bytes(file_bytes)
+    fields = await extract_fields_from_text_from_bytes(file_bytes, llm_settings)
 
     # 2. Дедупликация по incident_hash (тот же инцидент, другой файл)
     title = fields.get("title", "")
@@ -134,7 +135,7 @@ async def get_or_extract(file_bytes: bytes, session: AsyncSession) -> dict:
     return fields
 
 
-async def extract_fields_from_text_from_bytes(file_bytes: bytes) -> dict:
+async def extract_fields_from_text_from_bytes(file_bytes: bytes, llm_settings: LLMSettings | None = None) -> dict:
     """
     Извлечь текст из байт DOCX и прогнать через LLM.
     Вынесено отдельно, чтобы не импортировать docx_extractor в cache_service
@@ -142,4 +143,4 @@ async def extract_fields_from_text_from_bytes(file_bytes: bytes) -> dict:
     """
     from src.services.docx_extractor import extract_text_from_docx
     report_text = extract_text_from_docx(file_bytes)
-    return await extract_fields_from_text(report_text)
+    return await extract_fields_from_text(report_text, llm_settings=llm_settings)

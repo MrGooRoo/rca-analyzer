@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
+from src.domain.models import LLMSettings
 from src.integrations.llm.openrouter import OpenRouterClient
 
 logger = logging.getLogger(__name__)
@@ -340,9 +341,9 @@ def _compute_safe_max_tokens(
     return min(requested, available)
 
 
-async def extract_fields_from_text(report_text: str) -> dict:
+async def extract_fields_from_text(report_text: str, llm_settings: LLMSettings | None = None) -> dict:
     if not report_text or not report_text.strip():
-        raise ValueError("\u0422\u0435\u043a\u0441\u0442 \u043e\u0442\u0447\u0451\u0442\u0430 \u043f\u0443\u0441\u0442\u043e\u0439 \u2014 \u043d\u0435\u0432\u043e\u0437\u043c\u043e\u0436\u043d\u043e \u0438\u0437\u0432\u043b\u0435\u0447\u044c \u0434\u0430\u043d\u043d\u044b\u0435.")
+        raise ValueError("Текст отчёта пуст — невозможно извлечь данные.")
 
     model_ctx = _get_model_context_limit()
     full_text_ok = _model_supports_full_text(model_ctx)
@@ -350,8 +351,8 @@ async def extract_fields_from_text(report_text: str) -> dict:
     if full_text_ok:
         text_to_send = report_text
         logger.info(
-            "[DocxFields] \u041c\u043e\u0434\u0435\u043b\u044c \u0441 \u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442\u043e\u043c %d \u0442\u043e\u043a\u0435\u043d\u043e\u0432 \u2014 "
-            "\u043e\u0442\u043f\u0440\u0430\u0432\u043b\u044f\u044e \u043f\u043e\u043b\u043d\u044b\u0439 \u0442\u0435\u043a\u0441\u0442 (%d \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432) \u0431\u0435\u0437 \u043e\u0431\u0440\u0435\u0437\u043a\u0438",
+            "[DocxFields] Модель с контекстом %d токенов — "
+            "отправляю полный текст (%d символов) без обрезки",
             model_ctx, len(report_text),
         )
     else:
@@ -359,7 +360,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
         text_to_send, was_trimmed = _trim_text(report_text, max_input_chars=max_chars)
         if was_trimmed:
             logger.warning(
-                "[DocxFields] \u0422\u0435\u043a\u0441\u0442 \u043e\u0431\u0440\u0435\u0437\u0430\u043d (\u043a\u043e\u043d\u0442\u0435\u043a\u0441\u0442 %d \u0442\u043e\u043a\u0435\u043d\u043e\u0432): %d \u2192 %d \u0441\u0438\u043c\u0432\u043e\u043b\u043e\u0432",
+                "[DocxFields] Текст обрезан (контекст %d токенов): %d → %d символов",
                 model_ctx, len(report_text), len(text_to_send),
             )
 
@@ -409,18 +410,72 @@ async def extract_fields_from_text(report_text: str) -> dict:
         merged.update(group_result)  # type: ignore[arg-type]
 
     if not merged.get("title"):
-        logger.error("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 'metadata' \u043d\u0435 \u0432\u0435\u0440\u043d\u0443\u043b\u0430 title \u2014 \u0432\u0441\u0435 \u0433\u0440\u0443\u043f\u043f\u044b \u0443\u043f\u0430\u043b\u0438?")
-        raise ValueError("LLM \u043d\u0435 \u0441\u043c\u043e\u0433 \u0438\u0437\u0432\u043b\u0435\u0447\u044c \u0434\u0430\u043d\u043d\u044b\u0435 \u043d\u0438 \u0438\u0437 \u043e\u0434\u043d\u043e\u0439 \u0433\u0440\u0443\u043f\u043f\u044b \u043f\u043e\u043b\u0435\u0439.")
+        logger.error("[DocxFields] Группа 'metadata' не вернула title — все группы упали?")
+        raise ValueError("LLM не смог извлечь данные ни из одной группы полей.")
 
     fields = _normalize_fields(merged)
 
+    # Опциональная верификация мощной моделью
+    if llm_settings and llm_settings.verification_scheme != "disabled":
+        logger.info(
+            "[DocxFields] Запуск верификации (схема=%s, модель=%s)",
+            llm_settings.verification_scheme, llm_settings.verifier_model,
+        )
+        fields = await _verify_extracted_fields(report_text, fields, llm_settings)
+
     logger.info(
-        "[DocxFields] \u0418\u0437\u0432\u043b\u0435\u0447\u0435\u043d\u044b \u043f\u043e\u043b\u044f: title=%s, victims=%d",
+        "[DocxFields] Извлечены поля: title=%s, victims=%d",
         fields.get("title", "")[:60],
         len(fields.get("victims_list") or []),
     )
 
     return fields
+
+
+async def _verify_extracted_fields(
+    report_text: str,
+    draft_fields: dict,
+    settings: LLMSettings,
+) -> dict:
+    """Проверить и улучшить извлечённые поля через verifier-модель."""
+    import json
+    draft_json = json.dumps(draft_fields, ensure_ascii=False, indent=2, default=str)
+    system_prompt = (
+        "Ты — верификатор извлечения данных из отчёта о производственном инциденте.\n"
+        "Твоя задача: проверить и исправить ошибки в извлечённых полях.\n"
+        "Верни ТОЛЬКО JSON с теми же ключами, что и во входных данных.\n"
+        "Не добавляй markdown, не оборачивай в ```json.\n"
+        "Правила проверки:\n"
+        "1. incident_date, incident_time — должны быть в формате ISO из текста отчёта;\n"
+        "2. injured_count, fatalities_count — числовые значения;\n"
+        "3. title — отражает суть инцидента;\n"
+        "4. description — полное описание, а не краткое;\n"
+        "5. established_facts — факты, установленные комиссией;\n"
+        "6. full_circumstances — полные обстоятельства происшествия;\n"
+        "7. all_causes — если в тексте есть причина, она должна быть в established_facts;\n"
+        "Сохрани все поля из входного JSON, дополни/исправь только то, что точно неверно."
+    )
+    user_prompt = (
+        f"Текст отчёта:\n\n{report_text[:80000]}\n\n"
+        f"Извлечённые draft-моделью поля:\n\n{draft_json}\n\n"
+        "Проверь и верни исправленный JSON."
+    )
+    try:
+        async with OpenRouterClient(timeout=120) as client:
+            result = await client.complete(
+                system_prompt=system_prompt,
+                user_prompt=user_prompt,
+                temperature=0.1,
+                max_tokens=16384,
+                required_keys=set(draft_fields.keys()),
+            )
+        result.pop("_meta", None)
+        logger.info("[DocxFields] Верификация завершена успешно (%d ключей)", len(result))
+        # Нормализуем результат verifier-модели
+        return _normalize_fields(result)
+    except Exception as exc:
+        logger.error("[DocxFields] Верификация не удалась: %s — возвращаю draft поля", exc)
+        return draft_fields
 
 
 VALID_TYPES = {

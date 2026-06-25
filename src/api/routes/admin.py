@@ -198,6 +198,7 @@ class DocxCacheItem(BaseModel):
     incident_hash: str | None = None
     created_at: str | None = None
     hit_count: int = 0
+    cached_text_preview: str | None = None
 
 
 @router.get(
@@ -213,6 +214,34 @@ async def list_docx_cache(
     repo = ExtractionCacheRepository(db)
     raw = await repo.list_all()
     return [DocxCacheItem(**r) for r in raw]
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/docx-cache/{file_hash} — детали кэша (верификация)
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/docx-cache/{file_hash}",
+    summary="Детали записи из кэша DOCX (admin-only)",
+)
+async def get_docx_cache_detail(
+    file_hash: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    require_admin(current_user)
+    repo = ExtractionCacheRepository(db)
+    item = await repo.get_by_hash(file_hash)
+    if item is None:
+        raise HTTPException(status_code=404, detail="Запись не найдена")
+    return {
+        "file_hash": item["file_hash"],
+        "incident_hash": item.get("incident_hash"),
+        "created_at": item.get("created_at"),
+        "hit_count": item.get("hit_count", 0),
+        "extracted_fields": json.loads(item["extracted_fields_json"]),
+    }
 
 
 # ---------------------------------------------------------------------------
