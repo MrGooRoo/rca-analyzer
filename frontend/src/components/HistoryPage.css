@@ -36,18 +36,31 @@
 }
 
 .history-empty {
-  padding: 64px 16px;
+  padding: 80px 16px;
   color: var(--label-tertiary);
   text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
 }
 
 .history-empty__icon {
-  margin-bottom: 12px;
-  font-size: 48px;
+  margin-bottom: var(--space-xs);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 28px;
+  background: var(--fill-gray);
+  color: var(--label-tertiary);
 }
 
 .history-empty__text {
   font-size: var(--text-subhead);
+  color: var(--label-secondary);
+  margin-bottom: var(--space-sm);
 }
 
 .history-list {

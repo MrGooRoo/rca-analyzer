@@ -10,6 +10,11 @@
      --color-oos = Окружающая среда     — System Green  (future)
    ══════════════════════════════════════════════════════════════ */
 
+/* ══════════════════════════════════════════════════════════════
+   Theme: defaults (system-preferred via prefers-color-scheme)
+   ══════════════════════════════════════════════════════════════ */
+
+/* Common tokens (same in both themes) */
 :root {
   /* ── Apple System Colors (iOS 13+ / macOS 11+) ──────────── */
   --system-blue:     #007AFF;
@@ -27,6 +32,37 @@
   --system-gray-5:   #E5E5EA;
   --system-gray-6:   #F2F2F7;
 
+  /* ── Semantic Colors (Apple System-based) ───────────────── */
+  --color-success:  var(--system-green);
+  --color-warning:  var(--system-yellow);
+  --color-error:    var(--system-red);
+  --color-info:     var(--system-blue);
+
+  /* ── Domain Colors ────────────────────────────────────────
+     Core RCA / Охрана труда — Apple System Blue */
+  --color-ot:          var(--system-blue);
+  --color-ot-subtle:   rgba(0, 122, 255, 0.15);
+  --color-ot-border:   rgba(0, 122, 255, 0.30);
+
+  /* Промбезопасность — System Orange (future) */
+  --color-pb-subtle:   rgba(255, 149, 0, 0.15);
+  --color-pb-border:   rgba(255, 149, 0, 0.30);
+
+  /* Окружающая среда — System Green (future) */
+  --color-oos-subtle:   rgba(52, 199, 89, 0.15);
+  --color-oos-border:   rgba(52, 199, 89, 0.30);
+
+  /* Domain hover colors (same in both themes) */
+  --color-ot-hover:    #0066D6;
+  --color-pb-hover:    #DD7A00;
+  --color-oos-hover:   #2DB84E;
+
+  /* Active accent (maps to current domain) */
+  --accent:          var(--color-ot);
+  --accent-hover:    var(--color-ot-hover);
+  --accent-subtle:   var(--color-ot-subtle);
+  --accent-border:   var(--color-ot-border);
+
   /* ── Dark Mode Labels & Backgrounds ─────────────────────── */
   --label-primary:     #FFFFFF;
   --label-secondary:   #8E8E93;
@@ -41,52 +77,153 @@
   --separator:       rgba(84, 84, 88, 0.65);  /* thin */
   --separator-thick: rgba(84, 84, 88, 1.0);   /* opaque */
 
-  /* ── Semantic Colors (Apple System-based) ───────────────── */
-  --color-success:  var(--system-green);
-  --color-warning:  var(--system-yellow);
-  --color-error:    var(--system-red);
-  --color-info:     var(--system-blue);
-
-  /* ── Domain Colors ────────────────────────────────────────
-     Core RCA / Охрана труда — Apple System Blue */
-  --color-ot:          var(--system-blue);
-  --color-ot-hover:    #0066D6;
-  --color-ot-subtle:   rgba(0, 122, 255, 0.15);
-  --color-ot-border:   rgba(0, 122, 255, 0.30);
-
-  /* Промбезопасность — System Orange (future) */
-  --color-pb:          var(--system-orange);
-  --color-pb-hover:    #DD7A00;
-  --color-pb-subtle:   rgba(255, 149, 0, 0.15);
-  --color-pb-border:   rgba(255, 149, 0, 0.30);
-
-  /* Окружающая среда — System Green (future) */
-  --color-oos:          var(--system-green);
-  --color-oos-hover:    #2DB84E;
-  --color-oos-subtle:   rgba(52, 199, 89, 0.15);
-  --color-oos-border:   rgba(52, 199, 89, 0.30);
-
-  /* Active accent (maps to current domain) */
-  --accent:          var(--color-ot);
-  --accent-hover:    var(--color-ot-hover);
-  --accent-subtle:   var(--color-ot-subtle);
-  --accent-border:   var(--color-ot-border);
-
-  /* ── Apple Fill Colors (for buttons, pills, badges) ─────── */
-  --fill-tinted:      var(--accent);
-  --fill-tinted-text: #FFFFFF;
+  /* Dark-specific fills */
   --fill-gray:        rgba(120, 120, 128, 0.20);
   --fill-gray-hover:  rgba(120, 120, 128, 0.32);
   --fill-gray-text:   var(--label-primary);
-  --fill-plain:       transparent;
-  --fill-plain-text:  var(--accent);
-  --fill-plain-hover: var(--accent-subtle);
 
-  /* ── Shadows (Apple-style: soft, high-blur, low-opacity) ── */
+  /* Dark glass */
+  --glass-bg:         rgba(28, 28, 30, 0.78);
+  --glass-border:     rgba(84, 84, 88, 0.48);
+  --glass-bg-heavy:   rgba(28, 28, 30, 0.92);
+  --glass-border-heavy: rgba(84, 84, 88, 0.65);
+
+  /* Dark shadows */
   --shadow-sm:   0 0 4px  rgba(0, 0, 0, 0.16);
   --shadow-md:   0 0 12px rgba(0, 0, 0, 0.24);
   --shadow-lg:   0 0 32px rgba(0, 0, 0, 0.36);
   --shadow-glow: 0 0 16px rgba(0, 122, 255, 0.25);
+}
+
+/* ══════════════════════════════════════════════════════════════
+   Light Theme — follows system preference or manual toggle
+   ══════════════════════════════════════════════════════════════ */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --label-primary:     #000000;
+    --label-secondary:   #3C3C43;
+    --label-tertiary:    #8E8E93;
+    --label-quaternary:  #C6C6C8;
+
+    --bg-primary:     #FFFFFF;
+    --bg-secondary:   #F2F2F7;
+    --bg-tertiary:    #FFFFFF;
+    --bg-quaternary:  #FFFFFF;
+
+    --separator:       rgba(60, 60, 67, 0.12);
+    --separator-thick: rgba(60, 60, 67, 0.22);
+
+    /* Light fills */
+    --fill-gray:        rgba(120, 120, 128, 0.10);
+    --fill-gray-hover:  rgba(120, 120, 128, 0.18);
+    --fill-gray-text:   var(--label-primary);
+
+    /* Light glass */
+    --glass-bg:         rgba(255, 255, 255, 0.72);
+    --glass-border:     rgba(60, 60, 67, 0.18);
+    --glass-bg-heavy:   rgba(255, 255, 255, 0.88);
+    --glass-border-heavy: rgba(60, 60, 67, 0.29);
+
+    /* Light shadows — deeper/darker for contrast on white */
+    --shadow-sm:   0 0 4px  rgba(0, 0, 0, 0.08);
+    --shadow-md:   0 0 12px rgba(0, 0, 0, 0.12);
+    --shadow-lg:   0 0 32px rgba(0, 0, 0, 0.18);
+    --shadow-glow: 0 0 16px rgba(0, 122, 255, 0.20);
+
+    /* Subtle domain colors for light */
+    --color-ot-subtle:   rgba(0, 122, 255, 0.08);
+    --color-ot-border:   rgba(0, 122, 255, 0.18);
+    --color-pb-subtle:   rgba(255, 149, 0, 0.08);
+    --color-pb-border:   rgba(255, 149, 0, 0.18);
+    --color-oos-subtle:  rgba(52, 199, 89, 0.08);
+    --color-oos-border:  rgba(52, 199, 89, 0.18);
+  }
+}
+
+/* Manual override: data-theme="light" — always light */
+[data-theme="light"] {
+  --label-primary:     #000000;
+  --label-secondary:   #3C3C43;
+  --label-tertiary:    #8E8E93;
+  --label-quaternary:  #C6C6C8;
+
+  --bg-primary:     #FFFFFF;
+  --bg-secondary:   #F2F2F7;
+  --bg-tertiary:    #FFFFFF;
+  --bg-quaternary:  #FFFFFF;
+
+  --separator:       rgba(60, 60, 67, 0.12);
+  --separator-thick: rgba(60, 60, 67, 0.22);
+
+  --fill-gray:        rgba(120, 120, 128, 0.10);
+  --fill-gray-hover:  rgba(120, 120, 128, 0.18);
+  --fill-gray-text:   var(--label-primary);
+
+  --glass-bg:         rgba(255, 255, 255, 0.72);
+  --glass-border:     rgba(60, 60, 67, 0.18);
+  --glass-bg-heavy:   rgba(255, 255, 255, 0.88);
+  --glass-border-heavy: rgba(60, 60, 67, 0.29);
+
+  --shadow-sm:   0 0 4px  rgba(0, 0, 0, 0.08);
+  --shadow-md:   0 0 12px rgba(0, 0, 0, 0.12);
+  --shadow-lg:   0 0 32px rgba(0, 0, 0, 0.18);
+  --shadow-glow: 0 0 16px rgba(0, 122, 255, 0.20);
+
+  --color-ot-subtle:   rgba(0, 122, 255, 0.08);
+  --color-ot-border:   rgba(0, 122, 255, 0.18);
+  --color-pb-subtle:   rgba(255, 149, 0, 0.08);
+  --color-pb-border:   rgba(255, 149, 0, 0.18);
+  --color-oos-subtle:  rgba(52, 199, 89, 0.08);
+  --color-oos-border:  rgba(52, 199, 89, 0.18);
+}
+
+/* Manual override: data-theme="dark" — always dark */
+[data-theme="dark"] {
+  --label-primary:     #FFFFFF;
+  --label-secondary:   #8E8E93;
+  --label-tertiary:    #48484A;
+  --label-quaternary:  #2C2C2E;
+
+  --bg-primary:     #000000;
+  --bg-secondary:   #1C1C1E;
+  --bg-tertiary:    #2C2C2E;
+  --bg-quaternary:  #3A3A3C;
+
+  --separator:       rgba(84, 84, 88, 0.65);
+  --separator-thick: rgba(84, 84, 88, 1.0);
+
+  --fill-gray:        rgba(120, 120, 128, 0.20);
+  --fill-gray-hover:  rgba(120, 120, 128, 0.32);
+  --fill-gray-text:   var(--label-primary);
+
+  --glass-bg:         rgba(28, 28, 30, 0.78);
+  --glass-border:     rgba(84, 84, 88, 0.48);
+  --glass-bg-heavy:   rgba(28, 28, 30, 0.92);
+  --glass-border-heavy: rgba(84, 84, 88, 0.65);
+
+  --shadow-sm:   0 0 4px  rgba(0, 0, 0, 0.16);
+  --shadow-md:   0 0 12px rgba(0, 0, 0, 0.24);
+  --shadow-lg:   0 0 32px rgba(0, 0, 0, 0.36);
+  --shadow-glow: 0 0 16px rgba(0, 122, 255, 0.25);
+
+  --color-ot-subtle:   rgba(0, 122, 255, 0.15);
+  --color-ot-border:   rgba(0, 122, 255, 0.30);
+  --color-pb-subtle:   rgba(255, 149, 0, 0.15);
+  --color-pb-border:   rgba(255, 149, 0, 0.30);
+  --color-oos-subtle:  rgba(52, 199, 89, 0.15);
+  --color-oos-border:  rgba(52, 199, 89, 0.30);
+}
+
+:root {
+  /* Note: fill, shadow, and glass variables are set in the theme blocks above.
+     This :root block only adds theme-independent variables. */
+
+  /* ── Apple Fill Colors (for buttons, pills, badges) ─────── */
+  --fill-tinted:      var(--accent);
+  --fill-tinted-text: #FFFFFF;
+  --fill-plain:       transparent;
+  --fill-plain-text:  var(--accent);
+  --fill-plain-hover: var(--accent-subtle);
 
   /* ── Spacing Scale (Apple 8pt grid) ─────────────────────── */
   --space-2xs:  2px;
@@ -150,18 +287,14 @@
   --weight-bold:     700;
   --weight-heavy:    800;
 
-  /* ── Apple Materials / Vibrancy (glass effects) ─────────── */
-  --glass-blur:       blur(20px);
-  --glass-bg:         rgba(28, 28, 30, 0.78);
-  --glass-border:     rgba(84, 84, 88, 0.48);
-  --glass-bg-heavy:   rgba(28, 28, 30, 0.92);
-  --glass-border-heavy: rgba(84, 84, 88, 0.65);
-
   /* ── Transitions (Apple timing) ─────────────────────────── */
   --transition-instant:  100ms ease;
   --transition-fast:     200ms ease;
   --transition-normal:   300ms cubic-bezier(0.25, 0.1, 0.25, 1);
   --transition-slow:     400ms cubic-bezier(0.25, 0.1, 0.25, 1);
+
+  /* ── Glass blur (same in both themes) ──────────────────────── */
+  --glass-blur:       blur(20px);
 
   /* ── Apple System Button Heights ────────────────────────── */
   --btn-height-sm:  28px;

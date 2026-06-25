@@ -233,6 +233,23 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
     }
   }
 
+  // ── Keyboard shortcuts ─────────────────────────────────────
+  function handleFormKeyDown(e) {
+    // Cmd+Enter / Ctrl+Enter → submit
+    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+      e.preventDefault()
+      if (canProceed() && !busy) {
+        // Trigger submit on the form
+        e.currentTarget.requestSubmit()
+      }
+    }
+    // Esc on step 3 → back to step 2; Esc on step 2 → back to step 1
+    if (e.key === 'Escape' && step > 1) {
+      e.preventDefault()
+      prevStep()
+    }
+  }
+
   const similarQueryText = [
     form.title, form.description, form.short_description,
     form.scene_description, form.equipment_description,
@@ -240,7 +257,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   ].filter(Boolean).join('\n')
 
   return (
-    <form className="incident-form" onSubmit={handleSubmit}>
+    <form className="incident-form" onSubmit={handleSubmit} onKeyDown={handleFormKeyDown}>
       <h2 className="incident-form__title">Новый анализ инцидента</h2>
 
       {(step === 1 || step === 2) && (
@@ -535,6 +552,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
       <Button type="submit" variant="primary" size="lg" className="incident-submit" disabled={busy || (isMulti() && form.methodologies.length < 2)} loading={loading}>
         {loading ? 'Анализирую…' : isMulti() ? <><Scale size={16} /> Сравнить ({form.methodologies.length} методик)</> : <><Play size={16} /> Запустить анализ</>}
       </Button>
+      {step === 3 && <span className="incident-submit-hint"><code>⌘⏎</code></span>}
       </>)}
 
       {/* Step navigation */}

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
 import { Button } from './ui/Button.jsx'
 import { Badge } from './ui/Card.jsx'
-import { Brain, Users, FileText, Server } from 'lucide-react'
+import { Brain, Users, FileText, Server, Package, Database } from 'lucide-react'
 import './AdminPage.css'
 
 const ROLE_LABELS = {
@@ -266,7 +266,12 @@ export default function AdminPage({ currentUser }) {
         </div>
 
         {error && <div className="admin-alert admin-alert--error">{error}</div>}
-        {!loading && !error && users.length === 0 && <div className="admin-empty">Пользователей нет</div>}
+        {!loading && !error && users.length === 0 && (
+          <div className="admin-empty">
+            <div className="admin-empty__icon"><Users size={20} /></div>
+            Пользователей нет
+          </div>
+        )}
 
         {users.length > 0 && (
           <div className="admin-table">
@@ -333,7 +338,10 @@ export default function AdminPage({ currentUser }) {
 
         {docxCacheError && <div className="admin-alert admin-alert--error">{docxCacheError}</div>}
         {!docxCacheLoading && !docxCacheError && docxCache.length === 0 && (
-          <div className="admin-empty">Кэш пуст</div>
+          <div className="admin-empty">
+            <div className="admin-empty__icon"><Database size={20} /></div>
+            Кэш пуст — записи появятся после загрузки .docx файлов
+          </div>
         )}
 
         {docxCache.length > 0 && (
@@ -422,7 +430,10 @@ export default function AdminPage({ currentUser }) {
         )}
 
         {!providersLoading && !providersError && providers.length === 0 && (
-          <div className="admin-empty">Провайдеров нет. Нажмите «+ Добавить», чтобы подключить LLM-провайдера.</div>
+          <div className="admin-empty">
+            <div className="admin-empty__icon"><Package size={20} /></div>
+            Провайдеров нет. Нажмите «+ Добавить», чтобы подключить LLM-провайдера.
+          </div>
         )}
 
         {providers.length > 0 && (

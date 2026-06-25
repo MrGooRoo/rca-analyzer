@@ -68,6 +68,28 @@
   margin-left: auto;
 }
 
+/* ── Theme toggle ─────────────────────────────────────────── */
+.theme-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 14px;
+  border: 1px solid var(--separator);
+  background: var(--fill-gray);
+  color: var(--label-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  font-size: 0;
+  gap: 1px;
+}
+.theme-toggle:hover {
+  background: var(--fill-gray-hover);
+  color: var(--label-primary);
+  border-color: var(--separator-thick);
+}
+
 .header-user {
   font-size: var(--text-footnote);
   color: var(--label-secondary);

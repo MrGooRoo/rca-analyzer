@@ -33,3 +33,4 @@ frontend/dist/
 frontend/public/
 test.db
 apple-demo.html
+uv.lock

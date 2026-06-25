@@ -1,11 +1,13 @@
 import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
+import IshikawaDiagram from './IshikawaDiagram.jsx'
+import FiveWhyTree from './FiveWhyTree.jsx'
 import SimilarIncidentsPanel from './SimilarIncidentsPanel.jsx'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Button } from './ui/Button.jsx'
 import { Badge, Card, CardBody } from './ui/Card.jsx'
 import { api } from '../api.js'
-import { Sparkles, Download, HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
+import { Sparkles, Download, HelpCircle, Ribbon, Fish, TreePine, Cog, GitBranch } from 'lucide-react'
 import './ResultView.css'
 
 const PRIORITY_TONES = {
@@ -24,7 +26,8 @@ const METHODOLOGY_ICONS_RV = {
 
 export default function ResultView({ result, onOpenResult = null }) {
   const isBowtie = result.methodology === 'bowtie'
-  const [tab, setTab] = useState(isBowtie ? 'bowtie' : 'tree')
+  const hasFishbone = result.methodology === 'fishbone'
+  const [tab, setTab] = useState(isBowtie ? 'bowtie' : hasFishbone ? 'fishbone' : 'tree')
   const [exporting, setExporting] = useState(null)
   const [exportError, setExportError] = useState(null)
 
@@ -44,14 +47,15 @@ export default function ResultView({ result, onOpenResult = null }) {
 
   const tabs = isBowtie
     ? [
-        { id: 'bowtie', label: <><Sparkles size={14} /> Диаграмма</> },
-        { id: 'recs',   label: `Рекомендации (${recCount})` },
-        { id: 'meta',   label: 'Мета' },
+        { id: 'bowtie',   label: <><Sparkles size={14} /> Диаграмма</> },
+        { id: 'recs',     label: `Рекомендации (${recCount})` },
+        { id: 'meta',     label: 'Мета' },
       ]
     : [
-        { id: 'tree', label: 'Дерево причин' },
-        { id: 'recs', label: `Рекомендации (${recCount})` },
-        { id: 'meta', label: 'Мета' },
+        { id: 'fishbone', label: <><Fish size={14} /> Исикава</> },
+        { id: 'tree',     label: <><GitBranch size={14} /> Дерево</> },
+        { id: 'recs',     label: `Рекомендации (${recCount})` },
+        { id: 'meta',     label: 'Мета' },
       ]
 
   const similarQueryText = [
@@ -121,10 +125,11 @@ export default function ResultView({ result, onOpenResult = null }) {
         ))}
       </div>
 
-      {tab === 'bowtie' && <BowtieDiagram result={result} />}
-      {tab === 'tree'   && <CausalTree result={result} />}
-      {tab === 'recs'   && <Recommendations recs={result.recommendations} />}
-      {tab === 'meta'   && <Meta result={result} />}
+      {tab === 'bowtie'   && <BowtieDiagram result={result} />}
+      {tab === 'fishbone' && <IshikawaDiagram result={result} />}
+      {tab === 'tree'     && <FiveWhyTree result={result} />}
+      {tab === 'recs'     && <Recommendations recs={result.recommendations} />}
+      {tab === 'meta'     && <Meta result={result} />}
     </div>
   )
 }

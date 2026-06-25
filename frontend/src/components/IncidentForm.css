@@ -460,6 +460,24 @@
   width: 100%;
 }
 
+.incident-submit-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-xs);
+  margin-top: var(--space-sm);
+  font-size: var(--text-caption2);
+  color: var(--label-tertiary);
+}
+.incident-submit-hint code {
+  font-family: var(--font-mono);
+  padding: 1px 6px;
+  border-radius: 4px;
+  background: var(--fill-gray);
+  font-size: var(--text-caption1);
+  line-height: 1.4;
+}
+
 @media (min-width: 640px) {
   .incident-method-grid,
   .incident-choice-grid {

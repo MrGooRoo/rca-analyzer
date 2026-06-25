@@ -222,10 +222,26 @@
 /* ── Users table (macOS-style list) ───────────────────────── */
 
 .admin-empty {
-  padding: 64px 16px;
+  padding: 80px 16px;
   color: var(--label-secondary);
   text-align: center;
   font-size: var(--text-footnote);
+  line-height: var(--leading-relaxed);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-sm);
+}
+.admin-empty__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 24px;
+  background: var(--fill-gray);
+  color: var(--label-tertiary);
+  margin-bottom: var(--space-xs);
 }
 
 .admin-table {

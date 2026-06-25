@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
-import { FolderOpen, User, Scale, Search } from 'lucide-react'
+import { FolderOpen, User, Scale, Search, FlaskConical } from 'lucide-react'
 import { api } from '../api.js'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Badge, Card } from './ui/Card.jsx'
@@ -127,8 +127,24 @@ export default function HistoryPage({ onOpen, onOpenComparison, currentUser }) {
 
       {!loading && !error && filtered.length === 0 && (
         <div className="history-empty">
-          <div className="history-empty__icon" aria-hidden="true"><FolderOpen size={40} /></div>
-          <p className="history-empty__text">{hasFilters ? 'Ничего не найдено. Попробуйте сбросить фильтры.' : 'История пуста. Запустите первый анализ.'}</p>
+          <div className="history-empty__icon" aria-hidden="true">
+            <FolderOpen size={40} />
+          </div>
+          <p className="history-empty__text">
+            {hasFilters
+              ? 'Ничего не найдено. Попробуйте изменить фильтры.'
+              : 'История анализов пуста. Запустите первый анализ.'}
+          </p>
+          {!hasFilters && (
+            <Button variant="primary" size="sm" onClick={() => window.location.hash = '#step-method'}>
+              <FlaskConical size={14} /> Новый анализ
+            </Button>
+          )}
+          {hasFilters && (
+            <Button variant="secondary" size="sm" onClick={resetFilters}>
+              ✕ Сбросить фильтры
+            </Button>
+          )}
         </div>
       )}
 

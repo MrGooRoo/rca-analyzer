@@ -12,9 +12,23 @@ import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
 import AdminPage from './components/AdminPage.jsx'
 import AnalysisSteps from './components/AnalysisSteps.jsx'
-import { FlaskConical, History, Settings, Plus } from 'lucide-react'
+import { FlaskConical, History, Settings, Plus, Sun, Moon } from 'lucide-react'
 import { methodologyMeta } from './lib/methodologies.js'
 import './App.css'
+
+// ── Theme initialisation ──────────────────────────────────────
+function getStoredTheme() {
+  try { return localStorage.getItem('rca-theme') || 'system' } catch { return 'system' }
+}
+function setStoredTheme(t) {
+  try { localStorage.setItem('rca-theme', t) } catch {}
+}
+function applyTheme(theme) {
+  const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches
+  const resolved = theme === 'system' ? (systemDark ? 'dark' : 'light') : theme
+  document.documentElement.setAttribute('data-theme', resolved)
+  document.documentElement.style.colorScheme = resolved
+}
 
 export default function App() {
   const { user, loading: authLoading, logout: authLogout } = useAuth()
@@ -39,7 +53,25 @@ export default function App() {
 
   const isAdmin = user?.role === 'admin'
 
-  // Загрузка баланса кошелька при входе
+  // ── Theme state ─────────────────────────────────────────────
+  const [theme, setTheme] = useState(getStoredTheme)
+
+  // Initialise theme on mount + listen for system changes
+  useEffect(() => {
+    applyTheme(theme)
+    const mq = window.matchMedia('(prefers-color-scheme: dark)')
+    const handler = () => { if (getStoredTheme() === 'system') applyTheme('system') }
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [theme])
+
+  function toggleTheme() {
+    const next = theme === 'dark' ? 'light' : theme === 'light' ? 'system' : 'dark'
+    setTheme(next)
+    setStoredTheme(next)
+  }
+
+  // ── Wallet ──────────────────────────────────────────────────
   useEffect(() => {
     if (user) {
       api.wallet.get()
@@ -338,6 +370,9 @@ export default function App() {
           )}
         </nav>
         <div className="header-right">
+          <button className="theme-toggle" onClick={toggleTheme} title={`Тема: ${theme === 'light' ? 'светлая' : theme === 'dark' ? 'тёмная' : 'системная'}`}>
+            {theme === 'light' ? <Sun size={16} /> : theme === 'dark' ? <Moon size={16} /> : <><Sun size={12} /><Moon size={12} /></>}
+          </button>
           <span className="header-user">{user.display_name}</span>
           {walletBalance !== null && (
             <span className={`header-balance ${walletBalance < 0 ? 'header-balance--negative' : ''}`}>

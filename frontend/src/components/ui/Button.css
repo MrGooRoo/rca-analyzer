@@ -21,9 +21,14 @@
   transition:
     background var(--transition-instant),
     color var(--transition-instant),
-    opacity var(--transition-instant);
+    opacity var(--transition-instant),
+    transform 150ms cubic-bezier(0.25, 0.1, 0.25, 1);
   user-select: none;
   -webkit-user-select: none;
+}
+
+.ui-btn:active:not(:disabled) {
+  transform: scale(0.96);
 }
 
 .ui-btn:disabled {

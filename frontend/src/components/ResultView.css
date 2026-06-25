@@ -87,6 +87,7 @@
   font-size: var(--text-footnote);
   font-weight: var(--weight-bold);
   cursor: pointer;
+  position: relative;
   transition:
     background var(--transition-instant),
     color var(--transition-instant),
