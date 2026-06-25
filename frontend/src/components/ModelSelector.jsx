@@ -10,7 +10,7 @@ const CATEGORY_META = {
   express:  { label: 'Экспресс',   icon: Zap, desc: '<16K — простые вопросы, быстрые ответы' },
 }
 
-export default function ModelSelector({ disabled }) {
+export default function ModelSelector({ disabled, onPrefsChange }) {
   const [models, setModels] = useState({ full: [], balanced: [], express: [] })
   const [prefs, setPrefs] = useState({ full: '', balanced: '', express: '' })
   const [loading, setLoading] = useState(true)
@@ -39,6 +39,7 @@ export default function ModelSelector({ disabled }) {
         if (prefsRes.balanced) p.balanced = prefsRes.balanced
         if (prefsRes.express) p.express = prefsRes.express
         setPrefs(p)
+        onPrefsChange?.(p)  // сообщаем родителю
       } catch (err) {
         setError(err.message)
       } finally {
@@ -47,11 +48,12 @@ export default function ModelSelector({ disabled }) {
     }
     load()
     return () => { cancelled = true }
-  }, [])
+  }, [])  // eslint-disable-line react-hooks/exhaustive-deps
 
   async function handleChange(category, value) {
     const next = { ...prefs, [category]: value }
     setPrefs(next)
+    onPrefsChange?.(next)  // сообщаем родителю сразу
     try {
       await api.fetchJson('/api/v1/user/model-preferences', {
         method: 'PUT',

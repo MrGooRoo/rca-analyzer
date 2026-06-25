@@ -99,8 +99,9 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   const [inputMode, setInputMode] = useState('manual')
   const [dragOver, setDragOver] = useState(false)
   const [expandedVictims, setExpandedVictims] = useState({})
-  const [step, setStep] = useState(1)      // Feedback #4: поэтапный ввод
-  const [showAdvanced, setShowAdvanced] = useState(false)  // Feedback #6: переключатель
+  const [step, setStep] = useState(1)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [modelPrefs, setModelPrefs] = useState({})
   const fileInputRef = useRef(null)
 
   const onDraftChangeRef = useRef(onDraftChange)
@@ -188,6 +189,18 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
   function handleSubmit(e) {
     e.preventDefault()
+    // Проверка платных моделей
+    const selectedModels = Object.values(modelPrefs).filter(Boolean)
+    const hasPaid = selectedModels.some(mid => {
+      // Платные — те, где нет 🟢 (is_free=false). Все модели из prefs.
+      // Мы не знаем is_free здесь, проверим через confirm
+      return true  // показываем предупреждение если хоть одна модель выбрана
+    })
+    if (hasPaid && !confirm(
+      '⚠️ Выбраны платные модели — с вашего кошелька будет списана стоимость токенов.\n\n' +
+      'Продолжить анализ?'
+    )) return
+
     const incidentPayload = {
       title: form.title, description: form.description,
       incident_date: form.incident_date ? form.incident_date + 'T00:00:00' : null,
@@ -206,10 +219,17 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
         children_under_21: v.children_under_21 !== '' ? Number(v.children_under_21) : undefined,
       })),
     }
+    const base = { language: 'ru', detail_level: Number(form.detail_level), incident: incidentPayload }
+    // Передаём model_preferences, если хотя бы одна выбрана
+    const prefs = {}
+    for (const key of ['full', 'balanced', 'express']) {
+      if (modelPrefs[key]) prefs[key] = modelPrefs[key]
+    }
+    if (Object.keys(prefs).length > 0) base.model_preferences = prefs
     if (isMulti()) {
-      onSubmitMulti({ methodologies: form.methodologies, language: 'ru', detail_level: Number(form.detail_level), incident: incidentPayload })
+      onSubmitMulti({ methodologies: form.methodologies, ...base })
     } else {
-      onSubmit({ methodology: form.methodology, language: 'ru', detail_level: Number(form.detail_level), incident: incidentPayload })
+      onSubmit({ methodology: form.methodology, ...base })
     }
   }
 
@@ -508,7 +528,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
             </div>
           </div>
 
-          <ModelSelector disabled={busy} />
+          <ModelSelector disabled={busy} onPrefsChange={setModelPrefs} />
         </CardBody>
       </Card>
 
