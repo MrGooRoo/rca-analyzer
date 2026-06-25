@@ -17,8 +17,9 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from src.api.middleware.csrf import CSRFMiddleware  # noqa: E402
 from src.api.routes.admin import router as admin_router  # noqa: E402
 from src.api.routes.analyze import router as analyze_router  # noqa: E402
-from src.api.routes.export import router as export_router  # noqa: E402
-from src.api.routes.upload import router as upload_router  # noqa: E402
+from src.api.routes.export import router as export_router
+from src.api.routes.models import router as models_router
+from src.api.routes.upload import router as upload_router
 from src.auth.router import router as auth_router  # noqa: E402
 from src.auth.seed import ensure_admin_exists  # noqa: E402
 from src.db.base import AsyncSessionLocal  # noqa: E402
@@ -154,6 +155,7 @@ app.include_router(analyze_router)
 app.include_router(export_router)
 app.include_router(upload_router)
 app.include_router(admin_router)
+app.include_router(models_router)
 
 
 @app.get("/health", tags=["infra"])
