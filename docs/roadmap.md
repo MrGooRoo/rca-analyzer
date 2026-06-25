@@ -2,15 +2,32 @@
 
 ## ✅ Выполнено
 
+### DOCX-извлечение (LLM)
 - [x] **max_tokens metadata**: 1024→4096 (предотвращение обрезания JSON)
 - [x] **max_tokens narrative**: 16384→32768 (дословный текст обстоятельств)
 - [x] **Динамическая корректировка max_tokens** под model_ctx (OpenRouter)
 - [x] **Усиление русского языка** в системном промпте LLM
 - [x] **Дедупликация по incident_hash** (SHA-256 от title+description)
-- [x] **Админ-панель DOCX-кэша**: список + удаление
+- [x] **MAX_FILE_SIZE upload.py**: 10→20MB
+
+### Администрирование
+- [x] **Админ-панель DOCX-кэша**: список + удаление (UI + API)
+- [x] **Восстановление AnalysisSteps** в App.jsx (пропал при рефакторинге)
+
+### Инфраструктура
 - [x] **Nginx**: client_max_body_size 100M, proxy timeouts 600s
-- [x] **Баг clearUpload**: кнопка «Вручную» больше не сбрасывает форму
-- [x] **Замена emoji→lucide-react** во всех компонентах фронтенда
+- [x] **.dockerignore** (исключение node_modules из контекста сборки)
+- [x] **Makefile**: цели сборки, деплоя
+- [x] **scripts/createsuperuser.py** (утилита создания админа)
+
+### Баги
+- [x] **clearUpload**: кнопка «Вручную» больше не сбрасывает форму
+- [x] **Пустая история**: добавлен useCallback в HistoryPage.jsx
+- [x] **Удалён дублирующийся div.incident-steps** в IncidentForm.jsx
+
+### Фронтенд
+- [x] **Замена emoji→lucide-react**: AdminPage, IncidentForm, HistoryPage, CompareView, ResultView, AnalysisProgress, SingleAnalysisProgress, SimilarIncidentsHint/Panel, Toast
+- [x] **Toast**: переход на lucide + улучшение анимации (замена `{}` на `{'{}'}`)
 
 ## 🔧 К реализации
 
