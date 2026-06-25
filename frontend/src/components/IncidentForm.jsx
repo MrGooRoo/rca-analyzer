@@ -29,9 +29,9 @@ const TYPES = [
 ]
 
 const DETAIL_LEVELS = [
-  { value: 1, label: 'Кратко',    hint: 'Ключевые причины и выводы' },
-  { value: 2, label: 'Стандарт',  hint: 'Развёрнутый анализ с рекомендациями' },
-  { value: 3, label: 'Подробно',  hint: 'Полный отчёт со всеми деталями' },
+  { value: 1, label: 'Быстрый (~5 мин)',    hint: 'Основные причины и краткие выводы' },
+  { value: 2, label: 'Стандартный (~15 мин)', hint: 'Развёрнутый анализ с рекомендациями' },
+  { value: 3, label: 'Подробный (~30+ мин)',  hint: 'Полный отчёт со всеми деталями' },
 ]
 
 const EMPTY_VICTIM = {
@@ -516,7 +516,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
               <AlertTriangle size={14} /> Выберите минимум 2 методики для сравнения
             </div>
 
-            <SubLabel>Уровень детализации</SubLabel>
+            <SubLabel>Время анализа</SubLabel>
             <div className="incident-method-grid incident-method-grid--three">
               {DETAIL_LEVELS.map(lvl => (
                 <label key={lvl.value} className={CardToggle(Number(form.detail_level) === lvl.value, busy)}>
