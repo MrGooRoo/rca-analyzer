@@ -35,3 +35,12 @@ migrate:
 
 migrate-new:
 	docker compose exec api alembic revision --autogenerate -m "$(name)"
+
+createsuperuser:
+	docker compose exec -it api python scripts/createsuperuser.py
+
+setrole:
+	docker compose exec -it api python scripts/set_role.py
+
+admin-users:
+	docker compose exec api python scripts/set_role.py --list

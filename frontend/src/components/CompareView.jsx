@@ -2,7 +2,16 @@ import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Badge, Card, CardBody } from './ui/Card.jsx'
+import { Scale, HelpCircle, Ribbon, Fish, TreePine, Cog, FileText, BarChart3, Lightbulb } from 'lucide-react'
 import './CompareView.css'
+
+const METHODOLOGY_ICONS = {
+  '❓': HelpCircle,
+  '🎀': Ribbon,
+  '🐟': Fish,
+  '🌳': TreePine,
+  '⚙️': Cog,
+}
 
 const PRIORITY_TONES = {
   high:   'rose',
@@ -22,7 +31,7 @@ export default function CompareView({ comparison }) {
     <div className="compare-view" id="step-result">
       {/* Заголовок */}
       <div className="compare-view__header">
-        <span className="compare-view__icon">⚖️</span>
+        <span className="compare-view__icon"><Scale size={22} /></span>
         <span className="compare-view__title">Сравнение методологий</span>
         <Badge tone="violet">{comparison.results.length} методик</Badge>
       </div>
@@ -31,7 +40,7 @@ export default function CompareView({ comparison }) {
       {comparison.summary && (
         <Card>
           <CardBody>
-            <div className="compare-view__section-label compare-view__section-label--indigo">📋 Сводка сравнения</div>
+            <div className="compare-view__section-label compare-view__section-label--indigo"><FileText size={14} /> Сводка сравнения</div>
             <p className="compare-view__text">{comparison.summary}</p>
           </CardBody>
         </Card>
@@ -65,7 +74,7 @@ export default function CompareView({ comparison }) {
             {Object.entries(comparison.differing_causes).map(([methodology, causes]) => (
               <div key={methodology} className="compare-card">
                 <div className="compare-card__badge">
-                  <Badge tone={methodologyMeta(methodology).badgeTone}>{methodologyMeta(methodology).icon} {METHODOLOGY_LABELS[methodology] || methodology}</Badge>
+                  <Badge tone={methodologyMeta(methodology).badgeTone}>{(() => { const Icon = METHODOLOGY_ICONS[methodologyMeta(methodology).icon]; return Icon ? <Icon size={12} /> : null; })()} {METHODOLOGY_LABELS[methodology] || methodology}</Badge>
                 </div>
                 <ul className="compare-list">
                   {causes.map((cause, i) => (
@@ -80,7 +89,7 @@ export default function CompareView({ comparison }) {
 
       {/* Side-by-side результаты */}
       <div className="compare-view__section">
-        <div className="compare-view__section-label">📊 Детальные результаты по каждой методике</div>
+        <div className="compare-view__section-label"><BarChart3 size={14} /> Детальные результаты по каждой методике</div>
 
         {/* Табы */}
         <div className="compare-tabs">
@@ -90,7 +99,7 @@ export default function CompareView({ comparison }) {
               className={`compare-tab ${r.result_id === activeTab ? 'compare-tab--active' : ''}`}
               onClick={() => setActiveTab(r.result_id)}
             >
-              <span className="compare-tab__icon">{methodologyMeta(r.methodology).icon}</span>
+              <span className="compare-tab__icon">{(() => { const Icon = METHODOLOGY_ICONS[methodologyMeta(r.methodology).icon]; return Icon ? <Icon size={14} /> : null; })()}</span>
               <span className="compare-tab__label">{METHODOLOGY_LABELS[r.methodology] || r.methodology}</span>
               <span className="compare-tab__confidence">{(r.confidence_avg * 100).toFixed(0)}%</span>
             </button>
@@ -117,7 +126,7 @@ export default function CompareView({ comparison }) {
 
             {activeResult.recommendations?.length > 0 && (
               <div className="compare-view__subsection">
-                <div className="compare-view__section-label">💡 Рекомендации ({activeResult.recommendations.length})</div>
+                <div className="compare-view__section-label"><Lightbulb size={14} /> Рекомендации ({activeResult.recommendations.length})</div>
                 <div className="compare-view__cards">
                   {activeResult.recommendations.map(r => (
                     <div key={r.id} className="compare-card">

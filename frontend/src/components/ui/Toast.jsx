@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useState } from 'react'
 import { cn } from '../../utils/cn'
+import { Info, CheckCircle, AlertTriangle, XCircle, X } from 'lucide-react'
 import './Toast.css'
 
 const Ctx = createContext(undefined)
@@ -11,11 +12,11 @@ const toneStyles = {
   warning: 'toast--warning',
 }
 
-const icons = {
-  info: 'ℹ️',
-  success: '✅',
-  error: '⚠️',
-  warning: '⚡',
+const toneIcons = {
+  info: Info,
+  success: CheckCircle,
+  error: AlertTriangle,
+  warning: AlertTriangle,
 }
 
 export function ToastProvider({ children }) {
@@ -41,7 +42,7 @@ export function ToastProvider({ children }) {
       <div className="toast-container">
         {toasts.map(t => (
           <div key={t.id} className={cn('toast', toneStyles[t.tone] || 'toast--info')}>
-            <span className="toast__icon">{icons[t.tone]}</span>
+            <span className="toast__icon">{(() => { const Ic = toneIcons[t.tone]; return Ic ? <Ic size={16} /> : null; })()}</span>
             <div className="toast__body">
               {t.title && <div className="toast__title">{t.title}</div>}
               <div className="toast__message">{t.message}</div>
@@ -50,7 +51,7 @@ export function ToastProvider({ children }) {
               className="toast__close"
               onClick={() => setToasts(s => s.filter(x => x.id !== t.id))}
             >
-              ✕
+              <X size={14} />
             </button>
           </div>
         ))}

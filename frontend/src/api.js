@@ -522,5 +522,9 @@ export const api = {
       const suffix = qs.toString() ? `?${qs.toString()}` : ''
       return req('GET', `/api/v1/admin/openrouter/models${suffix}`, undefined, { authRequired: true })
     },
+    listDocxCache: () =>
+      req('GET', '/api/v1/admin/docx-cache', undefined, { authRequired: true }),
+    deleteDocxCache: (fileHash) =>
+      req('DELETE', `/api/v1/admin/docx-cache/${fileHash}`, undefined, { authRequired: true }),
   },
 }

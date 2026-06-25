@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { api } from '../api.js'
+import { Link } from 'lucide-react'
 import './SimilarIncidentsHint.css'
 
 /**
@@ -44,7 +45,7 @@ export default function SimilarIncidentsHint({ queryText, incidentTitle = null, 
   if (count === 0) {
     return (
       <div className="similar-incidents-hint similar-incidents-hint--empty">
-        <span>🔗</span>
+        <span><Link size={14} /></span>
         <span>Похожих инцидентов в истории не найдено</span>
       </div>
     )
@@ -54,7 +55,7 @@ export default function SimilarIncidentsHint({ queryText, incidentTitle = null, 
 
   return (
     <div className="similar-incidents-hint similar-incidents-hint--found">
-      <span>🔗</span>
+      <span><Link size={14} /></span>
       <span>
         Найдено <strong className="similar-incidents-hint__count">{count}</strong> похожих {word} — подробности покажем после анализа
       </span>

@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user, require_admin
 from src.db.base import get_db
+from src.db.cache_repository import ExtractionCacheRepository
 from src.db.llm_settings_repository import LLMSettingsRepository
 from src.db.orm_models import UserORM
 from src.domain.models import LLMSettings, LLMSettingsUpdate, OpenRouterModelInfo
@@ -183,3 +184,50 @@ async def list_openrouter_models(
         )
     except OpenRouterCatalogError as exc:
         raise HTTPException(status_code=502, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# GET /api/v1/admin/docx-cache — список кэша извлечений
+# ---------------------------------------------------------------------------
+
+class DocxCacheItem(BaseModel):
+    file_hash: str
+    incident_hash: str | None = None
+    created_at: str | None = None
+    hit_count: int = 0
+
+
+@router.get(
+    "/docx-cache",
+    response_model=list[DocxCacheItem],
+    summary="Список всех записей кэша DOCX-извлечений (admin-only)",
+)
+async def list_docx_cache(
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[DocxCacheItem]:
+    require_admin(current_user)
+    repo = ExtractionCacheRepository(db)
+    raw = await repo.list_all()
+    return [DocxCacheItem(**r) for r in raw]
+
+
+# ---------------------------------------------------------------------------
+# DELETE /api/v1/admin/docx-cache/{file_hash} — удалить запись кэша
+# ---------------------------------------------------------------------------
+
+@router.delete(
+    "/docx-cache/{file_hash}",
+    status_code=204,
+    summary="Удалить запись из кэша DOCX-извлечений по file_hash (admin-only)",
+)
+async def delete_docx_cache(
+    file_hash: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    require_admin(current_user)
+    repo = ExtractionCacheRepository(db)
+    deleted = await repo.delete(file_hash)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="Запись не найдена")

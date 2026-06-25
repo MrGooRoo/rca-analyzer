@@ -3,7 +3,16 @@
  */
 import { Card, Badge } from './ui/Card.jsx'
 import { methodologyMeta } from '../lib/methodologies.js'
+import { HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
 import './SingleAnalysisProgress.css'
+
+const METHODOLOGY_ICONS = {
+  '❓': HelpCircle,
+  '🎀': Ribbon,
+  '🐟': Fish,
+  '🌳': TreePine,
+  '⚙️': Cog,
+}
 
 const STAGE_LABELS = {
   started: 'Запуск анализа…',
@@ -29,7 +38,7 @@ export default function SingleAnalysisProgress({ progress }) {
         <div className="single-analysis-progress__title-group">
           <div className="single-analysis-progress__eyebrow">Анализ</div>
           <div className="single-analysis-progress__title">
-            <span className="single-analysis-progress__icon" aria-hidden="true">{meta.icon}</span>
+            <span className="single-analysis-progress__icon" aria-hidden="true">{(() => { const Ic = METHODOLOGY_ICONS[meta.icon]; return Ic ? <Ic size={14} /> : null; })()}</span>
             {methodologyName || meta.name}
           </div>
         </div>

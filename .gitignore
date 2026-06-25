@@ -29,5 +29,7 @@ node_modules/
 
 # Frontend build output
 frontend/dist/
+# Figma-прототипы (черновики, в репозитории не нужны)
+frontend/public/
 test.db
 apple-demo.html

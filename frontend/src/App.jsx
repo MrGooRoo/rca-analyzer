@@ -12,6 +12,7 @@ import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
 import AdminPage from './components/AdminPage.jsx'
 import AnalysisSteps from './components/AnalysisSteps.jsx'
+import { FlaskConical, History, Settings, Plus } from 'lucide-react'
 import { methodologyMeta } from './lib/methodologies.js'
 import './App.css'
 
@@ -308,20 +309,20 @@ export default function App() {
             size="sm"
             className={page === 'analyze' ? 'app-nav-btn--active' : ''}
             onClick={goToAnalyze}
-          >➕ Анализ</Button>
+          ><FlaskConical size={16} /> Анализ</Button>
           <Button
             variant="ghost"
             size="sm"
             className={page === 'history' || page === 'view' ? 'app-nav-btn--active' : ''}
             onClick={goToHistory}
-          >🗂 История</Button>
+          ><History size={16} /> История</Button>
           {isAdmin && (
             <Button
               variant="ghost"
               size="sm"
               className={page === 'admin' ? 'app-nav-btn--active' : ''}
               onClick={goToAdmin}
-            >👥 Пользователи</Button>
+            ><Settings size={16} /> Настройки</Button>
           )}
         </nav>
         <div className="header-right">
@@ -392,7 +393,7 @@ export default function App() {
                   <span className="analysis-result-toolbar__eyebrow">Результат анализа</span>
                   {comparison ? 'Сравнение методик готово' : 'Анализ готов'}
                 </h2>
-                <Button variant="primary" onClick={startNewAnalysis}>➕ Новый анализ</Button>
+                <Button variant="primary" onClick={startNewAnalysis}><Plus size={16} /> Новый анализ</Button>
               </div>
             )}
 
@@ -413,7 +414,7 @@ export default function App() {
           <>
             <div className="view-actions">
               <Button variant="secondary" size="sm" onClick={goToHistory}>← Назад в историю</Button>
-              <Button variant="primary" size="sm" onClick={startNewAnalysis}>➕ Новый анализ</Button>
+              <Button variant="primary" size="sm" onClick={startNewAnalysis}><Plus size={16} /> Новый анализ</Button>
             </div>
             {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={openResult} />}
             {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}

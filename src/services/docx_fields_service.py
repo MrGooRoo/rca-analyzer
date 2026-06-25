@@ -197,6 +197,8 @@ _BASE_SYSTEM = """\
 Ты — специалист по анализу отчётов об инцидентах на производстве.
 Прочитай текст отчёта и извлеки из него ТОЛЬКО запрошенные поля.
 Ответ — СТРОГО JSON-объект, без markdown, без пояснений.
+ВСЕ поля должны быть на РУССКОМ языке, даже если исходный текст содержит
+английские термины — извлекай их в переводе или транслитерации.
 Если поле невозможно определить — используй null.
 """
 
@@ -280,25 +282,62 @@ async def _extract_group(
     system_prompt: str,
     user_prompt: str,
     max_tokens: int,
+    model_ctx: int,
     required_keys: set[str],
 ) -> dict:
-    """\u041e\u0434\u0438\u043d \u043f\u0430\u0440\u0430\u043b\u043b\u0435\u043b\u044c\u043d\u044b\u0439 \u0432\u044b\u0437\u043e\u0432 LLM \u0434\u043b\u044f \u0433\u0440\u0443\u043f\u043f\u044b \u043f\u043e\u043b\u0435\u0439."""
-    logger.info("[DocxFields] \u0417\u0430\u043f\u0440\u043e\u0441 \u0433\u0440\u0443\u043f\u043f\u044b '%s' ...", group_name)
+    """Один параллельный вызов LLM для группы полей.
+
+    max_tokens корректируется с учётом model_ctx, чтобы не превысить
+    контекст модели. Если модель не поддерживает запрошенное количество —
+    значение уменьшается, но не ниже 1024.
+    """
+    safe_max = _compute_safe_max_tokens(max_tokens, model_ctx, system_prompt, user_prompt)
+    if safe_max < max_tokens:
+        logger.info(
+            "[DocxFields] Группа '%s': запрошено max_tokens=%d, "
+            "скорректировано до %d (model_ctx=%d)",
+            group_name, max_tokens, safe_max, model_ctx,
+        )
+    logger.info("[DocxFields] Запрос группы '%s' ...", group_name)
     try:
         async with OpenRouterClient(timeout=_GROUP_TIMEOUT) as client:
             result = await client.complete(
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 temperature=0.1,
-                max_tokens=max_tokens,
+                max_tokens=safe_max,
                 required_keys=required_keys,
             )
         result.pop("_meta", None)
-        logger.info("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 '%s' \u2014 \u0443\u0441\u043f\u0435\u0448\u043d\u043e (%d \u043a\u043b\u044e\u0447\u0435\u0439)", group_name, len(result))
+        logger.info("[DocxFields] Группа '%s' — успешно (%d ключей)", group_name, len(result))
         return result
     except Exception as exc:
-        logger.error("[DocxFields] \u0413\u0440\u0443\u043f\u043f\u0430 '%s' \u2014 \u043e\u0448\u0438\u0431\u043a\u0430: %s", group_name, exc)
+        logger.error("[DocxFields] Группа '%s' — ошибка: %s", group_name, exc)
         return {}
+
+
+def _compute_safe_max_tokens(
+    requested: int,
+    model_ctx: int,
+    system_prompt: str,
+    user_prompt: str,
+    safety_margin: int = 2048,
+) -> int:
+    """Вычислить безопасный max_tokens с учётом контекста модели.
+    
+    requested — желаемое (статически заданное) значение.
+    model_ctx — лимит контекста модели (токенов).
+    Оценка input занимает ~(len(text)//3 + 256) токенов.
+    available = model_ctx - estimated_input - safety_margin.
+    Результат: min(requested, available), но не ниже 1024.
+    """
+    if model_ctx <= 0:
+        return requested
+    estimated_input = (len(system_prompt) + len(user_prompt)) // 3 + 256
+    available = model_ctx - estimated_input - safety_margin
+    if available <= 1024:
+        return 1024
+    return min(requested, available)
 
 
 async def extract_fields_from_text(report_text: str) -> dict:
@@ -331,7 +370,8 @@ async def extract_fields_from_text(report_text: str) -> dict:
             "metadata",
             _SYSTEM_METADATA,
             user_prompt,
-            max_tokens=1024,
+            max_tokens=4096,
+            model_ctx=model_ctx,
             required_keys={"title"},
         ),
         _extract_group(
@@ -339,13 +379,15 @@ async def extract_fields_from_text(report_text: str) -> dict:
             _SYSTEM_DESCRIPTION,
             user_prompt,
             max_tokens=8192,
+            model_ctx=model_ctx,
             required_keys={"description"},
         ),
         _extract_group(
             "narrative",
             _SYSTEM_NARRATIVE,
             user_prompt,
-            max_tokens=16384,
+            max_tokens=32768,
+            model_ctx=model_ctx,
             required_keys={"established_facts"},
         ),
         _extract_group(
@@ -353,6 +395,7 @@ async def extract_fields_from_text(report_text: str) -> dict:
             _SYSTEM_VICTIMS,
             user_prompt,
             max_tokens=8192,
+            model_ctx=model_ctx,
             required_keys={"victims_list"},
         ),
         return_exceptions=True,

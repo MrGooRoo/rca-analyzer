@@ -5,12 +5,21 @@ import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Button } from './ui/Button.jsx'
 import { Badge, Card, CardBody } from './ui/Card.jsx'
 import { api } from '../api.js'
+import { Sparkles, Download, HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
 import './ResultView.css'
 
 const PRIORITY_TONES = {
   high:   'rose',
   medium: 'amber',
   low:    'emerald',
+}
+
+const METHODOLOGY_ICONS_RV = {
+  '❓': HelpCircle,
+  '🎀': Ribbon,
+  '🐟': Fish,
+  '🌳': TreePine,
+  '⚙️': Cog,
 }
 
 export default function ResultView({ result, onOpenResult = null }) {
@@ -35,7 +44,7 @@ export default function ResultView({ result, onOpenResult = null }) {
 
   const tabs = isBowtie
     ? [
-        { id: 'bowtie', label: '🦋 Диаграмма' },
+        { id: 'bowtie', label: <><Sparkles size={14} /> Диаграмма</> },
         { id: 'recs',   label: `Рекомендации (${recCount})` },
         { id: 'meta',   label: 'Мета' },
       ]
@@ -60,7 +69,7 @@ export default function ResultView({ result, onOpenResult = null }) {
       {/* Header */}
       <div className="result-view__header">
         <div className="result-view__header-left">
-          <Badge tone={meta.badgeTone}>{meta.icon} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>
+          <Badge tone={meta.badgeTone}>{(() => { const Ic = METHODOLOGY_ICONS_RV[meta.icon]; return Ic ? <Ic size={12} /> : null; })()} {METHODOLOGY_LABELS[result.methodology] || result.methodology}</Badge>
           <span className="result-view__result-id">#{result.result_id ? result.result_id.slice(0, 8) : ''}</span>
         </div>
         <div className="result-view__header-right">
@@ -70,8 +79,8 @@ export default function ResultView({ result, onOpenResult = null }) {
             <Stat label="Модель" value={(result.model_used || '').split('/')[1] || result.model_used || '—'} />
           </div>
           <div className="result-view__actions">
-            <Button variant="secondary" size="sm" loading={exporting === 'docx'} onClick={() => handleExport('docx')} disabled={!!exporting} leftIcon="⬇️">DOCX</Button>
-            <Button variant="secondary" size="sm" loading={exporting === 'pdf'} onClick={() => handleExport('pdf')} disabled={!!exporting} leftIcon="⬇️">PDF</Button>
+            <Button variant="secondary" size="sm" loading={exporting === 'docx'} onClick={() => handleExport('docx')} disabled={!!exporting}><Download size={14} /> DOCX</Button>
+            <Button variant="secondary" size="sm" loading={exporting === 'pdf'} onClick={() => handleExport('pdf')} disabled={!!exporting}><Download size={14} /> PDF</Button>
           </div>
         </div>
       </div>

@@ -4,6 +4,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { api } from '../api.js'
 import { Badge, Card } from './ui/Card.jsx'
+import { CheckCircle, XCircle, Clock, Cog } from 'lucide-react'
 import './AnalysisProgress.css'
 
 const STATUS_IDLE = 'idle'
@@ -20,10 +21,10 @@ function updateItem(list, event, state, message = null) {
 }
 
 function stateIcon(state) {
-  if (state === 'done') return '✅'
-  if (state === 'error') return '❌'
-  if (state === 'pending') return '⏳'
-  return '⚙️'
+  if (state === 'done') return <CheckCircle size={14} />
+  if (state === 'error') return <XCircle size={14} />
+  if (state === 'pending') return <Clock size={14} />
+  return <Cog size={14} />
 }
 
 function stateLabel(state) {
@@ -94,9 +95,9 @@ export default function AnalysisProgress({ payload, signal, onDone, onError }) {
         <div className="analysis-progress__title-group">
           <div className="analysis-progress__eyebrow">Сравнение методик</div>
           <div className="analysis-progress__title">
-            {phase === STATUS_DONE && '✅ Анализ завершён'}
-            {phase === STATUS_ERROR && '❌ Ошибка анализа'}
-            {phase === STATUS_RUNNING && 'Анализ инцидента…'}
+            {phase === STATUS_DONE && <><CheckCircle size={16} /> Анализ завершён</>}
+            {phase === STATUS_ERROR && <><XCircle size={16} /> Ошибка анализа</>}
+            {phase === STATUS_RUNNING && <>Анализ инцидента…</>}
           </div>
         </div>
         <Badge tone={phase === STATUS_ERROR ? 'rose' : phase === STATUS_DONE ? 'emerald' : 'sky'} className="analysis-progress__badge">

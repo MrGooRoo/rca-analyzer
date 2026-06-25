@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
 import { Button } from './ui/Button.jsx'
 import { Badge } from './ui/Card.jsx'
+import { Brain, Users, FileText } from 'lucide-react'
 import './AdminPage.css'
 
 const ROLE_LABELS = {
@@ -51,6 +52,11 @@ export default function AdminPage({ currentUser }) {
   const [modelSearch, setModelSearch] = useState('')
   const [freeOnly, setFreeOnly] = useState(false)
 
+  const [docxCache, setDocxCache] = useState([])
+  const [docxCacheLoading, setDocxCacheLoading] = useState(false)
+  const [docxCacheError, setDocxCacheError] = useState(null)
+  const [docxCacheDeleting, setDocxCacheDeleting] = useState(null)
+
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try { const data = await api.admin.listUsers(); setUsers(data) } catch (e) { setError(e.message) } finally { setLoading(false) }
@@ -72,9 +78,21 @@ export default function AdminPage({ currentUser }) {
     } catch (e) { setModelsError(e.message) } finally { setModelsLoading(false) }
   }, [modelSearch, freeOnly])
 
+  const loadDocxCache = useCallback(async () => {
+    setDocxCacheLoading(true); setDocxCacheError(null)
+    try { const data = await api.admin.listDocxCache(); setDocxCache(data) } catch (e) { setDocxCacheError(e.message) } finally { setDocxCacheLoading(false) }
+  }, [])
+
+  async function deleteDocxCacheEntry(fileHash) {
+    if (!confirm(`Удалить запись кэша ${fileHash.slice(0, 16)}…? Данные инцидента не удаляются, только кэш LLM-извлечения.`)) return
+    setDocxCacheDeleting(fileHash); setDocxCacheError(null)
+    try { await api.admin.deleteDocxCache(fileHash); await loadDocxCache() } catch (e) { setDocxCacheError(e.message) } finally { setDocxCacheDeleting(null) }
+  }
+
   useEffect(() => { load() }, [load])
   useEffect(() => { loadLlmSettings() }, [loadLlmSettings])
   useEffect(() => { loadModels() }, [loadModels])
+  useEffect(() => { loadDocxCache() }, [loadDocxCache])
 
   const modelById = useMemo(() => { const m = new Map(); models.forEach(x => m.set(x.id, x)); return m }, [models])
   const selectedDraftModel = modelById.get(llmForm.draft_model)
@@ -113,7 +131,7 @@ export default function AdminPage({ currentUser }) {
       <section className="admin-section admin-section--llm">
         <div className="admin-section__header">
           <div>
-            <h2 className="admin-section__title">🧠 LLM Conductor</h2>
+            <h2 className="admin-section__title"><Brain size={18} /> LLM Conductor</h2>
             <p className="admin-section__description">Черновую работу делает draft-модель, verifier подключается по выбранной схеме.</p>
           </div>
           <Button variant="secondary" size="sm" onClick={loadLlmSettings} disabled={llmLoading || llmSaving}>
@@ -188,7 +206,7 @@ export default function AdminPage({ currentUser }) {
       {/* Users */}
       <section className="admin-section">
         <div className="admin-section__header">
-          <h2 className="admin-section__title">👥 Управление пользователями</h2>
+          <h2 className="admin-section__title"><Users size={18} /> Управление пользователями</h2>
           <Button variant="secondary" size="sm" onClick={load} disabled={loading}>
             {loading ? '…' : '↻ Обновить'}
           </Button>
@@ -232,6 +250,53 @@ export default function AdminPage({ currentUser }) {
                 </div>
               )
             })}
+          </div>
+        )}
+      </section>
+
+      {/* DOCX Cache */}
+      <section className="admin-section">
+        <div className="admin-section__header">
+          <h2 className="admin-section__title"><FileText size={18} /> Кэш DOCX-извлечений</h2>
+          <Button variant="secondary" size="sm" onClick={loadDocxCache} disabled={docxCacheLoading}>
+            {docxCacheLoading ? '…' : '↻ Обновить'}
+          </Button>
+        </div>
+
+        {docxCacheError && <div className="admin-alert admin-alert--error">{docxCacheError}</div>}
+        {!docxCacheLoading && !docxCacheError && docxCache.length === 0 && (
+          <div className="admin-empty">Кэш пуст</div>
+        )}
+
+        {docxCache.length > 0 && (
+          <div className="admin-table">
+            <div className="admin-table__header">
+              {['File Hash', 'Дата создания', 'Попаданий', 'Действие'].map(h => (
+                <span key={h} className="admin-table__head-cell">{h}</span>
+              ))}
+            </div>
+            {docxCache.map(c => (
+              <div key={c.file_hash} className="admin-table__row">
+                <div className="admin-table__cell">
+                  <code title={c.incident_hash ? `incident_hash: ${c.incident_hash.slice(0, 16)}…` : 'без incident_hash'}>
+                    {c.file_hash.slice(0, 16)}…
+                  </code>
+                </div>
+                <div className="admin-table__cell admin-table__cell--date">
+                  {c.created_at ? new Date(c.created_at).toLocaleString('ru-RU') : '—'}
+                </div>
+                <div className="admin-table__cell admin-table__cell--center">{c.hit_count}</div>
+                <div className="admin-table__cell admin-table__cell--center">
+                  <button
+                    className="admin-role-button admin-role-button--user"
+                    onClick={() => deleteDocxCacheEntry(c.file_hash)}
+                    disabled={docxCacheDeleting === c.file_hash}
+                  >
+                    {docxCacheDeleting === c.file_hash ? '…' : 'Удалить'}
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </section>

@@ -286,6 +286,8 @@ class DocxExtractionCacheORM(Base):
 
     Ключ: SHA-256 от байт файла (file_hash).
     Значение: JSON-строка с извлечёнными полями (extracted_fields_json).
+    incident_hash — SHA-256 от title+description для дедупликации
+    по содержимому (разные файлы с тем же инцидентом).
 
     Позволяет при повторной загрузке того же файла пропустить
     все 4 параллельных LLM-запроса (~6 мин) и вернуть результат
@@ -295,6 +297,7 @@ class DocxExtractionCacheORM(Base):
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
     file_hash: Mapped[str] = mapped_column(String(64), unique=True, nullable=False, index=True)
+    incident_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     extracted_fields_json: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now()

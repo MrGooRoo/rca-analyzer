@@ -47,12 +47,14 @@ class ExtractionCacheRepository:
         return json.loads(row.extracted_fields_json)
 
     async def save(self, file_hash: str, fields: dict) -> None:
+        """Сохранить результат извлечения в кэш (без incident_hash — обратная совместимость)."""
+        await self._hard_save(file_hash, None, fields)
+
+    async def _hard_save(self, file_hash: str, incident_hash: str | None, fields: dict) -> None:
+        """Сохранить результат с указанием incident_hash.
+        
+        Если запись с таким file_hash уже есть — пропускаем.
         """
-        Сохранить результат извлечения в кэш.
-        Если запись с таким хешем уже есть — пропускаем (race condition).
-        """
-        existing = await self.get.__wrapped__(self, file_hash) if hasattr(self.get, "__wrapped__") else None
-        # Простая проверка без рекурсии
         stmt = select(DocxExtractionCacheORM).where(
             DocxExtractionCacheORM.file_hash == file_hash
         )
@@ -63,8 +65,51 @@ class ExtractionCacheRepository:
 
         row = DocxExtractionCacheORM(
             file_hash=file_hash,
+            incident_hash=incident_hash,
             extracted_fields_json=json.dumps(fields, ensure_ascii=False),
         )
         self._session.add(row)
         await self._session.commit()
         logger.info("[ExtractionCache] Сохранено в кэш: hash=%s", file_hash[:16])
+
+    async def delete(self, file_hash: str) -> bool:
+        """Удалить запись из кэша по хешу файла. Вернуть True если была удалена."""
+        stmt = select(DocxExtractionCacheORM).where(
+            DocxExtractionCacheORM.file_hash == file_hash
+        )
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            return False
+        await self._session.delete(row)
+        await self._session.commit()
+        logger.info("[ExtractionCache] Удалено: hash=%s", file_hash[:16])
+        return True
+
+    async def find_by_incident_hash(self, incident_hash: str) -> dict | None:
+        """Найти кэш по incident_hash (SHA-256 title+description)."""
+        stmt = select(DocxExtractionCacheORM).where(
+            DocxExtractionCacheORM.incident_hash == incident_hash
+        ).order_by(DocxExtractionCacheORM.created_at.desc()).limit(1)
+        row = (await self._session.execute(stmt)).scalar_one_or_none()
+        if row is None:
+            return None
+        logger.info(
+            "[ExtractionCache] Найден по incident_hash=%s — hash файла %s",
+            incident_hash[:16], row.file_hash[:16],
+        )
+        return json.loads(row.extracted_fields_json)
+
+    async def list_all(self) -> list[dict]:
+        """Вернуть список всех записей кэша (file_hash, incident_hash, created_at, hit_count)."""
+        from sqlalchemy import desc
+        stmt = select(DocxExtractionCacheORM).order_by(desc(DocxExtractionCacheORM.created_at)).limit(200)
+        rows = (await self._session.execute(stmt)).scalars().all()
+        return [
+            {
+                "file_hash": r.file_hash,
+                "incident_hash": r.incident_hash,
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "hit_count": r.hit_count,
+            }
+            for r in rows
+        ]

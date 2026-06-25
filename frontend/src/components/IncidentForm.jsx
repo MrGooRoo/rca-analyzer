@@ -5,6 +5,7 @@ import { Button } from './ui/Button.jsx'
 import { Input, Textarea, Select } from './ui/Field.jsx'
 import { Card, CardHeader, CardBody } from './ui/Card.jsx'
 import { METHODOLOGIES } from '../lib/methodologies.js'
+import { FileText, Search, Cog, Keyboard, CheckCircle, Edit3, Camera, Tag, Target, Scale, AlertTriangle, Play } from 'lucide-react'
 import './IncidentForm.css'
 
 const SEVERITIES = [
@@ -108,9 +109,9 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   const busy = loading || uploading
 
   const STEPS = [
-    { num: 1, label: 'Основное', icon: '📋' },
-    { num: 2, label: 'Детали', icon: '🔍' },
-    { num: 3, label: 'Анализ', icon: '⚙️' },
+    { num: 1, label: 'Основное', icon: <FileText size={16} /> },
+    { num: 2, label: 'Детали', icon: <Search size={16} /> },
+    { num: 3, label: 'Анализ', icon: <Cog size={16} /> },
   ]
 
   function canProceed() {
@@ -179,7 +180,8 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   function handleDragLeave(e) { e.preventDefault(); setDragOver(false) }
   function clearUpload() {
     setUploadedFile(null); setUploadError(null); setUploadMessage('')
-    setForm({ ...DEFAULTS })
+    // Не сбрасываем форму — переключение на ручной режим не должно уничтожать
+    // уже извлечённые из DOCX данные. Сброс формы — только через кнопку «✕ Сбросить».
     setInputMode('manual')
   }
 
@@ -218,20 +220,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
   return (
     <form className="incident-form" onSubmit={handleSubmit}>
-      {/* Step indicator */}
-      <div className="incident-steps">
-        {STEPS.map(s => (
-          <button key={s.num} type="button"
-            className={`incident-step ${step === s.num ? 'incident-step--active' : ''} ${step > s.num ? 'incident-step--done' : ''}`}
-            onClick={() => s.num < step && setStep(s.num)} disabled={busy}>
-            <span className="incident-step__icon">{s.num < step ? '✓' : s.icon}</span>
-            <span className="incident-step__label">{s.label}</span>
-          </button>
-        ))}
-        <div className="incident-steps__track">
-          <div className="incident-steps__fill" style={{ width: `${((step - 1) / 2) * 100}%` }} />
-        </div>
-      </div>
       <h2 className="incident-form__title">Новый анализ инцидента</h2>
 
       {(step === 1 || step === 2) && (
@@ -251,7 +239,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
                 className={CardToggle(inputMode === 'manual' && !uploadedFile, busy)}
                 onClick={() => { clearUpload(); setInputMode('manual') }} aria-pressed={inputMode === 'manual' && !uploadedFile}>
                 <div className="incident-choice__content">
-                  <span className="incident-choice__icon">⌨️</span>
+                  <span className="incident-choice__icon"><Keyboard size={20} /></span>
                   <div className="incident-choice__text-wrap">
                     <div className="incident-choice__title">Вручную</div>
                     <div className="incident-choice__text">Сразу заполнить поля формы самостоятельно.</div>
@@ -287,7 +275,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
                   </div>
                 ) : uploadedFile ? (
                   <div className="incident-choice__content">
-                    <span className="incident-choice__icon">✅</span>
+                    <span className="incident-choice__icon"><CheckCircle size={20} /></span>
                     <div className="incident-choice__text-wrap">
                       <div className="incident-choice__title">Загружен: «{uploadedFile}»</div>
                       <div className="incident-choice__text">Нажмите, чтобы заменить файл, или используйте ✕ для сброса</div>
@@ -318,7 +306,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
           {/* 1.1 Описание обстоятельств */}
           <div className="incident-section" id="step-data">
-            <SubLabel icon="📝">Описание обстоятельств происшествия</SubLabel>
+            <SubLabel icon={<Edit3 size={14} />}>Описание обстоятельств происшествия</SubLabel>
             <div className="incident-grid">
               <Input label="Заголовок инцидента" type="text" value={form.title} onChange={e => set('title', e.target.value)} placeholder="Кратко укажите, что произошло" required minLength={5} disabled={busy} />
             </div>
@@ -359,12 +347,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
           {(step === 2 || showAdvanced) && (<>
           {/* 1.2 Фото */}
           <div className="incident-section">
-            <SubLabel icon="📷">Фото с места происшествия</SubLabel>
+            <SubLabel icon={<Camera size={14} />}>Фото с места происшествия</SubLabel>
             <Textarea label="Ссылки на фото (по одной на строку)" rows={3} placeholder="https://..." value={form.photo_urls.join('\n')} onChange={e => set('photo_urls', e.target.value.split('\n').map(s => s.trim()).filter(Boolean))} disabled={busy} />
             {form.photo_urls.length > 0 && (
               <div className="incident-photo-links">
                 {form.photo_urls.map((url, i) => (
-                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="incident-photo-link">📷 Фото {i + 1}</a>
+                  <a key={i} href={url} target="_blank" rel="noopener noreferrer" className="incident-photo-link"><Camera size={12} /> Фото {i + 1}</a>
                 ))}
               </div>
             )}
@@ -372,7 +360,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
           {/* 1.3 Установленные факты */}
           <div className="incident-section">
-            <SubLabel icon="🔍">Установленные факты</SubLabel>
+            <SubLabel icon={<Search size={14} />}>Установленные факты</SubLabel>
 
             <div className="incident-section">
               <div className="incident-actions-row">
@@ -438,7 +426,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
           {/* 1.4 Классификация */}
           <div className="incident-section">
-            <SubLabel icon="🏷️">Классификация инцидента</SubLabel>
+            <SubLabel icon={<Tag size={14} />}>Классификация инцидента</SubLabel>
             <Select label="Тип инцидента" value={form.incident_type} onChange={e => set('incident_type', e.target.value)} disabled={busy}>
               {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
             </Select>
@@ -464,12 +452,12 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
         <CardHeader><BlockHeader number="2">Параметры анализа</BlockHeader></CardHeader>
         <CardBody className="incident-card-body--stack">
           <div className="incident-section" id="step-method">
-            <SubLabel icon="⚙️">Методология</SubLabel>
+            <SubLabel icon={<Cog size={14} />}>Методология</SubLabel>
 
             <div className="incident-method-grid">
               {[
-                { id: 'single', icon: '🎯', label: 'Одна методика' },
-                { id: 'multi', icon: '⚖️', label: 'Сравнить методики' },
+                { id: 'single', icon: <Target size={20} />, label: 'Одна методика' },
+                { id: 'multi', icon: <Scale size={20} />, label: 'Сравнить методики' },
               ].map(m => (
                 <label key={m.id} className={CardToggle(form.mode === m.id, busy)}>
                   <input type="radio" name="mode" value={m.id} checked={form.mode === m.id} onChange={() => set('mode', m.id)} disabled={busy} className="incident-sr-only" />
@@ -504,7 +492,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
             )}
 
             <div className="incident-warning" style={{ visibility: isMulti() && form.methodologies.length < 2 ? 'visible' : 'hidden' }}>
-              ⚠️ Выберите минимум 2 методики для сравнения
+              <AlertTriangle size={14} /> Выберите минимум 2 методики для сравнения
             </div>
 
             <SubLabel>Уровень детализации</SubLabel>
@@ -522,7 +510,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
       </Card>
 
       <Button type="submit" variant="primary" size="lg" className="incident-submit" disabled={busy || (isMulti() && form.methodologies.length < 2)} loading={loading}>
-        {loading ? 'Анализирую…' : isMulti() ? `⚖️ Сравнить (${form.methodologies.length} методик)` : '▶ Запустить анализ'}
+        {loading ? 'Анализирую…' : isMulti() ? <><Scale size={16} /> Сравнить ({form.methodologies.length} методик)</> : <><Play size={16} /> Запустить анализ</>}
       </Button>
       </>)}
 

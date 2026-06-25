@@ -4,7 +4,16 @@ import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Badge, Card } from './ui/Card.jsx'
 import { Button } from './ui/Button.jsx'
 import { Input, Select } from './ui/Field.jsx'
+import { User, Calendar, MapPin, Link as LinkIcon, HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
 import './SimilarIncidentsPanel.css'
+
+const METHODOLOGY_ICONS_SIP = {
+  '❓': HelpCircle,
+  '🎀': Ribbon,
+  '🐟': Fish,
+  '🌳': TreePine,
+  '⚙️': Cog,
+}
 
 function normalizeQuery(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 5000)
@@ -138,9 +147,9 @@ function SimilarCard({ item, onOpen = null }) {
     <Card className={`similar-card ${onOpen ? 'similar-card--clickable' : ''}`} onClick={onOpen}>
       <div className="similar-card__badges">
         <Badge tone={scoreTone}>{percent}% похоже</Badge>
-        <Badge tone={meta.badgeTone}>{meta.icon} {METHODOLOGY_LABELS[item.methodology] || item.methodology}</Badge>
+        <Badge tone={meta.badgeTone}>{(() => { const Ic = METHODOLOGY_ICONS_SIP[meta.icon]; return Ic ? <Ic size={12} /> : null; })()} {METHODOLOGY_LABELS[item.methodology] || item.methodology}</Badge>
         <Badge tone="slate">{date}</Badge>
-        {author && <Badge tone="slate">👤 {author}</Badge>}
+        {author && <Badge tone="slate"><User size={12} /> {author}</Badge>}
         {onOpen && <Button type="button" variant="ghost" size="sm" className="similar-card__open">Открыть →</Button>}
       </div>
 
@@ -150,8 +159,8 @@ function SimilarCard({ item, onOpen = null }) {
           {item.incident_description && <p className="similar-card__context-text">{item.incident_description}</p>}
           {(incidentDateStr || item.incident_location) && (
             <div className="similar-card__context-meta">
-              {incidentDateStr && <span>📅 {incidentDateStr}</span>}
-              {item.incident_location && <span>📍 {item.incident_location}</span>}
+              {incidentDateStr && <span><Calendar size={12} /> {incidentDateStr}</span>}
+              {item.incident_location && <span><MapPin size={12} /> {item.incident_location}</span>}
             </div>
           )}
         </div>

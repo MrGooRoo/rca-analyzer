@@ -28,6 +28,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import get_db
+from src.db.cache_repository import ExtractionCacheRepository
+from src.db.repository import compute_incident_hash
 from src.domain.models import LLMResponseValidationError
 from src.services.docx_cache_service import _is_complete, get_or_extract
 from src.services.docx_extractor import extract_text_from_docx
@@ -40,7 +42,7 @@ router = APIRouter(prefix="/api/v1", tags=["upload"])
 CurrentUser = Annotated[UserInfo, Depends(get_current_user)]
 DBSession = Annotated[AsyncSession, Depends(get_db)]
 
-MAX_FILE_SIZE = 10 * 1024 * 1024
+MAX_FILE_SIZE = 20 * 1024 * 1024
 
 
 async def _read_limited(file: UploadFile, max_size: int) -> bytes:
@@ -249,7 +251,28 @@ async def upload_report_stream(
             return
 
         if _is_complete(fields):
-            await repo.save(file_hash, fields)
+            # Дедупликация по incident_hash (тот же инцидент, другой файл)
+            title = fields.get("title", "")
+            description = fields.get("description", "")
+            if title and description:
+                inc_hash = compute_incident_hash(title, description)
+                dup = await repo.find_by_incident_hash(inc_hash)
+                if dup is not None:
+                    logger.info(
+                        "[UploadStream] Дедупликация: найден по incident_hash=%s — "
+                        "возвращаю существующие данные",
+                        inc_hash[:16],
+                    )
+                    dup["_metadata"] = {"dedup_from": inc_hash[:16]}
+                    await repo._hard_save(file_hash, inc_hash, dup)
+                    dup["victims_list"] = _normalize_victims_as_dicts(dup)
+                    yield f"data: {json.dumps({'status': 'cache_hit', 'message': 'Найден дубликат инцидента (тот же title+description)'})}\\n\\n"
+                    await asyncio.sleep(0.05)
+                    yield f"data: {json.dumps({'status': 'done', 'result': dup})}\\n\\n"
+                    return
+                await repo._hard_save(file_hash, inc_hash, fields)
+            else:
+                await repo.save(file_hash, fields)
         else:
             missing = [k for k in _NARRATIVE_REQUIRED if not fields.get(k)]
             missing_str = ", ".join(missing)
