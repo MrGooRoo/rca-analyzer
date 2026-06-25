@@ -5,7 +5,7 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from src.auth.models import UserInfo
 from src.auth.service import get_current_user
 from src.db.base import get_db
-from src.db.orm_models import ProviderModelORM, ProviderORM
+from src.db.orm_models import ProviderModelORM, ProviderORM, UserORM
 
 router = APIRouter(prefix="/api/v1/user", tags=["user-models"])
 
@@ -111,4 +111,60 @@ async def list_user_models(
             key: ModelCategory(models=models, **CATEGORIES[key])
             for key, models in groups.items()
         },
+    )
+
+
+# ---------------------------------------------------------------------------
+# Предпочтения пользователя по моделям
+# ---------------------------------------------------------------------------
+
+class ModelPreferencesUpdate(BaseModel):
+    full: str | None = None
+    balanced: str | None = None
+    express: str | None = None
+
+
+@router.get(
+    "/model-preferences",
+    response_model=ModelPreferencesUpdate,
+    summary="Получить выбранные пользователем модели",
+)
+async def get_model_preferences(
+    db: DbSession,
+    current_user: CurrentUser,
+) -> ModelPreferencesUpdate:
+    user = await db.get(UserORM, current_user.user_id)
+    prefs = user.model_preferences or {}
+    return ModelPreferencesUpdate(
+        full=prefs.get("full"),
+        balanced=prefs.get("balanced"),
+        express=prefs.get("express"),
+    )
+
+
+@router.put(
+    "/model-preferences",
+    response_model=ModelPreferencesUpdate,
+    summary="Сохранить выбранные пользователем модели",
+)
+async def set_model_preferences(
+    body: ModelPreferencesUpdate,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> ModelPreferencesUpdate:
+    user = await db.get(UserORM, current_user.user_id)
+    prefs = {}
+    if body.full:
+        prefs["full"] = body.full
+    if body.balanced:
+        prefs["balanced"] = body.balanced
+    if body.express:
+        prefs["express"] = body.express
+    user.model_preferences = prefs
+    await db.commit()
+    await db.refresh(user)
+    return ModelPreferencesUpdate(
+        full=prefs.get("full"),
+        balanced=prefs.get("balanced"),
+        express=prefs.get("express"),
     )

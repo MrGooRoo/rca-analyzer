@@ -30,7 +30,9 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text as sa_text,
 )
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from src.db.base import Base
@@ -46,6 +48,9 @@ class UserORM(Base):
     hashed_password: Mapped[str] = mapped_column(String(200), nullable=False)
     role: Mapped[str] = mapped_column(String(20), nullable=False, server_default="user")
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    model_preferences: Mapped[dict | None] = mapped_column(
+        postgresql.JSONB, nullable=True, server_default=sa_text("'{}'::jsonb")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Account lockout: защита от brute force
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
