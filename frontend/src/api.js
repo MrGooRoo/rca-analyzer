@@ -526,5 +526,13 @@ export const api = {
       req('GET', '/api/v1/admin/docx-cache', undefined, { authRequired: true }),
     deleteDocxCache: (fileHash) =>
       req('DELETE', `/api/v1/admin/docx-cache/${fileHash}`, undefined, { authRequired: true }),
+    listProviders: () =>
+      req('GET', '/api/v1/admin/providers', undefined, { authRequired: true }),
+    createProvider: (data) =>
+      req('POST', '/api/v1/admin/providers', data, { authRequired: true }),
+    updateProvider: (id, data) =>
+      req('PUT', `/api/v1/admin/providers/${id}`, data, { authRequired: true }),
+    deleteProvider: (id) =>
+      req('DELETE', `/api/v1/admin/providers/${id}`, undefined, { authRequired: true }),
   },
 }

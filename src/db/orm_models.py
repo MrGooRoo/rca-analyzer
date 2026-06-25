@@ -12,6 +12,7 @@ ORM-модели (таблицы БД).
     docx_extraction_cache   — кэш результатов LLM-извлечения по хешу файла
     result_embeddings       — pgvector-эмбеддинги RCA-результатов для похожих инцидентов
     llm_settings            — singleton admin-настройки LLM Conductor (P17)
+    providers               — провайдеры LLM (OpenRouter, OpenModel и т.д.)
 """
 
 from __future__ import annotations
@@ -304,3 +305,20 @@ class DocxExtractionCacheORM(Base):
     )
     hit_count: Mapped[int] = mapped_column(Integer, nullable=False, server_default="0")
     last_hit_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ProviderORM(Base):
+    """Провайдер LLM (OpenRouter, OpenModel и т.д.)."""
+    __tablename__ = "providers"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    name: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
+    api_key: Mapped[str | None] = mapped_column(Text, nullable=True)
+    base_url: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )

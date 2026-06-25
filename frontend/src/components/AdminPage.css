@@ -29,6 +29,12 @@
   gap: var(--space-md);
 }
 
+.admin-section__actions {
+  display: flex;
+  gap: var(--space-sm);
+  flex-shrink: 0;
+}
+
 .admin-section__title {
   margin: 0;
   color: var(--label-primary);
@@ -324,6 +330,91 @@
 
 .admin-status--inactive {
   color: var(--color-error);
+}
+
+/* ── Modal overlay (providers) ─────────────────────────────── */
+
+.admin-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.admin-modal {
+  background: var(--bg-primary);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-xl);
+  padding: var(--space-xl);
+  width: min(480px, 90vw);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.admin-modal__title {
+  margin: 0 0 var(--space-lg);
+  color: var(--label-primary);
+  font-size: var(--text-title3);
+  font-weight: var(--weight-bold);
+}
+
+.admin-cancel-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: var(--btn-height-lg);
+  padding: 4px 20px;
+  border-radius: var(--radius-full);
+  background: transparent;
+  color: var(--label-secondary);
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  border: 1px solid var(--separator);
+  white-space: nowrap;
+  transition: background var(--transition-instant), opacity var(--transition-instant);
+}
+
+.admin-cancel-button:hover {
+  background: var(--fill-gray);
+}
+
+.admin-cancel-button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ── Provider table (6 columns) ───────────────────────────── */
+
+.admin-table__header--providers,
+.admin-table__row--providers {
+  grid-template-columns: minmax(120px, 1fr) minmax(100px, auto) minmax(140px, 1fr) 80px 120px 70px;
+}
+
+.admin-table__cell--name {
+  text-align: left;
+  font-weight: var(--weight-semibold);
+}
+
+.admin-table__cell--url {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  text-align: left;
+}
+
+.admin-table__cell--date {
+  font-size: var(--text-caption2);
+  color: var(--label-secondary);
+}
+
+.admin-table__cell--actions {
+  display: flex;
+  gap: 4px;
+  justify-content: center;
 }
 
 /* ── Role toggle buttons (Apple pill style) ───────────────── */

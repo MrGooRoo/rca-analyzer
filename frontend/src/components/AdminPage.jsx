@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api.js'
 import { Button } from './ui/Button.jsx'
 import { Badge } from './ui/Card.jsx'
-import { Brain, Users, FileText } from 'lucide-react'
+import { Brain, Users, FileText, Server } from 'lucide-react'
 import './AdminPage.css'
 
 const ROLE_LABELS = {
@@ -57,6 +57,12 @@ export default function AdminPage({ currentUser }) {
   const [docxCacheError, setDocxCacheError] = useState(null)
   const [docxCacheDeleting, setDocxCacheDeleting] = useState(null)
 
+  const [providers, setProviders] = useState([])
+  const [providersLoading, setProvidersLoading] = useState(false)
+  const [providersError, setProvidersError] = useState(null)
+  const [providerForm, setProviderForm] = useState(null)
+  const [providerSaving, setProviderSaving] = useState(false)
+
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try { const data = await api.admin.listUsers(); setUsers(data) } catch (e) { setError(e.message) } finally { setLoading(false) }
@@ -83,6 +89,31 @@ export default function AdminPage({ currentUser }) {
     try { const data = await api.admin.listDocxCache(); setDocxCache(data) } catch (e) { setDocxCacheError(e.message) } finally { setDocxCacheLoading(false) }
   }, [])
 
+  const loadProviders = useCallback(async () => {
+    setProvidersLoading(true); setProvidersError(null)
+    try { const data = await api.admin.listProviders(); setProviders(data) } catch (e) { setProvidersError(e.message) } finally { setProvidersLoading(false) }
+  }, [])
+
+  async function saveProvider() {
+    if (!providerForm.name.trim()) return
+    setProviderSaving(true); setProvidersError(null)
+    try {
+      if (providerForm.id) {
+        await api.admin.updateProvider(providerForm.id, { name: providerForm.name, api_key: providerForm.api_key || null, base_url: providerForm.base_url || null, is_active: providerForm.is_active })
+      } else {
+        await api.admin.createProvider({ name: providerForm.name, api_key: providerForm.api_key || null, base_url: providerForm.base_url || null, is_active: true })
+      }
+      setProviderForm(null)
+      await loadProviders()
+    } catch (e) { setProvidersError(e.message) } finally { setProviderSaving(false) }
+  }
+
+  async function deleteProvider(id, name) {
+    if (!confirm(`Удалить провайдера «${name}»?`)) return
+    setProvidersError(null)
+    try { await api.admin.deleteProvider(id); await loadProviders() } catch (e) { setProvidersError(e.message) }
+  }
+
   async function deleteDocxCacheEntry(fileHash) {
     if (!confirm(`Удалить запись кэша ${fileHash.slice(0, 16)}…? Данные инцидента не удаляются, только кэш LLM-извлечения.`)) return
     setDocxCacheDeleting(fileHash); setDocxCacheError(null)
@@ -93,6 +124,7 @@ export default function AdminPage({ currentUser }) {
   useEffect(() => { loadLlmSettings() }, [loadLlmSettings])
   useEffect(() => { loadModels() }, [loadModels])
   useEffect(() => { loadDocxCache() }, [loadDocxCache])
+  useEffect(() => { loadProviders() }, [loadProviders])
 
   const modelById = useMemo(() => { const m = new Map(); models.forEach(x => m.set(x.id, x)); return m }, [models])
   const selectedDraftModel = modelById.get(llmForm.draft_model)
@@ -293,6 +325,96 @@ export default function AdminPage({ currentUser }) {
                     disabled={docxCacheDeleting === c.file_hash}
                   >
                     {docxCacheDeleting === c.file_hash ? '…' : 'Удалить'}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* LLM Providers */}
+      <section className="admin-section">
+        <div className="admin-section__header">
+          <h2 className="admin-section__title"><Server size={18} /> Провайдеры LLM</h2>
+          <div className="admin-section__actions">
+            <Button variant="secondary" size="sm" onClick={loadProviders} disabled={providersLoading}>
+              {providersLoading ? '…' : '↻ Обновить'}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => setProviderForm({ id: null, name: '', api_key: '', base_url: '', is_active: true })}>
+              + Добавить
+            </Button>
+          </div>
+        </div>
+
+        {providersError && <div className="admin-alert admin-alert--error">{providersError}</div>}
+
+        {/* Модальное окно добавления/редактирования */}
+        {providerForm && (
+          <div className="admin-overlay" onClick={() => setProviderForm(null)}>
+            <div className="admin-modal" onClick={e => e.stopPropagation()}>
+              <h3 className="admin-modal__title">{providerForm.id ? 'Редактировать провайдера' : 'Добавить провайдера'}</h3>
+              <div className="admin-form">
+                <label className="admin-field">
+                  <span className="admin-field__label">Название</span>
+                  <input className="admin-input" value={providerForm.name} onChange={e => setProviderForm(f => ({ ...f, name: e.target.value }))} placeholder="OpenRouter" />
+                </label>
+                <label className="admin-field">
+                  <span className="admin-field__label">API-ключ</span>
+                  <input className="admin-input" value={providerForm.api_key || ''} onChange={e => setProviderForm(f => ({ ...f, api_key: e.target.value }))} placeholder="sk-or-…" type="password" />
+                  <small className="admin-field__hint">Показывается только в маскированном виде после сохранения</small>
+                </label>
+                <label className="admin-field">
+                  <span className="admin-field__label">Base URL (опционально)</span>
+                  <input className="admin-input" value={providerForm.base_url || ''} onChange={e => setProviderForm(f => ({ ...f, base_url: e.target.value }))} placeholder="https://openrouter.ai/api/v1" />
+                </label>
+                <label className="admin-checkbox">
+                  <input type="checkbox" checked={providerForm.is_active !== false} onChange={e => setProviderForm(f => ({ ...f, is_active: e.target.checked }))} />
+                  Активен
+                </label>
+                <div className="admin-actions">
+                  <button className="admin-save-button" onClick={saveProvider} disabled={providerSaving || !providerForm.name.trim()}>
+                    {providerSaving ? 'Сохранение…' : providerForm.id ? 'Сохранить изменения' : 'Добавить'}
+                  </button>
+                  <button className="admin-cancel-button" onClick={() => setProviderForm(null)} disabled={providerSaving}>
+                    Отмена
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {!providersLoading && !providersError && providers.length === 0 && (
+          <div className="admin-empty">Провайдеров нет. Нажмите «+ Добавить», чтобы подключить LLM-провайдера.</div>
+        )}
+
+        {providers.length > 0 && (
+          <div className="admin-table">
+            <div className="admin-table__header admin-table__header--providers">
+              {['Название', 'API-ключ', 'Base URL', 'Статус', 'Дата создания', 'Действие'].map(h => (
+                <span key={h} className="admin-table__head-cell">{h}</span>
+              ))}
+            </div>
+            {providers.map(p => (
+              <div key={p.id} className="admin-table__row admin-table__row--providers">
+                <div className="admin-table__cell admin-table__cell--name"><strong>{p.name}</strong></div>
+                <div className="admin-table__cell"><code>{p.api_key_masked || '—'}</code></div>
+                <div className="admin-table__cell admin-table__cell--url">{p.base_url || '—'}</div>
+                <div className="admin-table__cell admin-table__cell--center">
+                  <span className={`admin-status admin-status--${p.is_active ? 'active' : 'inactive'}`}>
+                    {p.is_active ? 'Активен' : 'Отключён'}
+                  </span>
+                </div>
+                <div className="admin-table__cell admin-table__cell--date">
+                  {p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '—'}
+                </div>
+                <div className="admin-table__cell admin-table__cell--actions">
+                  <button className="admin-role-button admin-role-button--user" onClick={() => setProviderForm({ id: p.id, name: p.name, api_key: '', base_url: p.base_url || '', is_active: p.is_active })} disabled={providerSaving}>
+                    ✎
+                  </button>
+                  <button className="admin-role-button admin-role-button--user" onClick={() => deleteProvider(p.id, p.name)} disabled={providerSaving}>
+                    ✕
                   </button>
                 </div>
               </div>

@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import select, update
+from sqlalchemy import select, update, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from src.auth.models import UserInfo
@@ -18,7 +18,7 @@ from src.auth.service import get_current_user, require_admin
 from src.db.base import get_db
 from src.db.cache_repository import ExtractionCacheRepository
 from src.db.llm_settings_repository import LLMSettingsRepository
-from src.db.orm_models import UserORM
+from src.db.orm_models import ProviderORM, UserORM
 from src.domain.models import LLMSettings, LLMSettingsUpdate, OpenRouterModelInfo
 from src.integrations.llm.openrouter_catalog import (
     OpenRouterCatalogError,
@@ -231,3 +231,137 @@ async def delete_docx_cache(
     deleted = await repo.delete(file_hash)
     if not deleted:
         raise HTTPException(status_code=404, detail="Запись не найдена")
+
+
+# ---------------------------------------------------------------------------
+# CRUD провайдеров LLM
+# ---------------------------------------------------------------------------
+
+class ProviderCreate(BaseModel):
+    name: str
+    api_key: str | None = None
+    base_url: str | None = None
+    is_active: bool = True
+
+
+class ProviderUpdate(BaseModel):
+    name: str | None = None
+    api_key: str | None = None
+    base_url: str | None = None
+    is_active: bool | None = None
+
+
+class ProviderRead(BaseModel):
+    id: str
+    name: str
+    api_key_masked: str | None = None
+    base_url: str | None = None
+    is_active: bool
+    created_at: str | None = None
+    updated_at: str | None = None
+
+
+def _mask_api_key(key: str | None) -> str | None:
+    if not key:
+        return None
+    if len(key) <= 8:
+        return key[:4] + "****"
+    return key[:4] + "****" + key[-4:]
+
+
+def _provider_to_read(p: ProviderORM) -> ProviderRead:
+    return ProviderRead(
+        id=p.id,
+        name=p.name,
+        api_key_masked=_mask_api_key(p.api_key),
+        base_url=p.base_url,
+        is_active=p.is_active,
+        created_at=p.created_at.isoformat() if p.created_at else None,
+        updated_at=p.updated_at.isoformat() if p.updated_at else None,
+    )
+
+
+@router.get(
+    "/providers",
+    response_model=list[ProviderRead],
+    summary="Список провайдеров LLM (admin-only)",
+)
+async def list_providers(
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[ProviderRead]:
+    require_admin(current_user)
+    rows = (await db.execute(select(ProviderORM).order_by(ProviderORM.name))).scalars().all()
+    return [_provider_to_read(p) for p in rows]
+
+
+@router.post(
+    "/providers",
+    response_model=ProviderRead,
+    status_code=201,
+    summary="Добавить провайдера LLM (admin-only)",
+)
+async def create_provider(
+    body: ProviderCreate,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> ProviderRead:
+    require_admin(current_user)
+    import uuid
+    record = ProviderORM(
+        id=str(uuid.uuid4()),
+        name=body.name.strip(),
+        api_key=body.api_key.strip() if body.api_key else None,
+        base_url=body.base_url.strip() if body.base_url else None,
+        is_active=body.is_active,
+    )
+    db.add(record)
+    await db.commit()
+    await db.refresh(record)
+    return _provider_to_read(record)
+
+
+@router.put(
+    "/providers/{provider_id}",
+    response_model=ProviderRead,
+    summary="Обновить провайдера LLM (admin-only)",
+)
+async def update_provider(
+    provider_id: str,
+    body: ProviderUpdate,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> ProviderRead:
+    require_admin(current_user)
+    record = await db.get(ProviderORM, provider_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Провайдер не найден")
+    if body.name is not None:
+        record.name = body.name.strip()
+    if body.api_key is not None:
+        record.api_key = body.api_key.strip() if body.api_key else None
+    if body.base_url is not None:
+        record.base_url = body.base_url.strip() if body.base_url else None
+    if body.is_active is not None:
+        record.is_active = body.is_active
+    await db.commit()
+    await db.refresh(record)
+    return _provider_to_read(record)
+
+
+@router.delete(
+    "/providers/{provider_id}",
+    status_code=204,
+    summary="Удалить провайдера LLM (admin-only)",
+)
+async def delete_provider(
+    provider_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+):
+    require_admin(current_user)
+    record = await db.get(ProviderORM, provider_id)
+    if not record:
+        raise HTTPException(status_code=404, detail="Провайдер не найден")
+    await db.delete(record)
+    await db.commit()
