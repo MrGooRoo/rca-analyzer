@@ -539,6 +539,13 @@ export const api = {
     listProviderModels: (id) =>
       req('GET', `/api/v1/admin/providers/${id}/models`, undefined, { authRequired: true }),
     },
+  wallet: {
+    get: () => req('GET', '/api/v1/user/wallet', undefined, { authRequired: true }),
+    topUp: (userId, amount, description) =>
+      req('POST', '/api/v1/admin/wallet/topup',
+        { user_id: userId, amount, description: description || 'Пополнение баланса' },
+        { authRequired: true }),
+  },
 }
 
 /**

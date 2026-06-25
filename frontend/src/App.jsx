@@ -35,8 +35,20 @@ export default function App() {
   const [singleProgress, setSingleProgress] = useState(null)
   const analysisRunRef = useRef(0)
   const abortControllerRef = useRef(null)
+  const [walletBalance, setWalletBalance] = useState(null)
 
   const isAdmin = user?.role === 'admin'
+
+  // Загрузка баланса кошелька при входе
+  useEffect(() => {
+    if (user) {
+      api.wallet.get()
+        .then(w => setWalletBalance(w.balance))
+        .catch(() => setWalletBalance(null))
+    } else {
+      setWalletBalance(null)
+    }
+  }, [user])
 
   // При потере сессии (user стал null) сбрасываем всё транзиентное состояние
   useEffect(() => {
@@ -327,6 +339,11 @@ export default function App() {
         </nav>
         <div className="header-right">
           <span className="header-user">{user.display_name}</span>
+          {walletBalance !== null && (
+            <span className={`header-balance ${walletBalance < 0 ? 'header-balance--negative' : ''}`}>
+              ${walletBalance.toFixed(2)}
+            </span>
+          )}
           <span className={`header-role-badge ${isAdmin ? 'header-role-badge--admin' : 'header-role-badge--user'}`}>
             {isAdmin ? 'Admin' : 'User'}
           </span>

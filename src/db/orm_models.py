@@ -31,6 +31,7 @@ from sqlalchemy import (
     Text,
     func,
     text as sa_text,
+    Numeric,
 )
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -51,6 +52,9 @@ class UserORM(Base):
     model_preferences: Mapped[dict | None] = mapped_column(
         postgresql.JSONB, nullable=True, server_default=sa_text("'{}'::jsonb")
     )
+    balance: Mapped[float] = mapped_column(
+        Numeric(12, 2), nullable=False, server_default=sa_text("0.00")
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     # Account lockout: защита от brute force
     failed_login_attempts: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
@@ -62,6 +66,27 @@ class UserORM(Base):
     results: Mapped[list[RCAResultORM]] = relationship(back_populates="user")
     incidents: Mapped[list[IncidentORM]] = relationship(back_populates="user")
     sessions: Mapped[list[AnalysisSessionORM]] = relationship(back_populates="user")
+    transactions: Mapped[list[UserTransactionORM]] = relationship(
+        back_populates="user", cascade="all, delete-orphan"
+    )
+
+
+class UserTransactionORM(Base):
+    __tablename__ = "user_transactions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    amount: Mapped[float] = mapped_column(Numeric(12, 2), nullable=False)
+    type: Mapped[str] = mapped_column(String(20), nullable=False)  # "credit" | "debit"
+    description: Mapped[str] = mapped_column(String(500), nullable=True)
+    reference_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), index=True
+    )
+
+    user: Mapped[UserORM] = relationship(back_populates="transactions")
 
 
 class RefreshTokenORM(Base):

@@ -77,6 +77,21 @@
   white-space: nowrap;
 }
 
+.header-balance {
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  color: var(--color-success, #34C759);
+  padding: 2px 8px;
+  background: rgba(52, 199, 89, 0.1);
+  border-radius: 8px;
+  white-space: nowrap;
+}
+
+.header-balance--negative {
+  color: var(--color-danger, #FF3B30);
+  background: rgba(255, 59, 48, 0.1);
+}
+
 .header-role-badge {
   font-size: var(--text-caption2);
   font-weight: var(--weight-semibold);

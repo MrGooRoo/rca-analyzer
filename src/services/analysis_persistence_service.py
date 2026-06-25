@@ -42,6 +42,7 @@ from src.services.embedding_service import (
     LocalHashEmbeddingService,
     get_embedding_service,
 )
+from src.services.wallet_service import deduct_analysis_cost
 
 logger = logging.getLogger(__name__)
 
@@ -261,6 +262,13 @@ class AnalysisPersistenceService:
                     **_save_kwargs(result, user_id, session_orm.id, request.incident),
                 )
 
+                # Списание с кошелька
+                try:
+                    price = {1: 0.01, 2: 0.02, 3: 0.03}.get(request.detail_level, 0.01)
+                    await deduct_analysis_cost(session, user_id, price, result.model_used, session_orm.id)
+                except Exception:
+                    logger.warning("[wallet] deduct failed for user=%s", user_id, exc_info=True)
+
                 await session.commit()
                 result.user_id = user_id
                 return result
@@ -299,6 +307,13 @@ class AnalysisPersistenceService:
                         **_save_kwargs(result, user_id, session_orm.id, request.incident),
                     )
                     result.user_id = user_id
+
+                    # Списание с кошелька за каждый результат
+                    try:
+                        price = {1: 0.01, 2: 0.02, 3: 0.03}.get(request.detail_level, 0.01)
+                        await deduct_analysis_cost(session, user_id, price, result.model_used, session_orm.id)
+                    except Exception:
+                        logger.warning("[wallet] deduct failed for user=%s", user_id, exc_info=True)
 
                 await session.commit()
                 return resp
