@@ -29,12 +29,14 @@
 - [x] **Замена emoji→lucide-react**: AdminPage, IncidentForm, HistoryPage, CompareView, ResultView, AnalysisProgress, SingleAnalysisProgress, SimilarIncidentsHint/Panel, Toast
 - [x] **Toast**: переход на lucide + улучшение анимации (замена `{}` на `{'{}'}`)
 
-## 🔧 К реализации
+### Провайдеры LLM
+- [x] **ProviderORM**: таблица providers (id, name, api_key, base_url, is_active, timestamps)
+- [x] **API CRUD**: GET (список), POST (создать), PUT (обновить), DELETE (удалить)
+- [x] **Маскировка API-ключа**: в ответе всегда `api_key_masked`, ключ не раскрывается
+- [x] **UI в админке**: таблица + модальное окно добавления/редактирования
+- [x] **Восстановлены Dockerfile + nginx.conf** для фронтенда
 
-### 1. Управление провайдерами (админ)
-- [ ] Админ выбирает провайдера (OpenRouter, OpenModel и т.д.)
-- [ ] Настройка API-ключа и базовых параметров провайдера
-- [ ] Система автоматически считывает каталог моделей провайдера
+## 🔧 К реализации
 
 ### 2. Категоризация моделей
 - [ ] Авто-группировка моделей по размеру контекста:
