@@ -6,6 +6,7 @@ Admin-роутер: управление пользователями.
 
 from __future__ import annotations
 
+import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -18,7 +19,7 @@ from src.auth.service import get_current_user, require_admin
 from src.db.base import get_db
 from src.db.cache_repository import ExtractionCacheRepository
 from src.db.llm_settings_repository import LLMSettingsRepository
-from src.db.orm_models import ProviderORM, UserORM
+from src.db.orm_models import ProviderModelORM, ProviderORM, UserORM
 from src.domain.models import LLMSettings, LLMSettingsUpdate, OpenRouterModelInfo
 from src.integrations.llm.openrouter_catalog import (
     OpenRouterCatalogError,
@@ -307,7 +308,6 @@ async def create_provider(
     current_user: CurrentUser,
 ) -> ProviderRead:
     require_admin(current_user)
-    import uuid
     record = ProviderORM(
         id=str(uuid.uuid4()),
         name=body.name.strip(),
@@ -365,3 +365,128 @@ async def delete_provider(
         raise HTTPException(status_code=404, detail="Провайдер не найден")
     await db.delete(record)
     await db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Сканирование и список моделей провайдера
+# ---------------------------------------------------------------------------
+
+class ProviderModelRead(BaseModel):
+    id: str
+    provider_id: str
+    model_id: str
+    name: str
+    context_length: int = 0
+    is_free: bool = True
+    pricing_prompt: float | None = None
+    pricing_completion: float | None = None
+    created_at: str | None = None
+
+
+def _model_to_read(m: ProviderModelORM) -> ProviderModelRead:
+    return ProviderModelRead(
+        id=m.id,
+        provider_id=m.provider_id,
+        model_id=m.model_id,
+        name=m.name,
+        context_length=m.context_length or 0,
+        is_free=m.is_free if m.is_free is not None else True,
+        pricing_prompt=m.pricing_prompt,
+        pricing_completion=m.pricing_completion,
+        created_at=m.created_at.isoformat() if m.created_at else None,
+    )
+
+
+@router.get(
+    "/providers/{provider_id}/models",
+    response_model=list[ProviderModelRead],
+    summary="Список моделей провайдера (admin-only)",
+)
+async def list_provider_models(
+    provider_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[ProviderModelRead]:
+    require_admin(current_user)
+    provider = await db.get(ProviderORM, provider_id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Провайдер не найден")
+    rows = (
+        await db.execute(
+            select(ProviderModelORM)
+            .where(ProviderModelORM.provider_id == provider_id)
+            .order_by(ProviderModelORM.name)
+        )
+    ).scalars().all()
+    return [_model_to_read(m) for m in rows]
+
+
+@router.post(
+    "/providers/{provider_id}/scan",
+    response_model=list[ProviderModelRead],
+    summary="Сканировать каталог провайдера и обновить список моделей (admin-only)",
+)
+async def scan_provider_models(
+    provider_id: str,
+    db: DbSession,
+    current_user: CurrentUser,
+) -> list[ProviderModelRead]:
+    require_admin(current_user)
+    import httpx
+
+    provider = await db.get(ProviderORM, provider_id)
+    if not provider:
+        raise HTTPException(status_code=404, detail="Провайдер не найден")
+    if not provider.api_key:
+        raise HTTPException(status_code=400, detail="У провайдера не указан API-ключ")
+
+    base_url = (provider.base_url or "https://openrouter.ai/api/v1").rstrip("/")
+    headers = {"Authorization": f"Bearer {provider.api_key}"}
+
+    try:
+        async with httpx.AsyncClient(timeout=30) as client:
+            resp = await client.get(f"{base_url}/models", headers=headers)
+            resp.raise_for_status()
+            data = resp.json()
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Ошибка при запросе к провайдеру: {exc}") from exc
+    except Exception as exc:
+        raise HTTPException(status_code=502, detail=f"Не удалось разобрать ответ провайдера: {exc}") from exc
+
+    models_raw = data.get("data", [])
+    if not models_raw:
+        raise HTTPException(status_code=502, detail="Провайдер не вернул список моделей")
+
+    # Удаляем старые модели и вставляем новые
+    old = (
+        await db.execute(select(ProviderModelORM).where(ProviderModelORM.provider_id == provider_id))
+    ).scalars().all()
+    for rec in old:
+        await db.delete(rec)
+
+    imported = []
+    for m in models_raw:
+        mid = (m.get("id") or "").strip()
+        name = (m.get("name") or mid or "Unknown").strip()
+        if not mid:
+            continue
+        pricing = m.get("pricing") or {}
+        is_free = pricing.get("prompt", 1) == 0 and pricing.get("completion", 1) == 0 if isinstance(pricing, dict) else True
+        record = ProviderModelORM(
+            id=str(uuid.uuid4()),
+            provider_id=provider_id,
+            model_id=mid,
+            name=name,
+            context_length=int(m.get("context_length", 0) or 0),
+            is_free=is_free,
+            pricing_prompt=float(pricing.get("prompt")) if isinstance(pricing, dict) and pricing.get("prompt") is not None else None,
+            pricing_completion=float(pricing.get("completion")) if isinstance(pricing, dict) and pricing.get("completion") is not None else None,
+        )
+        db.add(record)
+        imported.append(record)
+
+    await db.commit()
+    for rec in imported:
+        await db.refresh(rec)
+
+    return [_model_to_read(m) for m in imported]

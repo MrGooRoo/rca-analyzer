@@ -322,3 +322,24 @@ class ProviderORM(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    models: Mapped[list[ProviderModelORM]] = relationship(back_populates="provider", cascade="all, delete-orphan")
+
+
+class ProviderModelORM(Base):
+    """Модель LLM, считанная с каталога провайдера."""
+    __tablename__ = "provider_models"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    provider_id: Mapped[str] = mapped_column(String(36), ForeignKey("providers.id"), nullable=False, index=True)
+    model_id: Mapped[str] = mapped_column(String(200), nullable=False)
+    name: Mapped[str] = mapped_column(String(300), nullable=False)
+    context_length: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_free: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    pricing_prompt: Mapped[float | None] = mapped_column(Float, nullable=True)
+    pricing_completion: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now()
+    )
+
+    provider: Mapped[ProviderORM] = relationship(back_populates="models")

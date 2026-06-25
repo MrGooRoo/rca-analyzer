@@ -530,9 +530,13 @@ export const api = {
       req('GET', '/api/v1/admin/providers', undefined, { authRequired: true }),
     createProvider: (data) =>
       req('POST', '/api/v1/admin/providers', data, { authRequired: true }),
-    updateProvider: (id, data) =>
-      req('PUT', `/api/v1/admin/providers/${id}`, data, { authRequired: true }),
+    updateProvider: (id, body) =>
+      req('PUT', `/api/v1/admin/providers/${id}`, body, { authRequired: true }),
     deleteProvider: (id) =>
       req('DELETE', `/api/v1/admin/providers/${id}`, undefined, { authRequired: true }),
+    scanProvider: (id) =>
+      req('POST', `/api/v1/admin/providers/${id}/scan`, undefined, { authRequired: true }),
+    listProviderModels: (id) =>
+      req('GET', `/api/v1/admin/providers/${id}/models`, undefined, { authRequired: true }),
   },
 }

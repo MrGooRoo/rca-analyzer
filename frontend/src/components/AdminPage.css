@@ -464,6 +464,37 @@
   background: rgba(52, 199, 89, 0.18);
 }
 
+/* ── Models modal (wide) ──────────────────────────────────── */
+
+.admin-modal--wide {
+  width: min(820px, 92vw);
+}
+
+.admin-modal__count {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 8px;
+  margin-left: 10px;
+  border-radius: 12px;
+  background: var(--fill-gray);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-bold);
+  vertical-align: middle;
+}
+
+.admin-table__header--models,
+.admin-table__row--models {
+  grid-template-columns: 180px 1fr 70px 70px 100px 100px;
+}
+
+.admin-table__cell--right {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ── Responsive ───────────────────────────────────────────── */
 
 @media (min-width: 640px) {

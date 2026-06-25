@@ -62,6 +62,9 @@ export default function AdminPage({ currentUser }) {
   const [providersError, setProvidersError] = useState(null)
   const [providerForm, setProviderForm] = useState(null)
   const [providerSaving, setProviderSaving] = useState(false)
+  const [scanningProvider, setScanningProvider] = useState(null)
+  const [providerModels, setProviderModels] = useState([])
+  const [showModelsFor, setShowModelsFor] = useState(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -112,6 +115,24 @@ export default function AdminPage({ currentUser }) {
     if (!confirm(`Удалить провайдера «${name}»?`)) return
     setProvidersError(null)
     try { await api.admin.deleteProvider(id); await loadProviders() } catch (e) { setProvidersError(e.message) }
+  }
+
+  async function scanProvider(id, name) {
+    setScanningProvider(id); setProvidersError(null); setProviderModels([])
+    try {
+      const models = await api.admin.scanProvider(id)
+      setProviderModels(models)
+      setShowModelsFor({ id, name, fresh: true })
+    } catch (e) { setProvidersError(`Ошибка сканирования ${name}: ${e.message}`) } finally { setScanningProvider(null) }
+  }
+
+  async function showModels(id, name) {
+    setProvidersError(null)
+    try {
+      const models = await api.admin.listProviderModels(id)
+      setProviderModels(models)
+      setShowModelsFor({ id, name, fresh: false })
+    } catch (e) { setProvidersError(`Ошибка загрузки моделей ${name}: ${e.message}`) }
   }
 
   async function deleteDocxCacheEntry(fileHash) {
@@ -410,6 +431,12 @@ export default function AdminPage({ currentUser }) {
                   {p.created_at ? new Date(p.created_at).toLocaleString('ru-RU') : '—'}
                 </div>
                 <div className="admin-table__cell admin-table__cell--actions">
+                  <button className="admin-role-button admin-role-button--user" title="Сканировать" onClick={() => scanProvider(p.id, p.name)} disabled={scanningProvider === p.id}>
+                    {scanningProvider === p.id ? '…' : '🔍 Scan'}
+                  </button>
+                  <button className="admin-role-button admin-role-button--user" title="Модели" onClick={() => showModels(p.id, p.name)}>
+                    📋
+                  </button>
                   <button className="admin-role-button admin-role-button--user" onClick={() => setProviderForm({ id: p.id, name: p.name, api_key: '', base_url: p.base_url || '', is_active: p.is_active })} disabled={providerSaving}>
                     ✎
                   </button>
@@ -419,6 +446,49 @@ export default function AdminPage({ currentUser }) {
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {/* Модальное окно моделей провайдера */}
+        {showModelsFor && (
+          <div className="admin-overlay" onClick={() => setShowModelsFor(null)}>
+            <div className="admin-modal admin-modal--wide" onClick={e => e.stopPropagation()}>
+              <h3 className="admin-modal__title">
+                Модели {showModelsFor.name}
+                <span className="admin-modal__count">{providerModels.length}</span>
+              </h3>
+              {showModelsFor.fresh && (
+                <div className="admin-alert admin-alert--success">Каталог отсканирован. Загружено {providerModels.length} моделей.</div>
+              )}
+              {providerModels.length === 0 ? (
+                <div className="admin-empty">Моделей не найдено</div>
+              ) : (
+                <div className="admin-table" style={{ maxHeight: '50vh', overflowY: 'auto' }}>
+                  <div className="admin-table__header admin-table__header--models">
+                    {['ID модели', 'Название', 'Контекст', 'Бесплатно', 'Цена prompt/1M', 'Цена completion/1M'].map(h => (
+                      <span key={h} className="admin-table__head-cell">{h}</span>
+                    ))}
+                  </div>
+                  {providerModels.map(m => (
+                    <div key={m.id} className="admin-table__row admin-table__row--models">
+                      <div className="admin-table__cell"><code>{m.model_id}</code></div>
+                      <div className="admin-table__cell admin-table__cell--name">{m.name}</div>
+                      <div className="admin-table__cell admin-table__cell--center">{m.context_length > 0 ? `${(m.context_length / 1000).toFixed(0)}K` : '—'}</div>
+                      <div className="admin-table__cell admin-table__cell--center">
+                        <span className={`admin-status admin-status--${m.is_free ? 'active' : 'inactive'}`}>
+                          {m.is_free ? 'Да' : 'Нет'}
+                        </span>
+                      </div>
+                      <div className="admin-table__cell admin-table__cell--right">{m.pricing_prompt != null ? `$${m.pricing_prompt}` : '—'}</div>
+                      <div className="admin-table__cell admin-table__cell--right">{m.pricing_completion != null ? `$${m.pricing_completion}` : '—'}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="admin-actions">
+                <button className="admin-cancel-button" onClick={() => setShowModelsFor(null)}>Закрыть</button>
+              </div>
+            </div>
           </div>
         )}
       </section>
