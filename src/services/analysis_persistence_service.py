@@ -43,6 +43,7 @@ from src.services.embedding_service import (
     get_embedding_service,
 )
 from src.services.wallet_service import deduct_analysis_cost
+from src.domain.exceptions import LLMResponseValidationError
 
 logger = logging.getLogger(__name__)
 
@@ -576,14 +577,26 @@ class AnalysisPersistenceService:
     ) -> RCAResult:
         svc = self._get_service()
         llm = self._apply_model_preferences(request, llm_settings)
-        if llm is None:
-            return await svc.analyze(request)
+        if llm is llm_settings or llm is None:
+            if llm is None:
+                return await svc.analyze(request)
+            return await svc.analyze(request, llm_settings=llm)
+        # Пробуем с выбранной пользователем моделью
         try:
             return await svc.analyze(request, llm_settings=llm)
         except TypeError as exc:
             if _is_legacy_signature_error(exc):
                 return await svc.analyze(request)
             raise
+        except Exception as exc:
+            logger.warning(
+                "[fallback] модель %s не сработала (%s: %s), пробую дефолтную %s",
+                llm.draft_model, type(exc).__name__, exc,
+                llm_settings.draft_model if llm_settings else "без модели",
+            )
+            if llm_settings is None:
+                return await svc.analyze(request)
+            return await svc.analyze(request, llm_settings=llm_settings)
 
     @staticmethod
     def _apply_model_preferences(
@@ -610,14 +623,25 @@ class AnalysisPersistenceService:
     ) -> MultiAnalysisResponse:
         svc = self._get_service()
         llm = self._apply_model_preferences(request, llm_settings)
-        if llm is None:
-            return await svc.analyze_multi(request)
+        if llm is llm_settings or llm is None:
+            if llm is None:
+                return await svc.analyze_multi(request)
+            return await svc.analyze_multi(request, llm_settings=llm)
         try:
             return await svc.analyze_multi(request, llm_settings=llm)
         except TypeError as exc:
             if _is_legacy_signature_error(exc):
                 return await svc.analyze_multi(request)
             raise
+        except Exception as exc:
+            logger.warning(
+                "[fallback] модель %s не сработала (%s: %s), пробую дефолтную %s",
+                llm.draft_model, type(exc).__name__, exc,
+                llm_settings.draft_model if llm_settings else "без модели",
+            )
+            if llm_settings is None:
+                return await svc.analyze_multi(request)
+            return await svc.analyze_multi(request, llm_settings=llm_settings)
 
     def _analyze_stream_with_settings(
         self,
@@ -626,11 +650,22 @@ class AnalysisPersistenceService:
     ):
         svc = self._get_service()
         llm = self._apply_model_preferences(request, llm_settings)
-        if llm is None:
-            return svc.analyze_stream(request)
+        if llm is llm_settings or llm is None:
+            if llm is None:
+                return svc.analyze_stream(request)
+            return svc.analyze_stream(request, llm_settings=llm)
         try:
             return svc.analyze_stream(request, llm_settings=llm)
         except TypeError as exc:
             if _is_legacy_signature_error(exc):
                 return svc.analyze_stream(request)
             raise
+        except Exception as exc:
+            logger.warning(
+                "[fallback] модель %s не сработала (%s: %s), пробую дефолтную %s",
+                llm.draft_model, type(exc).__name__, exc,
+                llm_settings.draft_model if llm_settings else "без модели",
+            )
+            if llm_settings is None:
+                return svc.analyze_stream(request)
+            return svc.analyze_stream(request, llm_settings=llm_settings)

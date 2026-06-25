@@ -44,6 +44,7 @@ class UserListItem(BaseModel):
     display_name: str
     role: str
     is_active: bool
+    balance: float = 0.0
 
 
 class RoleUpdate(BaseModel):
@@ -74,6 +75,7 @@ async def list_users(
             display_name=u.display_name,
             role=u.role,
             is_active=u.is_active,
+            balance=float(u.balance or 0),
         )
         for u in rows
     ]

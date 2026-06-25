@@ -271,7 +271,7 @@ export default function AdminPage({ currentUser }) {
         {users.length > 0 && (
           <div className="admin-table">
             <div className="admin-table__header">
-              {['Пользователь','Email','Роль','Статус','Действие'].map(h => (
+              {['Пользователь','Email','Роль','Статус','Баланс','Действие'].map(h => (
                 <span key={h} className="admin-table__head-cell">{h}</span>
               ))}
             </div>
@@ -290,6 +290,21 @@ export default function AdminPage({ currentUser }) {
                   </div>
                   <div className="admin-table__cell admin-table__cell--center">
                     <span className={`admin-status admin-status--${u.is_active ? 'active' : 'inactive'}`}>{u.is_active ? 'Активен' : 'Отключён'}</span>
+                  </div>
+                  <div className="admin-table__cell admin-table__cell--balance">
+                    <span className="admin-balance">${(u.balance ?? 0).toFixed(2)}</span>
+                    <button className="admin-topup-btn" title="Пополнить баланс" onClick={() => {
+                      const amt = prompt('Сумма пополнения ($):', '10')
+                      if (amt && !isNaN(amt) && Number(amt) > 0) {
+                        const idx = users.findIndex(x => x.user_id === u.user_id)
+                        const newUsers = [...users]
+                        newUsers[idx] = { ...newUsers[idx], balance: (newUsers[idx].balance ?? 0) + Number(amt) }
+                        setUsers(newUsers)
+                        api.wallet.topUp(u.user_id, Number(amt))
+                          .then(r => load())
+                          .catch(e => load())
+                      }
+                    }}>+</button>
                   </div>
                   <div className="admin-table__cell admin-table__cell--center">
                     {isSelf ? (
