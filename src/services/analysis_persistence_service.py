@@ -560,14 +560,33 @@ class AnalysisPersistenceService:
         llm_settings: LLMSettings | None,
     ) -> RCAResult:
         svc = self._get_service()
-        if llm_settings is None:
+        llm = self._apply_model_preferences(request, llm_settings)
+        if llm is None:
             return await svc.analyze(request)
         try:
-            return await svc.analyze(request, llm_settings=llm_settings)
+            return await svc.analyze(request, llm_settings=llm)
         except TypeError as exc:
             if _is_legacy_signature_error(exc):
                 return await svc.analyze(request)
             raise
+
+    @staticmethod
+    def _apply_model_preferences(
+        request: AnalysisRequest | MultiAnalysisRequest,
+        llm_settings: LLMSettings | None,
+    ) -> LLMSettings | None:
+        if not request.model_preferences or not llm_settings:
+            return llm_settings
+        cat = {1: "express", 2: "balanced", 3: "full"}.get(request.detail_level)
+        model_id = request.model_preferences.get(cat) if cat else None
+        if not model_id:
+            logger.info("[model_preferences] detail_level=%s no model in %s for category %s", request.detail_level, request.model_preferences, cat)
+            return llm_settings
+        logger.info(
+            "[model_preferences] detail_level=%s → category=%s → model=%s (was: %s)",
+            request.detail_level, cat, model_id, llm_settings.draft_model,
+        )
+        return llm_settings.model_copy(update={"draft_model": model_id})
 
     async def _analyze_multi_with_settings(
         self,
@@ -575,10 +594,11 @@ class AnalysisPersistenceService:
         llm_settings: LLMSettings | None,
     ) -> MultiAnalysisResponse:
         svc = self._get_service()
-        if llm_settings is None:
+        llm = self._apply_model_preferences(request, llm_settings)
+        if llm is None:
             return await svc.analyze_multi(request)
         try:
-            return await svc.analyze_multi(request, llm_settings=llm_settings)
+            return await svc.analyze_multi(request, llm_settings=llm)
         except TypeError as exc:
             if _is_legacy_signature_error(exc):
                 return await svc.analyze_multi(request)
@@ -590,10 +610,11 @@ class AnalysisPersistenceService:
         llm_settings: LLMSettings | None,
     ):
         svc = self._get_service()
-        if llm_settings is None:
+        llm = self._apply_model_preferences(request, llm_settings)
+        if llm is None:
             return svc.analyze_stream(request)
         try:
-            return svc.analyze_stream(request, llm_settings=llm_settings)
+            return svc.analyze_stream(request, llm_settings=llm)
         except TypeError as exc:
             if _is_legacy_signature_error(exc):
                 return svc.analyze_stream(request)

@@ -89,6 +89,7 @@ class AnalysisRequest(BaseModel):
     language:     str           = "ru"
     detail_level: int           = Field(default=2, ge=1, le=3)
     incident:     IncidentInput
+    model_preferences: dict | None = None
 
 
 class CauseNode(BaseModel):
@@ -222,6 +223,7 @@ class MultiAnalysisRequest(BaseModel):
     language: str = "ru"
     detail_level: int = Field(default=2, ge=1, le=3)
     incident: IncidentInput
+    model_preferences: dict | None = None
 
     @field_validator('methodologies')
     @classmethod
