@@ -43,8 +43,6 @@ from src.services.embedding_service import (
     get_embedding_service,
 )
 from src.services.wallet_service import deduct_analysis_cost
-from src.domain.exceptions import LLMResponseValidationError
-
 logger = logging.getLogger(__name__)
 
 _SAVE_ERROR_MESSAGE = "Не удалось сохранить результат в базе данных"
