@@ -463,6 +463,7 @@ async def scan_provider_models(
     ).scalars().all()
     for rec in old:
         await db.delete(rec)
+    await db.flush()  # применить DELETE до INSERT
 
     imported = []
     for m in models_raw:
@@ -471,7 +472,14 @@ async def scan_provider_models(
         if not mid:
             continue
         pricing = m.get("pricing") or {}
-        is_free = pricing.get("prompt", 1) == 0 and pricing.get("completion", 1) == 0 if isinstance(pricing, dict) else True
+        is_free = (
+            bool(
+                float(pricing.get("prompt") or 0) == 0.0
+                and float(pricing.get("completion") or 0) == 0.0
+            )
+            if isinstance(pricing, dict)
+            else False
+        )
         record = ProviderModelORM(
             id=str(uuid.uuid4()),
             provider_id=provider_id,
