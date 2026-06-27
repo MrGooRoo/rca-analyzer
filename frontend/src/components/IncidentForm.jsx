@@ -93,11 +93,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
         else if (evt.status === 'analyzing') setUploadMessage('Анализ текста в LLM...')
       })
       setForm(prev => ({ ...prev, ...fields }))
-      // Auto-advance to step 3 if core data was filled from DOCX
-      if (fields.title?.trim().length >= 5 && fields.description?.trim().length >= 20) {
-        setStep(3)
-        setShowAdvanced(true)
-      }
     } catch (e) {
       setUploadError(e.message)
       setUploadedFile(null)
