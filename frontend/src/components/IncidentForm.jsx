@@ -41,7 +41,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   }, [])
 
   const busy = loading || uploading
-  const isMulti = () => form.mode === 'multi'
+  const isMulti = form.mode === 'multi'
 
   // --- Field helpers ---
   function set(field, value) {
@@ -61,7 +61,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   function canProceed() {
     if (step === 1) return form.title.trim().length >= 5 && form.description.trim().length >= 20
     if (step === 2) return true
-    if (step === 3) return isMulti() ? (form.methodologies?.length || 0) >= 2 : true
+    if (step === 3) return isMulti ? (form.methodologies?.length || 0) >= 2 : true
     return false
   }
 
@@ -149,7 +149,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
       detail_level: Number(form.detail_level),
       incident: incidentPayload,
     }
-    if (isMulti()) {
+    if (isMulti) {
       onSubmitMulti({ methodologies: form.methodologies, ...base })
     } else {
       onSubmit({ methodology: form.methodology, ...base })
@@ -258,7 +258,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
           <AnalysisParamsSection
             form={form} set={set}
             toggleMethodology={toggleMethodology}
-            isMulti={isMulti()} busy={busy} loading={loading}
+            isMulti={isMulti} busy={busy} loading={loading}
           />
           <ModelSelector disabled={busy} onPrefsChange={setModelPrefs} />
           {step === 3 && <span className="incident-submit-hint"><code>⌘⏎</code></span>}

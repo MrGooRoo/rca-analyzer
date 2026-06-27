@@ -53,7 +53,7 @@ export default function AnalysisParamsSection({ form, set, toggleMethodology, is
               ))}
             </div>
 
-            {!isMulti() && (
+            {!isMulti && (
               <Select label="Методология" value={form.methodology}
                 onChange={e => set('methodology', e.target.value)} disabled={busy}>
                 {METHODOLOGIES.map(m =>
@@ -64,7 +64,7 @@ export default function AnalysisParamsSection({ form, set, toggleMethodology, is
               </Select>
             )}
 
-            {isMulti() && (
+            {isMulti && (
               <div className="incident-method-grid">
                 {METHODOLOGIES.map(m => (
                   <label key={m.id} className={CardToggle(form.methodologies?.includes(m.id), busy)}>
@@ -83,7 +83,7 @@ export default function AnalysisParamsSection({ form, set, toggleMethodology, is
             )}
 
             <div className="incident-warning" style={{
-              visibility: isMulti() && (form.methodologies?.length || 0) < 2 ? 'visible' : 'hidden'
+              visibility: isMulti && (form.methodologies?.length || 0) < 2 ? 'visible' : 'hidden'
             }}>
               ⚠️ Выберите минимум 2 методики для сравнения
             </div>
@@ -106,10 +106,10 @@ export default function AnalysisParamsSection({ form, set, toggleMethodology, is
       </Card>
 
       <Button type="submit" variant="primary" size="lg" className="incident-submit"
-        disabled={busy || (isMulti() && (form.methodologies?.length || 0) < 2)} loading={loading}>
+        disabled={busy || (isMulti && (form.methodologies?.length || 0) < 2)} loading={loading}>
         {loading
           ? 'Анализирую…'
-          : isMulti()
+          : isMulti
             ? `⚖️ Сравнить (${form.methodologies?.length || 0} методик)`
             : '▶ Запустить анализ'}
       </Button>
