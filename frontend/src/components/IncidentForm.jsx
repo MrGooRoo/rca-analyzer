@@ -113,7 +113,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
 
   function clearUpload() {
     setUploadedFile(null); setUploadError(null); setUploadMessage('')
-    setForm({ ...DEFAULTS, mode: 'manual' })
+    setForm({ ...DEFAULTS })
     setInputMode('manual')
   }
 
