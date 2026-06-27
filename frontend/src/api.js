@@ -38,7 +38,7 @@ const SAFE_METHODS = new Set(['GET', 'HEAD', 'OPTIONS'])
 
 function readCsrfToken() {
   const match = document.cookie.match(
-    new RegExp('(?:^|; )' + CSRF_COOKIE_NAME + '=([^;]*)'),
+    new RegExp('(?:^|; )' + CSRF_COOKIE_NAME + '=([^;]*)')
   )
   return match ? decodeURIComponent(match[1]) : null
 }
@@ -161,7 +161,7 @@ async function req(method, path, body, options = {}) {
 
 function filenameFromDisposition(value, fallback) {
   if (!value) return fallback
-  const match = value.match(/filename="?([^";]+)"?/i)
+  const match = value.match(/filename=\"?([^\";]+)\"?/i)
   return match?.[1] || fallback
 }
 
@@ -493,6 +493,7 @@ export const api = {
   uploadReportStream: (file, onProgress) => uploadFileStream('/api/v1/upload-report-stream', file, onProgress, { authRequired: true }),
   exportDocx,
   exportResult,
+  fetchJson,
   results: {
     list: (limit = 20, offset = 0) =>
       req('GET', `/api/v1/results?limit=${limit}&offset=${offset}`, undefined, { authRequired: true }),
@@ -506,10 +507,8 @@ export const api = {
   },
   admin: {
     listUsers: () => req('GET', '/api/v1/admin/users', undefined, { authRequired: true }),
-    setRole: (userId, role) =>
-      req('PUT', `/api/v1/admin/users/${userId}/role`, { role }, { authRequired: true }),
-    getLlmSettings: () =>
-      req('GET', '/api/v1/admin/llm-settings', undefined, { authRequired: true }),
+    setRole: (userId, role) => req('PUT', `/api/v1/admin/users/${userId}/role`, { role }, { authRequired: true }),
+    getLlmSettings: () => req('GET', '/api/v1/admin/llm-settings', undefined, { authRequired: true }),
     updateLlmSettings: (payload) =>
       req('PUT', '/api/v1/admin/llm-settings', payload, { authRequired: true }),
     openRouterModels: (params = {}) => {
@@ -522,29 +521,23 @@ export const api = {
       const suffix = qs.toString() ? `?${qs.toString()}` : ''
       return req('GET', `/api/v1/admin/openrouter/models${suffix}`, undefined, { authRequired: true })
     },
-    listDocxCache: () =>
-      req('GET', '/api/v1/admin/docx-cache', undefined, { authRequired: true }),
+    listDocxCache: () => req('GET', '/api/v1/admin/docx-cache', undefined, { authRequired: true }),
     deleteDocxCache: (fileHash) =>
       req('DELETE', `/api/v1/admin/docx-cache/${fileHash}`, undefined, { authRequired: true }),
-    listProviders: () =>
-      req('GET', '/api/v1/admin/providers', undefined, { authRequired: true }),
-    createProvider: (data) =>
-      req('POST', '/api/v1/admin/providers', data, { authRequired: true }),
+    listProviders: () => req('GET', '/api/v1/admin/providers', undefined, { authRequired: true }),
+    createProvider: (data) => req('POST', '/api/v1/admin/providers', data, { authRequired: true }),
     updateProvider: (id, body) =>
       req('PUT', `/api/v1/admin/providers/${id}`, body, { authRequired: true }),
     deleteProvider: (id) =>
       req('DELETE', `/api/v1/admin/providers/${id}`, undefined, { authRequired: true }),
-    scanProvider: (id) =>
-      req('POST', `/api/v1/admin/providers/${id}/scan`, undefined, { authRequired: true }),
+    scanProvider: (id) => req('POST', `/api/v1/admin/providers/${id}/scan`, undefined, { authRequired: true }),
     listProviderModels: (id) =>
       req('GET', `/api/v1/admin/providers/${id}/models`, undefined, { authRequired: true }),
-    },
+  },
   wallet: {
-    get: () => req('GET', '/api/v1/user/wallet', undefined, { authRequired: true }),
+    get: () => req('GET', `/api/v1/user/wallet`, undefined, { authRequired: true }),
     topUp: (userId, amount, description) =>
-      req('POST', '/api/v1/admin/wallet/topup',
-        { user_id: userId, amount, description: description || 'Пополнение баланса' },
-        { authRequired: true }),
+      req('POST', '/api/v1/admin/wallet/topup', { user_id: userId, amount, description: description || 'Пополнение баланса' }, { authRequired: true }),
   },
 }
 
