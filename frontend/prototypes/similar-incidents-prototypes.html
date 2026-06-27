@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Прототипы — похожие инциденты</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Inter', -apple-system, system-ui, sans-serif;
+    background: #f2f2f7;
+    padding: 40px 24px;
+    color: #1d1d1f;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 600;
+    margin-bottom: 8px;
+    letter-spacing: -0.3px;
+  }
+  .subtitle {
+    font-size: 15px;
+    color: #6e6e73;
+    margin-bottom: 40px;
+  }
+  .prototype-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 48px;
+    max-width: 820px;
+    margin: 0 auto;
+  }
+  .prototype {
+    background: #ffffff;
+    border-radius: 16px;
+    padding: 28px 32px 32px;
+    box-shadow: 0 1px 3px rgba(0,0,0,.06), 0 4px 16px rgba(0,0,0,.04);
+    border: 1px solid rgba(0,0,0,.06);
+  }
+  .prototype-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid rgba(0,0,0,.08);
+  }
+  .prototype-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .prototype-title h2 {
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: -0.2px;
+  }
+  .prototype-badge {
+    font-size: 11px;
+    font-weight: 600;
+    color: #ffffff;
+    background: #007aff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    letter-spacing: 0.2px;
+  }
+  .prototype-desc {
+    font-size: 13px;
+    color: #6e6e73;
+    line-height: 1.5;
+    max-width: 500px;
+  }
+  .prototype-demo {
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 12px;
+    padding: 16px;
+  }
+  .mock-form-field {
+    margin-bottom: 12px;
+  }
+  .mock-form-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 500;
+    color: #6e6e73;
+    margin-bottom: 4px;
+    letter-spacing: 0.1px;
+  }
+  .mock-form-input {
+    width: 100%;
+    height: 40px;
+    background: #f5f5f7;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 8px;
+    padding: 0 12px;
+    font-size: 14px;
+    color: #1d1d1f;
+  }
+  .mock-form-textarea {
+    width: 100%;
+    height: 70px;
+    background: #f5f5f7;
+    border: 1px solid rgba(0,0,0,.08);
+    border-radius: 8px;
+    padding: 10px 12px;
+    font-size: 14px;
+    color: #1d1d1f;
+    resize: none;
+    font-family: inherit;
+  }
+  .mock-form-row {
+    display: flex;
+    gap: 12px;
+    margin-top: 16px;
+  }
+  .mock-form-row .mock-form-field {
+    flex: 1;
+  }
+
+  /* ===== VARIANT A: Accordion ===== */
+  .hint-a {
+    margin: 16px 0;
+    border-radius: 10px;
+    overflow: hidden;
+    border: 1px solid rgba(0, 122, 255, .2);
+  }
+  .hint-a__header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: rgba(0, 122, 255, .06);
+    cursor: pointer;
+    user-select: none;
+    font-size: 13px;
+    color: #007aff;
+    font-weight: 500;
+    transition: background .15s;
+  }
+  .hint-a__header:hover { background: rgba(0, 122, 255, .1); }
+  .hint-a__header .arrow {
+    margin-left: auto;
+    transition: transform .2s;
+    font-size: 12px;
+  }
+  .hint-a__header .arrow.open { transform: rotate(180deg); }
+  .hint-a__body {
+    border-top: 1px solid rgba(0, 122, 255, .12);
+  }
+  .hint-a__card {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: background .12s;
+    border-bottom: 1px solid rgba(0,0,0,.04);
+  }
+  .hint-a__card:last-child { border-bottom: none; }
+  .hint-a__card:hover { background: rgba(0,0,0,.02); }
+  .hint-a__percent {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 44px;
+    height: 28px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: -0.1px;
+    color: #fff;
+  }
+  .hint-a__percent.green { background: #34c759; }
+  .hint-a__percent.amber { background: #ff9500; }
+  .hint-a__percent.red { background: #ff3b30; }
+  .hint-a__info {
+    flex: 1;
+    min-width: 0;
+  }
+  .hint-a__title {
+    font-size: 14px;
+    font-weight: 500;
+    color: #1d1d1f;
+    margin-bottom: 2px;
+  }
+  .hint-a__meta {
+    font-size: 12px;
+    color: #8e8e93;
+    display: flex;
+    gap: 10px;
+  }
+  .hint-a__open {
+    flex-shrink: 0;
+    font-size: 12px;
+    color: #007aff;
+    font-weight: 500;
+    padding: 6px 10px;
+    border-radius: 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+  }
+  .hint-a__open:hover { background: rgba(0, 122, 255, .08); }
+
+  /* ===== VARIANT B: Preview Links ===== */
+  .hint-b {
+    margin: 16px 0;
+    padding: 12px 16px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 122, 255, .2);
+    background: rgba(0, 122, 255, .04);
+  }
+  .hint-b__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #007aff;
+    margin-bottom: 8px;
+    letter-spacing: 0.1px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .hint-b__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background .12s;
+    text-decoration: none;
+    color: inherit;
+  }
+  .hint-b__item:hover { background: rgba(0,0,0,.04); }
+  .hint-b__item:not(:last-child) { margin-bottom: 2px; }
+  .hint-b__dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .hint-b__dot.green { background: #34c759; }
+  .hint-b__dot.amber { background: #ff9500; }
+  .hint-b__dot.red { background: #ff3b30; }
+  .hint-b__title {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: #1d1d1f;
+  }
+  .hint-b__percent {
+    font-size: 12px;
+    font-weight: 600;
+    color: #8e8e93;
+    flex-shrink: 0;
+  }
+  .hint-b__arrow {
+    font-size: 14px;
+    color: #8e8e93;
+    flex-shrink: 0;
+  }
+  .hint-b__show-all {
+    display: block;
+    margin-top: 6px;
+    padding: 6px 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #007aff;
+    cursor: pointer;
+    border-radius: 6px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    width: 100%;
+  }
+  .hint-b__show-all:hover { background: rgba(0, 122, 255, .08); }
+
+  /* ===== VARIANT C: Transformer ===== */
+  .hint-c {
+    margin: 16px 0;
+  }
+  .hint-c__phase {
+    transition: all .3s ease;
+  }
+  /* Phase 1 — skeleton */
+  .hint-c__skeleton {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px dashed rgba(0, 122, 255, .2);
+    background: rgba(0, 122, 255, .04);
+    font-size: 13px;
+    color: #8e8e93;
+  }
+  .hint-c__spinner {
+    width: 14px;
+    height: 14px;
+    border: 2px solid rgba(0, 122, 255, .15);
+    border-top-color: #007aff;
+    border-radius: 50%;
+    animation: spin .8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .hint-c__skeleton-bar {
+    flex: 1;
+    height: 8px;
+    background: linear-gradient(90deg, rgba(0,0,0,.04) 0%, rgba(0,0,0,.08) 50%, rgba(0,0,0,.04) 100%);
+    border-radius: 4px;
+    background-size: 200% 100%;
+    animation: shimmer 1.5s ease-in-out infinite;
+  }
+  @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+  /* Phase 2 — results */
+  .hint-c__results {
+    border: 1px solid rgba(0, 122, 255, .2);
+    border-radius: 10px;
+    overflow: hidden;
+  }
+  .hint-c__header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 14px;
+    background: rgba(0, 122, 255, .06);
+    font-size: 13px;
+    font-weight: 500;
+    color: #007aff;
+  }
+  .hint-c__header .collapse-btn {
+    margin-left: auto;
+    font-size: 12px;
+    color: #8e8e93;
+    cursor: pointer;
+    background: none;
+    border: none;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .hint-c__header .collapse-btn:hover { background: rgba(0,0,0,.06); }
+  .hint-c__item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    cursor: pointer;
+    transition: background .12s;
+    border-top: 1px solid rgba(0, 122, 255, .08);
+  }
+  .hint-c__item:hover { background: rgba(0,0,0,.02); }
+  .hint-c__item .pct { font-size: 12px; font-weight: 600; color: #8e8e93; flex-shrink: 0; width: 32px; }
+  .hint-c__item .pct.green { color: #34c759; }
+  .hint-c__item .pct.amber { color: #ff9500; }
+  .hint-c__item .pct.red { color: #ff3b30; }
+  .hint-c__item .title { flex: 1; font-size: 14px; font-weight: 500; }
+  .hint-c__item .open-link { font-size: 14px; color: #8e8e93; }
+  /* Phase 3 — collapsed */
+  .hint-c__collapsed {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    border: 1px solid rgba(0, 122, 255, .2);
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    color: #007aff;
+    background: rgba(0, 122, 255, .04);
+    transition: background .12s;
+  }
+  .hint-c__collapsed:hover { background: rgba(0, 122, 255, .08); }
+  .hint-c__collapsed .expand-icon { margin-left: auto; font-size: 12px; color: #8e8e93; }
+
+  /* ===== VARIANT D: Badge Inline ===== */
+  .hint-d {
+    margin: 16px 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 0;
+  }
+  .hint-d__label {
+    font-size: 12px;
+    font-weight: 600;
+    color: #8e8e93;
+    margin-right: 2px;
+    white-space: nowrap;
+    letter-spacing: 0.1px;
+  }
+  .hint-d__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .12s;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .hint-d__badge:hover { opacity: .85; }
+  .hint-d__badge.green { background: rgba(52,199,89,.15); color: #1a9e43; border-color: rgba(52,199,89,.25); }
+  .hint-d__badge.amber { background: rgba(255,149,0,.15); color: #c97700; border-color: rgba(255,149,0,.25); }
+  .hint-d__badge.red { background: rgba(255,59,48,.12); color: #d63a30; border-color: rgba(255,59,48,.2); }
+  .hint-d__badge .pct { font-weight: 600; }
+  .hint-d__more {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 4px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #007aff;
+    background: rgba(0,122,255,.08);
+    border: none;
+    transition: background .12s;
+    white-space: nowrap;
+  }
+  .hint-d__more:hover { background: rgba(0,122,255,.14); }
+
+  /* ===== VARIANT E: Mini-modal ===== */
+  .hint-e {
+    margin: 16px 0;
+  }
+  .hint-e__trigger {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    color: #007aff;
+    background: rgba(0,122,255,.08);
+    border: 1px solid rgba(0,122,255,.2);
+    cursor: pointer;
+    transition: background .12s;
+  }
+  .hint-e__trigger:hover { background: rgba(0,122,255,.14); }
+  .hint-e__trigger .count {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: #007aff;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 0 5px;
+  }
+  /* Modal overlay */
+  .hint-e__overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,.3);
+    backdrop-filter: blur(4px);
+    z-index: 100;
+    align-items: center;
+    justify-content: center;
+  }
+  .hint-e__overlay.open { display: flex; }
+  .hint-e__modal {
+    background: #fff;
+    border-radius: 16px;
+    width: 520px;
+    max-width: 90vw;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 8px 40px rgba(0,0,0,.12);
+    padding: 24px;
+  }
+  .hint-e__modal-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .hint-e__modal-header h3 { font-size: 17px; font-weight: 600; }
+  .hint-e__close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    color: #8e8e93;
+    cursor: pointer;
+    padding: 4px;
+    border-radius: 6px;
+  }
+  .hint-e__close:hover { background: rgba(0,0,0,.05); }
+  .hint-e__filters {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  .hint-e__filter-select {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid rgba(0,0,0,.1);
+    border-radius: 6px;
+    background: #fff;
+    color: #1d1d1f;
+  }
+  .hint-e__filter-input {
+    font-size: 12px;
+    padding: 4px 8px;
+    border: 1px solid rgba(0,0,0,.1);
+    border-radius: 6px;
+    background: #fff;
+    color: #1d1d1f;
+    width: 100px;
+  }
+
+  /* Card (reused in A, E) */
+  .modal-card {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    border: 1px solid rgba(0,0,0,.06);
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background .12s;
+    margin-bottom: 8px;
+  }
+  .modal-card:hover { background: rgba(0,0,0,.02); }
+  .modal-card__top {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .modal-card__badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 999px;
+    color: #fff;
+  }
+  .modal-card__badge.green { background: #34c759; }
+  .modal-card__badge.amber { background: #ff9500; }
+  .modal-card__badge.red { background: #ff3b30; }
+  .modal-card__badge.slate { background: #8e8e93; }
+  .modal-card__title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #1d1d1f;
+    margin-top: 2px;
+  }
+  .modal-card__desc {
+    font-size: 13px;
+    color: #6e6e73;
+    line-height: 1.4;
+  }
+  .modal-card__meta {
+    display: flex;
+    gap: 12px;
+    font-size: 12px;
+    color: #8e8e93;
+  }
+  .modal-card__causes {
+    font-size: 12px;
+    color: #6e6e73;
+    line-height: 1.4;
+  }
+  .modal-card__causes strong { color: #1d1d1f; }
+  .modal-card__open {
+    align-self: flex-end;
+    font-size: 12px;
+    font-weight: 500;
+    color: #007aff;
+    padding: 4px 10px;
+    border-radius: 6px;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+  .modal-card__open:hover { background: rgba(0,122,255,.08); }
+  .hint-e__modal-actions { margin-top: 12px; text-align: center; }
+  .hint-e__modal-close-btn {
+    font-size: 13px;
+    font-weight: 500;
+    color: #007aff;
+    padding: 8px 20px;
+    border-radius: 8px;
+    background: rgba(0,122,255,.08);
+    border: none;
+    cursor: pointer;
+  }
+  .hint-e__modal-close-btn:hover { background: rgba(0,122,255,.14); }
+</style>
+</head>
+<body>
+
+<h1>🔗 Прототипы: отображение похожих инцидентов</h1>
+<p class="subtitle">5 вариантов на выбор. Каждый в контексте формы. Данные одинаковые.</p>
+
+<div class="prototype-grid">
+
+  <!-- ===== OPTION A ===== -->
+  <div class="prototype">
+    <div class="prototype-header">
+      <div class="prototype-title">
+        <h2>A. Accordion — раскрытие карточек</h2>
+        <span class="prototype-badge">Рекомендую</span>
+      </div>
+      <div class="prototype-desc">Клик по hint'у раскрывает карточки с процентами и контекстом. Повторный клик сворачивает.</div>
+    </div>
+    <div class="prototype-demo">
+      <div class="mock-form-field"><label>Описание инцидента</label><div class="mock-form-textarea">Произошла остановка насосной станции №3 из-за выхода из строя подшипника главного вала. Остановка привела к прекращению подачи воды на производственную площадку А на 4 часа.</div></div>
+      <div class="hint-a" id="accordion-a">
+        <div class="hint-a__header" onclick="toggleA()">
+          <span>🔗</span>
+          <span>Найдено <strong>3</strong> похожих инцидента</span>
+          <span class="arrow" id="arrow-a">▼</span>
+        </div>
+        <div class="hint-a__body" id="body-a" style="display:none">
+          <div class="hint-a__card" onclick="alert('Открыть анализ: Авария на насосной №3')">
+            <span class="hint-a__percent green">85%</span>
+            <div class="hint-a__info">
+              <div class="hint-a__title">Авария на насосной станции №3</div>
+              <div class="hint-a__meta"><span>22.05.2026</span><span>Площадка А</span><span>Износ подшипника</span></div>
+            </div>
+            <button class="hint-a__open" onclick="event.stopPropagation();alert('Открыть')">Открыть →</button>
+          </div>
+          <div class="hint-a__card" onclick="alert('Открыть анализ: Прорыв трубопровода')">
+            <span class="hint-a__percent amber">72%</span>
+            <div class="hint-a__info">
+              <div class="hint-a__title">Прорыв трубопровода на участке КНС-2</div>
+              <div class="hint-a__meta"><span>15.03.2026</span><span>Цех №7</span><span>Коррозия металла</span></div>
+            </div>
+            <button class="hint-a__open" onclick="event.stopPropagation();alert('Открыть')">Открыть →</button>
+          </div>
+          <div class="hint-a__card" onclick="alert('Открыть анализ: Остановка компрессора')">
+            <span class="hint-a__percent red">68%</span>
+            <div class="hint-a__info">
+              <div class="hint-a__title">Остановка компрессорной установки</div>
+              <div class="hint-a__meta"><span>01.02.2026</span><span>КНС-2</span><span>Износ сальников</span></div>
+            </div>
+            <button class="hint-a__open" onclick="event.stopPropagation();alert('Открыть')">Открыть →</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-form-row">
+        <div class="mock-form-field"><label>Дата инцидента</label><div class="mock-form-input">26.06.2026</div></div>
+        <div class="mock-form-field"><label>Время</label><div class="mock-form-input">14:30</div></div>
+        <div class="mock-form-field"><label>Местоположение</label><div class="mock-form-input">Насосная №3</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OPTION B ===== -->
+  <div class="prototype">
+    <div class="prototype-header">
+      <div class="prototype-title">
+        <h2>B. Превью кликабельных ссылок</h2>
+        <span class="prototype-badge">Быстрый доступ</span>
+      </div>
+      <div class="prototype-desc">Вместо текста — список заголовков с цветными индикаторами. Каждый заголовок — прямая ссылка на результат.</div>
+    </div>
+    <div class="prototype-demo">
+      <div class="mock-form-field"><label>Описание инцидента</label><div class="mock-form-textarea">Произошла остановка насосной станции №3 из-за выхода из строя подшипника главного вала. Остановка привела к прекращению подачи воды на производственную площадку А на 4 часа.</div></div>
+      <div class="hint-b">
+        <div class="hint-b__label">🔗 Похожие инциденты в истории</div>
+        <div class="hint-b__item" onclick="alert('Открыть анализ: Авария на насосной №3')">
+          <span class="hint-b__dot green"></span>
+          <span class="hint-b__title">Авария на насосной станции №3</span>
+          <span class="hint-b__percent">85%</span>
+          <span class="hint-b__arrow">→</span>
+        </div>
+        <div class="hint-b__item" onclick="alert('Открыть анализ: Прорыв трубопровода')">
+          <span class="hint-b__dot amber"></span>
+          <span class="hint-b__title">Прорыв трубопровода на участке КНС-2</span>
+          <span class="hint-b__percent">72%</span>
+          <span class="hint-b__arrow">→</span>
+        </div>
+        <div class="hint-b__item" onclick="alert('Открыть анализ: Остановка компрессора')">
+          <span class="hint-b__dot red"></span>
+          <span class="hint-b__title">Остановка компрессорной установки</span>
+          <span class="hint-b__percent">68%</span>
+          <span class="hint-b__arrow">→</span>
+        </div>
+        <button class="hint-b__show-all" onclick="alert('Показать все 3 похожих инцидента')">Показать все 3 похожих →</button>
+      </div>
+      <div class="mock-form-row">
+        <div class="mock-form-field"><label>Дата инцидента</label><div class="mock-form-input">26.06.2026</div></div>
+        <div class="mock-form-field"><label>Время</label><div class="mock-form-input">14:30</div></div>
+        <div class="mock-form-field"><label>Местоположение</label><div class="mock-form-input">Насосная №3</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OPTION C ===== -->
+  <div class="prototype">
+    <div class="prototype-header">
+      <div class="prototype-title">
+        <h2>C. Трансформер — плавное превращение</h2>
+      </div>
+      <div class="prototype-desc">Skeleton → анимация → список. Можно свернуть обратно в компактный hint. (Показаны все 3 фазы рядом для наглядности)</div>
+    </div>
+    <div class="prototype-demo">
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div><div style="font-size:11px;font-weight:600;color:#8e8e93;margin-bottom:4px;">Фаза 1 — загрузка (skeleton):</div>
+          <div class="hint-c__skeleton">
+            <div class="hint-c__spinner"></div>
+            <span>Ищу похожие инциденты…</span>
+            <div class="hint-c__skeleton-bar"></div>
+          </div>
+        </div>
+        <div><div style="font-size:11px;font-weight:600;color:#8e8e93;margin-bottom:4px;">Фаза 2 — найдено (автоматически, без клика):</div>
+          <div class="hint-c__results">
+            <div class="hint-c__header">
+              <span>🔗 Найдено 3 похожих инцидента</span>
+              <button class="collapse-btn" onclick="alert('Свернуть → Фаза 3')">✕ Свернуть</button>
+            </div>
+            <div class="hint-c__item" onclick="alert('Открыть: Авария на насосной №3')">
+              <span class="pct green">85%</span>
+              <span class="title">Авария на насосной станции №3</span>
+              <span class="open-link">→</span>
+            </div>
+            <div class="hint-c__item" onclick="alert('Открыть: Прорыв трубопровода')">
+              <span class="pct amber">72%</span>
+              <span class="title">Прорыв трубопровода на участке КНС-2</span>
+              <span class="open-link">→</span>
+            </div>
+            <div class="hint-c__item" onclick="alert('Открыть: Остановка компрессора')">
+              <span class="pct red">68%</span>
+              <span class="title">Остановка компрессорной установки</span>
+              <span class="open-link">→</span>
+            </div>
+          </div>
+        </div>
+        <div><div style="font-size:11px;font-weight:600;color:#8e8e93;margin-bottom:4px;">Фаза 3 — свёрнуто (по клику «✕ Свернуть»):</div>
+          <div class="hint-c__collapsed" onclick="alert('Развернуть → Фаза 2')">
+            <span>🔗 Найдено 3 похожих инцидента</span>
+            <span class="expand-icon">▶</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OPTION D ===== -->
+  <div class="prototype">
+    <div class="prototype-header">
+      <div class="prototype-title">
+        <h2>D. Badge-список inline</h2>
+      </div>
+      <div class="prototype-desc">Ряд цветных пилюль прямо в потоке формы. Каждая — кликабельный инцидент. Минимум места.</div>
+    </div>
+    <div class="prototype-demo">
+      <div class="mock-form-field"><label>Описание инцидента</label><div class="mock-form-textarea">Произошла остановка насосной станции №3 из-за выхода из строя подшипника главного вала. Остановка привела к прекращению подачи воды на производственную площадку А на 4 часа.</div></div>
+      <div class="hint-d">
+        <span class="hint-d__label">🔗 Похожие:</span>
+        <span class="hint-d__badge green" onclick="alert('Открыть: Авария на насосной №3')">
+          Насосная №3 <span class="pct">85%</span>
+        </span>
+        <span class="hint-d__badge amber" onclick="alert('Открыть: Прорыв трубопровода')">
+          Прорыв КНС-2 <span class="pct">72%</span>
+        </span>
+        <span class="hint-d__badge red" onclick="alert('Открыть: Остановка компрессора')">
+          Компрессор <span class="pct">68%</span>
+        </span>
+        <button class="hint-d__more" onclick="alert('Показать все 3')">+ещё →</button>
+      </div>
+      <div class="mock-form-row">
+        <div class="mock-form-field"><label>Дата инцидента</label><div class="mock-form-input">26.06.2026</div></div>
+        <div class="mock-form-field"><label>Время</label><div class="mock-form-input">14:30</div></div>
+        <div class="mock-form-field"><label>Местоположение</label><div class="mock-form-input">Насосная №3</div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== OPTION E ===== -->
+  <div class="prototype">
+    <div class="prototype-header">
+      <div class="prototype-title">
+        <h2>E. Mini-модалка (popover)</h2>
+      </div>
+      <div class="prototype-desc">Компактная кнопка → модальное окно с полной панелью, фильтрами и карточками.</div>
+    </div>
+    <div class="prototype-demo">
+      <div class="mock-form-field"><label>Описание инцидента</label><div class="mock-form-textarea">Произошла остановка насосной станции №3 из-за выхода из строя подшипника главного вала. Остановка привела к прекращению подачи воды на производственную площадку А на 4 часа.</div></div>
+      <div class="hint-e">
+        <button class="hint-e__trigger" onclick="toggleModal()">
+          <span>🔗</span>
+          <span class="count">3</span>
+          <span>Похожих инцидента</span>
+        </button>
+      </div>
+
+      <!-- Modal -->
+      <div class="hint-e__overlay" id="modal-e">
+        <div class="hint-e__modal">
+          <div class="hint-e__modal-header">
+            <h3>🔗 Похожие инциденты в истории</h3>
+            <button class="hint-e__close" onclick="toggleModal()">✕</button>
+          </div>
+          <div class="hint-e__filters">
+            <select class="hint-e__filter-select"><option>Все методики</option><option>5 Почему</option><option>Галстук-бабочка</option></select>
+            <input class="hint-e__filter-input" type="date" placeholder="Дата от">
+            <span style="color:#8e8e93;font-size:13px;align-self:center;">—</span>
+            <input class="hint-e__filter-input" type="date" placeholder="Дата до">
+          </div>
+          <div class="modal-card" onclick="alert('Открыть: Авария на насосной №3')">
+            <div class="modal-card__top">
+              <span class="modal-card__badge green">85%</span>
+              <span class="modal-card__badge slate">22.05.2026</span>
+              <span class="modal-card__badge slate">🎀 Галстук-бабочка</span>
+            </div>
+            <div class="modal-card__title">Авария на насосной станции №3</div>
+            <div class="modal-card__desc">Износ подшипника главного вала привёл к остановке насоса. Агрегат остановлен, подача воды прекращена на 3.5 часа.</div>
+            <div class="modal-card__meta">
+              <span>📍 Площадка А</span>
+              <span>👤 Иванов И.И.</span>
+            </div>
+            <div class="modal-card__causes"><strong>Корневые причины:</strong> Износ подшипника, отсутствие планового ТО</div>
+            <button class="modal-card__open" onclick="event.stopPropagation();alert('Открыть')">Открыть →</button>
+          </div>
+          <div class="modal-card" onclick="alert('Открыть: Прорыв трубопровода')">
+            <div class="modal-card__top">
+              <span class="modal-card__badge amber">72%</span>
+              <span class="modal-card__badge slate">15.03.2026</span>
+              <span class="modal-card__badge slate">🐟 Диаграмма Исикавы</span>
+            </div>
+            <div class="modal-card__title">Прорыв трубопровода на участке КНС-2</div>
+            <div class="modal-card__desc">Коррозионный износ стенки трубы привёл к свищу. Потери воды — 15 м³.</div>
+            <div class="modal-card__meta">
+              <span>📍 Цех №7</span>
+              <span>👤 Петров П.П.</span>
+            </div>
+            <div class="modal-card__causes"><strong>Корневые причины:</strong> Коррозия металла, превышение срока эксплуатации</div>
+            <button class="modal-card__open" onclick="event.stopPropagation();alert('Открыть')">Открыть →</button>
+          </div>
+          <div class="modal-card" onclick="alert('Открыть: Остановка компрессора')">
+            <div class="modal-card__top">
+              <span class="modal-card__badge red">68%</span>
+              <span class="modal-card__badge slate">01.02.2026</span>
+              <span class="modal-card__badge slate">🌳 5 Почему</span>
+            </div>
+            <div class="modal-card__title">Остановка компрессорной установки</div>
+            <div class="modal-card__desc">Износ сальников компрессора привёл к утечке масла и аварийной остановке.</div>
+            <div class="modal-card__meta">
+              <span>📍 КНС-2</span>
+              <span>👤 Сидоров С.С.</span>
+            </div>
+            <div class="modal-card__causes"><strong>Корневые причины:</strong> Износ сальников, нарушение графика смазки</div>
+            <button class="modal-card__open" onclick="event.stopPropagation();alert('Открыть')">Открыть →</button>
+          </div>
+          <div class="hint-e__modal-actions">
+            <button class="hint-e__modal-close-btn" onclick="toggleModal()">Закрыть</button>
+          </div>
+        </div>
+      </div>
+      <div class="mock-form-row">
+        <div class="mock-form-field"><label>Дата инцидента</label><div class="mock-form-input">26.06.2026</div></div>
+        <div class="mock-form-field"><label>Время</label><div class="mock-form-input">14:30</div></div>
+        <div class="mock-form-field"><label>Местоположение</label><div class="mock-form-input">Насосная №3</div></div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function toggleA() {
+  const body = document.getElementById('body-a');
+  const arrow = document.getElementById('arrow-a');
+  const isOpen = body.style.display !== 'none';
+  body.style.display = isOpen ? 'none' : 'block';
+  arrow.classList.toggle('open', !isOpen);
+}
+function toggleModal() {
+  document.getElementById('modal-e').classList.toggle('open');
+}
+</script>
+</body>
+</html>

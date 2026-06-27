@@ -14,7 +14,7 @@ import ModelSelector from './ModelSelector.jsx'
 import FormSkeleton from './sections/FormSkeleton.jsx'
 import './IncidentForm.css'
 
-export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initialValues, onDraftChange }) {
+export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initialValues, onDraftChange, onOpenResult }) {
   const [form, setForm] = useState(() => initialValues ? { ...DEFAULTS, ...initialValues } : DEFAULTS)
   const [uploading, setUploading] = useState(false)
   const [uploadMessage, setUploadMessage] = useState('')
@@ -221,7 +221,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
               </div>
             )}
 
-            <BasicInfoSection form={form} set={set} busy={busy} showAdvanced={showAdvanced} />
+            <BasicInfoSection form={form} set={set} busy={busy} showAdvanced={showAdvanced} onOpenResult={onOpenResult} />
 
             <div className="incident-advanced-toggle">
               <label className="incident-toggle">

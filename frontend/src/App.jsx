@@ -410,6 +410,7 @@ export default function App() {
                   loading={loading}
                   initialValues={formDraft}
                   onDraftChange={setFormDraft}
+                  onOpenResult={openResult}
                 />
                 {loading && !multiProgressPayload && (
                   <>

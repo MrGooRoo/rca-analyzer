@@ -11,7 +11,7 @@ function SubLabel({ icon, children }) {
   )
 }
 
-export default function BasicInfoSection({ form, set, busy, showAdvanced }) {
+export default function BasicInfoSection({ form, set, busy, showAdvanced, onOpenResult }) {
   const similarQueryText = [
     form.title, form.description, form.short_description,
     form.scene_description, form.equipment_description,
@@ -34,7 +34,8 @@ export default function BasicInfoSection({ form, set, busy, showAdvanced }) {
       </div>
       {similarQueryText.length >= 20 && !busy && (
         <SimilarIncidentsHint queryText={similarQueryText}
-          incidentTitle={form.title} incidentDescription={form.description} />
+          incidentTitle={form.title} incidentDescription={form.description}
+          onOpenResult={onOpenResult} />
       )}
       <div className="incident-grid incident-grid--four">
         <Input label="Дата инцидента" type="date" value={form.incident_date}
