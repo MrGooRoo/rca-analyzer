@@ -12,6 +12,7 @@ import CompareView from './components/CompareView.jsx'
 import HistoryPage from './components/HistoryPage.jsx'
 import AdminPage from './components/AdminPage.jsx'
 import AnalysisSteps from './components/AnalysisSteps.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 import { FlaskConical, History, Settings, Plus, Sun, Moon } from 'lucide-react'
 import { methodologyMeta } from './lib/methodologies.js'
 import './App.css'
@@ -387,7 +388,8 @@ export default function App() {
       </header>
 
       <main className="app-main">
-        {page === 'analyze' && (
+        <ErrorBoundary>
+          {page === 'analyze' && (
           <>
             <AnalysisSteps
               current={analysisStep}
@@ -474,6 +476,7 @@ export default function App() {
         )}
 
         {page === 'admin' && isAdmin && <AdminPage currentUser={user} />}
+        </ErrorBoundary>
       </main>
     </div>
   )
