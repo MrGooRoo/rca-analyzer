@@ -66,7 +66,7 @@ class IncidentInput(BaseModel):
     victims: int | None = None
     equipment: str | None = Field(default=None, max_length=500)
     conditions: str | None = Field(default=None, max_length=2000)
-    actions_taken: str | None = Field(default=None, max_length=5000)
+    actions_taken: str | None = Field(default=None, max_length=20000)
 
     # --- Новые расширенные поля ---
     incident_time: time | None = None
