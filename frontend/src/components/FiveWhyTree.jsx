@@ -35,7 +35,6 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
   const lineH = compact ? 14 : 16
   const estWidth = Math.min(text.length * (fontSize * 0.55) + pad * 2, 200)
   const boxW = Math.max(estWidth, 120)
-  const boxH = compact ? 40 : 54
 
   // Multi-line text wrapping approximation
   const words = text.split(' ')
@@ -49,6 +48,7 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
   if (cur) lines.push(cur)
 
   const textBlockH = lines.length * lineH
+  const boxH = Math.max(compact ? 40 : 54, textBlockH + (compact ? 12 : 16))
 
   return (
     <g>
@@ -70,18 +70,13 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
         fill={color}
       />
       {/* Text */}
-      <foreignObject x={x - boxW / 2 + pad + 6} y={y - textBlockH / 2} width={boxW - pad * 2 - 6} height={textBlockH}>
+      <foreignObject x={x - boxW / 2 + pad + 6} y={y - boxH / 2 + 6} width={boxW - pad * 2 - 6} height={boxH - 12}>
         <div style={{
           fontSize: `${fontSize}px`,
           lineHeight: `${lineH}px`,
           color: colors.text,
           fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
           fontWeight: 500,
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: '-webkit-box',
-          WebkitLineClamp: 3,
-          WebkitBoxOrient: 'vertical',
         }}>
           {text}
         </div>
@@ -98,7 +93,7 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
           fontWeight="600"
           opacity="0.8"
         >
-          {category}
+          {category?.slice(0, 30)}
         </text>
       )}
       <text

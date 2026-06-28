@@ -26,10 +26,11 @@ const METHODOLOGY_ICONS_RV = {
 
 export default function ResultView({ result, onOpenResult = null }) {
   const isBowtie = result.methodology === 'bowtie'
-  const hasFishbone = result.methodology === 'fishbone'
-  const [tab, setTab] = useState(isBowtie ? 'bowtie' : hasFishbone ? 'fishbone' : 'tree')
-  const [exporting, setExporting] = useState(null)
-  const [exportError, setExportError] = useState(null)
+  const isFishbone = result.methodology === 'fishbone'
+  const isFiveWhy = result.methodology === '5whys'
+  const [tab, setTab] = useState(
+    isBowtie ? 'bowtie' : isFishbone ? 'fishbone' : 'tree'
+  )
 
   async function handleExport(format) {
     setExporting(format)
@@ -48,6 +49,18 @@ export default function ResultView({ result, onOpenResult = null }) {
   const tabs = isBowtie
     ? [
         { id: 'bowtie',   label: <><Sparkles size={14} /> Диаграмма</> },
+        { id: 'recs',     label: `Рекомендации (${recCount})` },
+        { id: 'meta',     label: 'Мета' },
+      ]
+    : isFishbone
+    ? [
+        { id: 'fishbone', label: <><Fish size={14} /> Исикава</> },
+        { id: 'recs',     label: `Рекомендации (${recCount})` },
+        { id: 'meta',     label: 'Мета' },
+      ]
+    : isFiveWhy
+    ? [
+        { id: 'tree',     label: <><GitBranch size={14} /> Дерево 5 Почему</> },
         { id: 'recs',     label: `Рекомендации (${recCount})` },
         { id: 'meta',     label: 'Мета' },
       ]

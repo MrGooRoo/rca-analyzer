@@ -64,7 +64,14 @@ export default function SimilarIncidentsPanel({
       const data = await api.similarIncidents(query, {
         limit: 10, excludeResultId, excludeIncidentId, incidentTitle, incidentDescription,
       })
-      setItems(data || [])
+      // Дедупликация по result_id
+      const seen = new Map()
+      const deduped = (data || []).filter(i => {
+        if (!i.result_id || seen.has(i.result_id)) return false
+        seen.set(i.result_id, true)
+        return true
+      })
+      setItems(deduped)
     } catch (e) { setError(e.message) }
     finally { setLoading(false) }
   }, [canSearch, query, excludeResultId, excludeIncidentId, incidentTitle, incidentDescription])
