@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { api } from '../api.js'
 import { Button } from './ui/Button.jsx'
 import { Card, CardHeader, CardBody } from './ui/Card.jsx'
-import { DEFAULTS, EMPTY_VICTIM } from './sections/formConstants.js'
+import { DEFAULTS } from './sections/formConstants.js'
 import StepIndicator from './sections/StepIndicator.jsx'
 import InputModeSelector from './sections/InputModeSelector.jsx'
 import BasicInfoSection from './sections/BasicInfoSection.jsx'
@@ -22,7 +22,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
   const [uploadedFile, setUploadedFile] = useState(null)
   const [inputMode, setInputMode] = useState('manual')
   const [dragOver, setDragOver] = useState(false)
-  const [expandedVictims, setExpandedVictims] = useState({})
   const [step, setStep] = useState(1)
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [isInitializing, setIsInitializing] = useState(true)
@@ -156,36 +155,6 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
     }
   }
 
-  // --- Victims helpers ---
-  function addVictim() {
-    const newList = [...(form.victims_list || []), { ...EMPTY_VICTIM }]
-    setForm(f => ({ ...f, victims_list: newList }))
-    setExpandedVictims(e => ({ ...e, [newList.length - 1]: true }))
-  }
-
-  function removeVictim(idx) {
-    setForm(f => ({ ...f, victims_list: f.victims_list?.filter((_, i) => i !== idx) }))
-    setExpandedVictims(e => {
-      const next = {}
-      Object.keys(e).forEach(k => {
-        if (Number(k) !== idx) next[Number(k) > idx ? Number(k) - 1 : Number(k)] = e[k]
-      })
-      return next
-    })
-  }
-
-  function setVictim(idx, field, value) {
-    setForm(f => {
-      const list = [...(f.victims_list || [])]
-      list[idx] = { ...list[idx], [field]: value }
-      return { ...f, victims_list: list }
-    })
-  }
-
-  function toggleVictim(idx) {
-    setExpandedVictims(e => ({ ...e, [idx]: !e[idx] }))
-  }
-
   // --- Render ---
   if (isInitializing) return <FormSkeleton />
 
@@ -236,15 +205,7 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
             {(step === 2 || showAdvanced) && (
               <>
                 <AdvancedFieldsSection form={form} set={set} busy={busy} />
-                <VictimSection
-                  victimsList={form.victims_list}
-                  expandedVictims={expandedVictims}
-                  busy={busy}
-                  onAdd={addVictim}
-                  onRemove={removeVictim}
-                  onToggle={toggleVictim}
-                  onSetVictim={setVictim}
-                />
+                <VictimSection form={form} set={set} busy={busy} />
                 <ClassificationSection form={form} set={set} busy={busy} />
               </>
             )}

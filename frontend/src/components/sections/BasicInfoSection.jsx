@@ -59,16 +59,10 @@ export default function BasicInfoSection({ form, set, busy, showAdvanced, onOpen
           onChange={e => set('location_detailed', e.target.value)}
           placeholder="Уточните место: помещение, отметка, оборудование или рабочая зона" disabled={busy} />
       </div>
-      <div className="incident-grid incident-grid--two">
-        <Input label="Пострадавшие" type="number" min={0} value={form.injured_count}
-          onChange={e => set('injured_count', e.target.value)} disabled={busy} />
-        <Input label="Погибшие" type="number" min={0} value={form.fatalities_count}
-          onChange={e => set('fatalities_count', e.target.value)} disabled={busy} />
-        <div className="incident-grid-span-two">
-          <Textarea label="Краткое описание" rows={2} value={form.short_description}
-            onChange={e => set('short_description', e.target.value)}
-            placeholder="Одно-два предложения для быстрого понимания события" disabled={busy} />
-        </div>
+      <div className="incident-grid">
+        <Textarea label="Краткое описание" rows={2} value={form.short_description}
+          onChange={e => set('short_description', e.target.value)}
+          placeholder="Одно-два предложения для быстрого понимания события" disabled={busy} />
       </div>
     </div>
   )

@@ -368,6 +368,27 @@
   font-size: var(--text-caption2);
 }
 
+/* Group header for injured/fatal sections */
+.incident-victim-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.incident-victim-group + .incident-victim-group {
+  margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--separator);
+}
+
+.incident-victim-group__header {
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  color: var(--label-secondary);
+  letter-spacing: 0.15px;
+  padding: 4px 0;
+}
+
 .incident-victim-content {
   display: flex;
   flex-direction: column;

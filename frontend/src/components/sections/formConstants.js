@@ -31,6 +31,7 @@ export const EMPTY_VICTIM = {
   profession: '', workplace: '', total_experience: '', experience_in_organization: '',
   qualification_certificate: '', introductory_briefing: '', workplace_briefing: '',
   internship: '', safety_knowledge_test: '', medical_examination: '', diagnosis_severity: '',
+  status: 'injured', // 'injured' | 'fatal'
 }
 
 export const DEFAULTS = {
