@@ -13,8 +13,8 @@ function SubLabel({ icon, children }) {
 export default function AdvancedFieldsSection({ form, set, busy }) {
   return (
     <>
-      {/* Фото */}
-      <div className="incident-section">
+      {/* Фото — временно скрыто (экономия места на сервере и токенов) */}
+      {/*<div className="incident-section">
         <SubLabel icon="📷">Фото с места происшествия</SubLabel>
         <Textarea label="Ссылки на фото (по одной на строку)" rows={3}
           placeholder="https://..."
@@ -30,7 +30,7 @@ export default function AdvancedFieldsSection({ form, set, busy }) {
             ))}
           </div>
         )}
-      </div>
+      </div>*/}
 
       {/* Установленные факты */}
       <div className="incident-section">
