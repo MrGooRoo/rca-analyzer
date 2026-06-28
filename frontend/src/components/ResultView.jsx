@@ -1,7 +1,5 @@
 import React, { useState } from 'react'
 import BowtieDiagram from './BowtieDiagram.jsx'
-import IshikawaDiagram from './IshikawaDiagram.jsx'
-import FiveWhyTree from './FiveWhyTree.jsx'
 import FiveWhySummary from './FiveWhySummary.jsx'
 import IshikawaSummary from './IshikawaSummary.jsx'
 import SimilarIncidentsPanel from './SimilarIncidentsPanel.jsx'
@@ -9,7 +7,7 @@ import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
 import { Button } from './ui/Button.jsx'
 import { Badge, Card, CardBody } from './ui/Card.jsx'
 import { api } from '../api.js'
-import { Sparkles, Download, HelpCircle, Ribbon, Fish, TreePine, Cog, GitBranch, LayoutGrid, Layers } from 'lucide-react'
+import { Sparkles, Download, HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
 import './ResultView.css'
 
 const PRIORITY_TONES = {
@@ -35,7 +33,6 @@ export default function ResultView({ result, onOpenResult = null }) {
   )
   const [exporting, setExporting] = useState(null)
   const [exportError, setExportError] = useState(null)
-  const [viewMode, setViewMode] = useState('diagram') // 'diagram' | 'summary'
 
   async function handleExport(format) {
     setExporting(format)
@@ -143,28 +140,10 @@ export default function ResultView({ result, onOpenResult = null }) {
         ))}
       </div>
 
-      {/* View mode toggle — только для Исикава и 5 Why */}
-      {(tab === 'fishbone' || tab === 'tree') && (
-        <div className="result-viewmode">
-          <button
-            className={`result-viewmode__btn ${viewMode === 'diagram' ? 'result-viewmode__btn--active' : ''}`}
-            onClick={() => setViewMode('diagram')}
-            title="Диаграмма"
-          ><Layers size={14} /> Диаграмма</button>
-          <button
-            className={`result-viewmode__btn ${viewMode === 'summary' ? 'result-viewmode__btn--active' : ''}`}
-            onClick={() => setViewMode('summary')}
-            title="Сводка"
-          ><LayoutGrid size={14} /> Сводка</button>
-        </div>
-      )}
-
       {/* Content */}
       {tab === 'bowtie' && <BowtieDiagram result={result} />}
-      {tab === 'fishbone' && viewMode === 'diagram' && <IshikawaDiagram result={result} />}
-      {tab === 'fishbone' && viewMode === 'summary' && <IshikawaSummary result={result} />}
-      {tab === 'tree' && viewMode === 'diagram' && <FiveWhyTree result={result} />}
-      {tab === 'tree' && viewMode === 'summary' && <FiveWhySummary result={result} />}
+      {tab === 'fishbone' && <IshikawaSummary result={result} />}
+      {tab === 'tree' && <FiveWhySummary result={result} />}
       {tab === 'recs' && <Recommendations recs={result.recommendations} />}
       {tab === 'meta' && <Meta result={result} />}
     </div>
