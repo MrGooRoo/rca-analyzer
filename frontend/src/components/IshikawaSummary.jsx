@@ -79,7 +79,7 @@ export default function IshikawaSummary({ result }) {
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
             <path d="M2 12C2 12 5 8 9 8C13 8 16 10 18 11C20 12 22 12 22 12C22 12 20 12 18 13C16 14 13 16 9 16C5 16 2 12 2 12Z"
               fill="currentColor" opacity="0.8"/>
-            <circle cx="6" cy="12" r="1" fill="#0a0e17" />
+            <circle cx="6" cy="12" r="1" fill="var(--bg-primary)" />
           </svg>
         </div>
         {problem}

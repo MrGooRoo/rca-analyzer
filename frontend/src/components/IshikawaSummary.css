@@ -1,39 +1,39 @@
-/* ---- Ishikawa Summary (6M grid) — по образцу sandbox ---- */
+/* ---- Ishikawa Summary (6M grid) — Apple HIG ---- */
 
 .sw-ishikawa {
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-lg);
   animation: fadeIn 0.3s ease both;
 }
 
 /* ---------- 1. Вводный текст ---------- */
 .sw-ishikawa__summary {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--label-secondary, #a0a0a5);
-  font-style: italic;
-  border-left: 2px solid var(--color-teal, #14b8a6);
+  margin: 0;
   padding-left: 12px;
-  opacity: 0.85;
+  border-left: 2px solid var(--accent-border);
+  color: var(--label-tertiary);
+  font-size: var(--text-footnote);
+  font-style: italic;
+  line-height: 1.5;
 }
 
-/* ---------- 2. Центральная проблема ---------- */
+/* ---------- 2. Центральная проблема (блок) ---------- */
 .sw-ishikawa__problem {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  background: var(--accent);
   color: #fff;
-  font-size: 14px;
-  font-weight: 600;
-  padding: 10px 20px;
-  border-radius: 20px;
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  padding: 8px 18px;
+  border-radius: var(--radius-full);
   width: fit-content;
   max-width: 100%;
   margin: 0 auto;
-  box-shadow: 0 4px 16px rgba(20, 184, 166, 0.25);
+  box-shadow: var(--shadow-glow);
   text-align: center;
 }
 
@@ -42,13 +42,15 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  color: #fff;
+  opacity: 0.8;
 }
 
 /* ---------- 3. Сетка категорий 2×3 ---------- */
 .sw-ishikawa__grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 12px;
+  gap: var(--space-sm);
 }
 
 @media (max-width: 640px) {
@@ -58,24 +60,23 @@
 }
 
 .sw-ishikawa__card {
-  background: rgba(15, 23, 42, 0.6);
-  border: 1px solid rgba(30, 41, 59, 0.8);
-  border-radius: 16px;
-  padding: 14px 16px;
-  backdrop-filter: blur(4px);
-  transition: border-color 0.15s;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--separator);
+  background: var(--glass-bg);
+  padding: var(--space-md);
+  transition: border-color var(--transition-instant);
 }
 
 .sw-ishikawa__card:hover {
-  border-color: rgba(20, 184, 166, 0.3);
+  border-color: var(--accent-border);
 }
 
 .sw-ishikawa__card-title {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--color-teal, #14b8a6);
-  margin-bottom: 10px;
-  letter-spacing: 0.02em;
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-heavy);
+  color: var(--accent);
+  margin-bottom: var(--space-sm);
+  letter-spacing: var(--ls-wide);
   text-transform: uppercase;
 }
 
@@ -89,18 +90,18 @@
   display: flex;
   align-items: baseline;
   gap: 6px;
-  padding: 3px 0;
-  font-size: 12px;
+  padding: 2px 0;
+  font-size: var(--text-footnote);
   line-height: 1.4;
-  color: var(--label-primary, #e0e0e5);
+  color: var(--label-primary);
 }
 
 .sw-ishikawa__bullet {
-  font-size: 8px;
-  color: var(--color-teal, #14b8a6);
+  font-size: 7px;
+  color: var(--accent);
   flex-shrink: 0;
-  opacity: 0.7;
-  line-height: 1.4;
+  opacity: 0.6;
+  line-height: 1.5;
 }
 
 .sw-ishikawa__card-text {
@@ -111,14 +112,14 @@
 .sw-ishikawa__recs {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: var(--space-sm);
 }
 
 .sw-ishikawa__recs-title {
-  font-size: 11px;
-  font-weight: 700;
-  color: var(--label-tertiary, #6b6b73);
-  letter-spacing: 0.08em;
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-heavy);
+  color: var(--label-tertiary);
+  letter-spacing: var(--ls-wide);
   text-transform: uppercase;
 }
 
@@ -131,16 +132,16 @@
 .sw-ishikawa__rec-item {
   display: flex;
   align-items: flex-start;
-  gap: 10px;
-  background: rgba(20, 30, 50, 0.7);
-  border: 1px solid rgba(30, 41, 59, 0.6);
-  border-radius: 10px;
-  padding: 10px 14px;
-  transition: border-color 0.15s;
+  gap: var(--space-sm);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--separator);
+  background: var(--glass-bg);
+  padding: 10px 12px;
+  transition: border-color var(--transition-instant);
 }
 
 .sw-ishikawa__rec-item:hover {
-  border-color: rgba(20, 184, 166, 0.2);
+  border-color: var(--accent-border);
 }
 
 .sw-ishikawa__rec-num {
@@ -150,16 +151,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(20, 184, 166, 0.15);
-  color: var(--color-teal, #14b8a6);
-  font-size: 11px;
-  font-weight: 700;
-  border-radius: 6px;
+  background: var(--accent-subtle);
+  color: var(--accent);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-bold);
+  border-radius: var(--radius-sm);
 }
 
 .sw-ishikawa__rec-text {
-  font-size: 13px;
+  font-size: var(--text-footnote);
   line-height: 1.45;
-  color: var(--label-primary, #e0e0e5);
+  color: var(--label-primary);
   flex: 1;
 }
