@@ -1,113 +1,165 @@
-/* ---- Ishikawa Summary (grid view) ---- */
+/* ---- Ishikawa Summary (6M grid) — по образцу sandbox ---- */
 
 .sw-ishikawa {
   display: flex;
   flex-direction: column;
-  gap: var(--space-xl);
+  gap: 24px;
   animation: fadeIn 0.3s ease both;
 }
 
+/* ---------- 1. Вводный текст ---------- */
+.sw-ishikawa__summary {
+  font-size: 13px;
+  line-height: 1.5;
+  color: var(--label-secondary, #a0a0a5);
+  font-style: italic;
+  border-left: 2px solid var(--color-teal, #14b8a6);
+  padding-left: 12px;
+  opacity: 0.85;
+}
+
+/* ---------- 2. Центральная проблема ---------- */
 .sw-ishikawa__problem {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: var(--space-sm);
-  background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(13,148,136,0.08));
-  border: 1px solid rgba(16,185,129,0.25);
-  border-radius: var(--radius-lg);
-  padding: var(--space-lg) var(--space-xl);
-  font-size: var(--text-body);
-  font-weight: var(--weight-bold);
-  color: var(--label-primary);
-  line-height: 1.5;
+  gap: 8px;
+  background: linear-gradient(135deg, #0d9488 0%, #14b8a6 100%);
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  padding: 10px 20px;
+  border-radius: 20px;
+  width: fit-content;
+  max-width: 100%;
+  margin: 0 auto;
+  box-shadow: 0 4px 16px rgba(20, 184, 166, 0.25);
   text-align: center;
 }
 
-.sw-ishikawa__problem-icon {
-  font-size: 22px;
-  line-height: 1;
+.sw-ishikawa__fish-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
 }
 
+/* ---------- 3. Сетка категорий 2×3 ---------- */
 .sw-ishikawa__grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--space-lg);
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
 }
 
-.sw-ishikawa__section {
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--separator);
-  background: var(--glass-bg);
-  overflow: hidden;
+@media (max-width: 640px) {
+  .sw-ishikawa__grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
-.sw-ishikawa__section-header {
-  padding: var(--space-sm) var(--space-md);
-  font-size: var(--text-caption2);
-  font-weight: var(--weight-heavy);
-  letter-spacing: var(--ls-wide);
+.sw-ishikawa__card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(30, 41, 59, 0.8);
+  border-radius: 16px;
+  padding: 14px 16px;
+  backdrop-filter: blur(4px);
+  transition: border-color 0.15s;
+}
+
+.sw-ishikawa__card:hover {
+  border-color: rgba(20, 184, 166, 0.3);
+}
+
+.sw-ishikawa__card-title {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--color-teal, #14b8a6);
+  margin-bottom: 10px;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
-  border-bottom: 1px solid;
 }
 
-.sw-ishikawa__section-body {
-  padding: var(--space-md);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-md);
-}
-
-.sw-ishikawa__cat-group {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.sw-ishikawa__cat-name {
-  font-size: var(--text-footnote);
-  font-weight: var(--weight-bold);
-  opacity: 0.8;
-}
-
-.sw-ishikawa__causes {
+.sw-ishikawa__card-list {
   list-style: none;
   margin: 0;
   padding: 0;
+}
+
+.sw-ishikawa__card-item {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 3px 0;
+  font-size: 12px;
+  line-height: 1.4;
+  color: var(--label-primary, #e0e0e5);
+}
+
+.sw-ishikawa__bullet {
+  font-size: 8px;
+  color: var(--color-teal, #14b8a6);
+  flex-shrink: 0;
+  opacity: 0.7;
+  line-height: 1.4;
+}
+
+.sw-ishikawa__card-text {
+  flex: 1;
+}
+
+/* ---------- 4. Рекомендации ---------- */
+.sw-ishikawa__recs {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 12px;
 }
 
-.sw-ishikawa__cause {
+.sw-ishikawa__recs-title {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--label-tertiary, #6b6b73);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.sw-ishikawa__recs-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sw-ishikawa__rec-item {
   display: flex;
   align-items: flex-start;
-  gap: 6px;
-  font-size: var(--text-footnote);
-  color: var(--label-tertiary);
-  line-height: 1.5;
-  padding: 3px 0;
+  gap: 10px;
+  background: rgba(20, 30, 50, 0.7);
+  border: 1px solid rgba(30, 41, 59, 0.6);
+  border-radius: 10px;
+  padding: 10px 14px;
+  transition: border-color 0.15s;
 }
 
-.sw-ishikawa__dot {
-  flex: 0 0 6px;
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  margin-top: 7px;
+.sw-ishikawa__rec-item:hover {
+  border-color: rgba(20, 184, 166, 0.2);
 }
 
-.sw-ishikawa__cause-text {
+.sw-ishikawa__rec-num {
+  flex-shrink: 0;
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 184, 166, 0.15);
+  color: var(--color-teal, #14b8a6);
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 6px;
+}
+
+.sw-ishikawa__rec-text {
+  font-size: 13px;
+  line-height: 1.45;
+  color: var(--label-primary, #e0e0e5);
   flex: 1;
-  min-width: 0;
-}
-
-.sw-ishikawa__conf {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: var(--text-caption2);
-  color: var(--label-quaternary);
-  margin-left: auto;
-  white-space: nowrap;
 }
