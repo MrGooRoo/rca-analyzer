@@ -1,3 +1,4 @@
+import React, { useRef, useEffect } from 'react'
 import { cn } from '../../utils/cn'
 import './Field.css'
 
@@ -39,9 +40,26 @@ export function Input(props) {
  */
 export function Textarea(props) {
   const { label, hint, error, required, className, ...rest } = props
+  const textareaRef = useRef(null)
+
+  const resize = () => {
+    const el = textareaRef.current
+    if (el) {
+      el.style.height = 'auto'
+      el.style.height = el.scrollHeight + 2 + 'px'
+    }
+  }
+
+  useEffect(() => { resize() }, [rest.value])
+
   return (
     <FieldWrapper label={label} hint={hint} error={error} required={required}>
-      <textarea className={cn('ui-textarea', className)} {...rest} />
+      <textarea
+        ref={textareaRef}
+        className={cn('ui-textarea', className)}
+        onInput={resize}
+        {...rest}
+      />
     </FieldWrapper>
   )
 }
