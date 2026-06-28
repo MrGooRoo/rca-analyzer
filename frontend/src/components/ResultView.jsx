@@ -26,8 +26,8 @@ const METHODOLOGY_ICONS_RV = {
 
 export default function ResultView({ result, onOpenResult = null }) {
   const isBowtie = result.methodology === 'bowtie'
-  const isFishbone = result.methodology === 'fishbone'
-  const isFiveWhy = result.methodology === '5whys'
+  const isFishbone = result.methodology === 'ishikawa'
+  const isFiveWhy = result.methodology === 'five_why'
   const [tab, setTab] = useState(
     isBowtie ? 'bowtie' : isFishbone ? 'fishbone' : 'tree'
   )
