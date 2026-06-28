@@ -298,3 +298,4 @@ class SimilarIncident(BaseModel):
     incident_description: str | None = None
     incident_date: datetime | None = None
     incident_location: str | None = None
+    incident_company: str | None = None

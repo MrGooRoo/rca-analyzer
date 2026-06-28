@@ -1,4 +1,8 @@
-/* ---- Similar Incidents Panel — Apple HIG ---- */
+/* ══════════════════════════════════════════════════════════════
+   Similar Incidents Panel — Apple-style pill chips + cards
+   ══════════════════════════════════════════════════════════════ */
+
+/* ── Panel container ─────────────────────────────────────── */
 
 .similar-panel {
   margin-block: var(--space-xl);
@@ -38,26 +42,94 @@
   line-height: 1.5;
 }
 
+/* ── Filter bar ──────────────────────────────────────────── */
+
 .similar-panel__filters {
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: var(--space-md);
-  flex-wrap: wrap;
   margin-top: var(--space-lg);
+  padding-top: var(--space-lg);
+  border-top: 1px solid var(--separator);
 }
 
-.similar-filter {
-  min-width: 120px;
-  flex: 1 1 140px;
+.similar-panel__filter-group {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  flex-wrap: wrap;
 }
 
-.similar-filter--method {
-  min-width: 140px;
+.similar-panel__filter-label {
+  color: var(--label-tertiary);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  min-width: 64px;
+  flex-shrink: 0;
 }
 
-.similar-filter__dash {
+.similar-panel__chips {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.similar-panel__reset {
+  align-self: flex-start;
+  margin-left: auto;
+}
+
+/* ── Apple-style pill chips (FilterChip) ─────────────────── */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 14px;
+  height: 30px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-caption1);
+  font-weight: var(--weight-medium);
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--separator);
+  background: transparent;
   color: var(--label-secondary);
+  white-space: nowrap;
+  user-select: none;
+  -webkit-user-select: none;
+  transition:
+    background var(--transition-instant),
+    border-color var(--transition-instant),
+    color var(--transition-instant),
+    transform 120ms cubic-bezier(0.25, 0.1, 0.25, 1);
 }
+
+.chip:hover {
+  background: var(--fill-gray);
+  border-color: var(--label-quaternary);
+  color: var(--label-primary);
+}
+
+.chip:active {
+  transform: scale(0.95);
+}
+
+.chip--active {
+  background: var(--fill-gray);
+  border-color: var(--chip-accent, var(--accent));
+  color: var(--chip-accent, var(--accent));
+  font-weight: var(--weight-semibold);
+}
+
+.chip--active:hover {
+  background: var(--bg-quaternary);
+}
+
+/* ── Status text ─────────────────────────────────────────── */
 
 .similar-panel__status {
   margin-top: var(--space-lg);
@@ -82,6 +154,8 @@
   background: rgba(255, 59, 48, 0.10);
 }
 
+/* ── Card list ───────────────────────────────────────────── */
+
 .similar-panel__list {
   display: flex;
   flex-direction: column;
@@ -89,7 +163,7 @@
   margin-top: var(--space-lg);
 }
 
-/* Similar card */
+/* ── Similar card (Apple rounded rect card) ──────────────── */
 
 .similar-card {
   border-radius: var(--radius-lg);
@@ -112,6 +186,8 @@
   transform: translateY(-2px);
 }
 
+/* ── Apple-style badges (inline pill badges) ─────────────── */
+
 .similar-card__badges {
   display: flex;
   align-items: center;
@@ -120,9 +196,30 @@
   margin-bottom: var(--space-lg);
 }
 
+.similar-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-semibold);
+  border: 1px solid;
+  white-space: nowrap;
+}
+
+.similar-badge--slate   { background: rgba(142,142,147,0.15); border-color: rgba(142,142,147,0.3); color: var(--label-secondary); }
+.similar-badge--sky     { background: var(--accent-subtle);    border-color: var(--accent-border); color: var(--accent); }
+.similar-badge--emerald { background: rgba(52,199,89,0.15);   border-color: rgba(52,199,89,0.3);  color: var(--color-success); }
+.similar-badge--amber   { background: rgba(255,204,0,0.15);   border-color: rgba(255,204,0,0.3);  color: var(--color-warning); }
+.similar-badge--rose    { background: rgba(255,59,48,0.15);   border-color: rgba(255,59,48,0.3);  color: var(--color-error); }
+.similar-badge--violet  { background: rgba(175,82,222,0.15);  border-color: rgba(175,82,222,0.3); color: #bf5af2; }
+
 .similar-card__open {
   margin-left: auto;
 }
+
+/* ── Incident context block ───────────────────────────────── */
 
 .similar-card__context {
   margin-bottom: var(--space-lg);
@@ -155,12 +252,16 @@
   font-size: var(--text-caption2);
 }
 
+/* ── Summary ────────────────────────────────────────────── */
+
 .similar-card__summary {
   margin: 0;
   color: var(--label-tertiary);
   font-size: var(--text-subhead);
   line-height: 1.5;
 }
+
+/* ── Sections (root causes, recommendations) ────────────── */
 
 .similar-card__section {
   margin-top: var(--space-lg);
@@ -181,6 +282,8 @@
 .similar-card__section li {
   margin: 4px 0;
 }
+
+/* ── Footer IDs ────────────────────────────────────────── */
 
 .similar-card__ids {
   display: flex;

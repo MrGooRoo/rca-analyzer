@@ -1,10 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import { api } from '../api.js'
 import { methodologyMeta, METHODOLOGY_LABELS } from '../lib/methodologies.js'
-import { Badge, Card } from './ui/Card.jsx'
+import { Card } from './ui/Card.jsx'
 import { Button } from './ui/Button.jsx'
-import { Input, Select } from './ui/Field.jsx'
-import { User, Calendar, MapPin, Link as LinkIcon, HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
+import { User, Calendar, MapPin, Building2, HelpCircle, Ribbon, Fish, TreePine, Cog } from 'lucide-react'
 import './SimilarIncidentsPanel.css'
 
 const METHODOLOGY_ICONS_SIP = {
@@ -17,6 +16,22 @@ const METHODOLOGY_ICONS_SIP = {
 
 function normalizeQuery(text) {
   return String(text || '').replace(/\s+/g, ' ').trim().slice(0, 5000)
+}
+
+/**
+ * Apple-style pill chip — переключаемый фильтр.
+ */
+function FilterChip({ label, active, color, onClick }) {
+  return (
+    <button
+      type="button"
+      className={`chip ${active ? 'chip--active' : ''}`}
+      style={active && color ? { '--chip-accent': color, borderColor: color, background: color + '20' } : {}}
+      onClick={onClick}
+    >
+      {label}
+    </button>
+  )
 }
 
 export default function SimilarIncidentsPanel({
@@ -37,8 +52,8 @@ export default function SimilarIncidentsPanel({
   const [error, setError] = useState(null)
   const [searched, setSearched] = useState(false)
   const [filterMethod, setFilterMethod] = useState('')
-  const [filterDateFrom, setFilterDateFrom] = useState('')
-  const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterAuthor, setFilterAuthor] = useState('')
+  const [filterCompany, setFilterCompany] = useState('')
 
   const canSearch = query.length >= 20
 
@@ -59,15 +74,28 @@ export default function SimilarIncidentsPanel({
   const filtered = useMemo(() => {
     let result = items
     if (filterMethod) result = result.filter(i => i.methodology === filterMethod)
-    if (filterDateFrom) result = result.filter(i => new Date(i.created_at) >= new Date(filterDateFrom))
-    if (filterDateTo) { const to = new Date(filterDateTo); to.setHours(23,59,59); result = result.filter(i => new Date(i.created_at) <= to) }
+    if (filterAuthor) result = result.filter(i =>
+      (i.user_display_name || i.user_email) === filterAuthor
+    )
+    if (filterCompany) result = result.filter(i => i.incident_company === filterCompany)
     return result
-  }, [items, filterMethod, filterDateFrom, filterDateTo])
+  }, [items, filterMethod, filterAuthor, filterCompany])
 
+  // Вычисляем доступные опции для фильтров из результатов
   const availableMethods = useMemo(() => [...new Set(items.map(i => i.methodology))], [items])
-  const hasFilters = filterMethod || filterDateFrom || filterDateTo
+  const availableAuthors = useMemo(() => {
+    const set = new Set(items.map(i => i.user_display_name || i.user_email).filter(Boolean))
+    return [...set]
+  }, [items])
+  const availableCompanies = useMemo(() => {
+    const set = new Set(items.map(i => i.incident_company).filter(Boolean))
+    return [...set]
+  }, [items])
 
-  function resetFilters() { setFilterMethod(''); setFilterDateFrom(''); setFilterDateTo('') }
+  const hasFilters = filterMethod || filterAuthor || filterCompany
+  const hasAnyCompany = availableCompanies.length > 0
+
+  function resetFilters() { setFilterMethod(''); setFilterAuthor(''); setFilterCompany('') }
 
   async function handleOpenResult(item) {
     if (!onOpenResult) return
@@ -105,14 +133,76 @@ export default function SimilarIncidentsPanel({
 
       {searched && items.length > 0 && (
         <div className="similar-panel__filters">
-          <Select className="similar-filter similar-filter--method" value={filterMethod} onChange={e => setFilterMethod(e.target.value)}>
-            <option value="">Все методики</option>
-            {availableMethods.map(m => <option key={m} value={m}>{METHODOLOGY_LABELS[m] || m}</option>)}
-          </Select>
-          <Input type="date" className="similar-filter similar-filter--date" value={filterDateFrom} onChange={e => setFilterDateFrom(e.target.value)} aria-label="Дата от" />
-          <span className="similar-filter__dash">—</span>
-          <Input type="date" className="similar-filter similar-filter--date" value={filterDateTo} onChange={e => setFilterDateTo(e.target.value)} aria-label="Дата до" />
-          {hasFilters && <Button type="button" variant="danger" size="sm" onClick={resetFilters}>✕ Сбросить</Button>}
+          {/* Методики — Apple pill chips */}
+          {availableMethods.length > 1 && (
+            <div className="similar-panel__filter-group">
+              <span className="similar-panel__filter-label">Методика</span>
+              <div className="similar-panel__chips">
+                <FilterChip label="Все" active={!filterMethod} onClick={() => setFilterMethod('')} />
+                {availableMethods.map(m => {
+                  const meta = methodologyMeta(m)
+                  const colorMap = {
+                    sky: 'var(--accent)',
+                    rose: 'var(--color-error)',
+                    emerald: 'var(--color-success)',
+                    amber: 'var(--color-warning)',
+                    violet: 'var(--system-purple)',
+                  }
+                  return (
+                    <FilterChip
+                      key={m}
+                      label={METHODOLOGY_LABELS[m] || m}
+                      active={filterMethod === m}
+                      color={colorMap[meta.badgeTone] || 'var(--label-secondary)'}
+                      onClick={() => setFilterMethod(filterMethod === m ? '' : m)}
+                    />
+                  )
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Автор — Apple pill chips */}
+          {availableAuthors.length > 1 && (
+            <div className="similar-panel__filter-group">
+              <span className="similar-panel__filter-label">Автор</span>
+              <div className="similar-panel__chips">
+                <FilterChip label="Все" active={!filterAuthor} onClick={() => setFilterAuthor('')} />
+                {availableAuthors.map(a => (
+                  <FilterChip
+                    key={a}
+                    label={a}
+                    active={filterAuthor === a}
+                    onClick={() => setFilterAuthor(filterAuthor === a ? '' : a)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Компания — Apple pill chips (только если есть данные) */}
+          {hasAnyCompany && (
+            <div className="similar-panel__filter-group">
+              <span className="similar-panel__filter-label">Компания</span>
+              <div className="similar-panel__chips">
+                <FilterChip label="Все" active={!filterCompany} onClick={() => setFilterCompany('')} />
+                {availableCompanies.map(c => (
+                  <FilterChip
+                    key={c}
+                    label={c}
+                    active={filterCompany === c}
+                    onClick={() => setFilterCompany(filterCompany === c ? '' : c)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+
+          {hasFilters && (
+            <Button type="button" variant="ghost" size="sm" className="similar-panel__reset" onClick={resetFilters}>
+              ✕ Сбросить
+            </Button>
+          )}
         </div>
       )}
 
@@ -146,10 +236,14 @@ function SimilarCard({ item, onOpen = null }) {
   return (
     <Card className={`similar-card ${onOpen ? 'similar-card--clickable' : ''}`} onClick={onOpen}>
       <div className="similar-card__badges">
-        <Badge tone={scoreTone}>{percent}% похоже</Badge>
-        <Badge tone={meta.badgeTone}>{(() => { const Ic = METHODOLOGY_ICONS_SIP[meta.icon]; return Ic ? <Ic size={12} /> : null; })()} {METHODOLOGY_LABELS[item.methodology] || item.methodology}</Badge>
-        <Badge tone="slate">{date}</Badge>
-        {author && <Badge tone="slate"><User size={12} /> {author}</Badge>}
+        <span className={`similar-badge similar-badge--${scoreTone}`}>{percent}% похоже</span>
+        <span className={`similar-badge similar-badge--${meta.badgeTone}`}>
+          {(() => { const Ic = METHODOLOGY_ICONS_SIP[meta.icon]; return Ic ? <Ic size={12} /> : null; })()}
+          {' '}{METHODOLOGY_LABELS[item.methodology] || item.methodology}
+        </span>
+        <span className="similar-badge similar-badge--slate">{date}</span>
+        {author && <span className="similar-badge similar-badge--slate"><User size={12} /> {author}</span>}
+        {item.incident_company && <span className="similar-badge similar-badge--slate"><Building2 size={12} /> {item.incident_company}</span>}
         {onOpen && <Button type="button" variant="ghost" size="sm" className="similar-card__open">Открыть →</Button>}
       </div>
 
@@ -157,10 +251,11 @@ function SimilarCard({ item, onOpen = null }) {
         <div className="similar-card__context">
           {item.incident_title && <div className="similar-card__context-title">{item.incident_title}</div>}
           {item.incident_description && <p className="similar-card__context-text">{item.incident_description}</p>}
-          {(incidentDateStr || item.incident_location) && (
+          {(incidentDateStr || item.incident_location || item.incident_company) && (
             <div className="similar-card__context-meta">
               {incidentDateStr && <span><Calendar size={12} /> {incidentDateStr}</span>}
               {item.incident_location && <span><MapPin size={12} /> {item.incident_location}</span>}
+              {item.incident_company && <span><Building2 size={12} /> {item.incident_company}</span>}
             </div>
           )}
         </div>

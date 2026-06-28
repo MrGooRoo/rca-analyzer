@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import hashlib
 import inspect
+import json
 import logging
 import uuid
 from datetime import datetime
@@ -707,6 +708,14 @@ def _orm_to_similar(row: RCAResultORM, *, similarity: float) -> SimilarIncident:
     incident_description = session.incident_description if session and session.incident_description != "—" else None
     incident_date = session.incident_date if session else None
     incident_location = session.incident_location if session else None
+    # Извлекаем company из полного IncidentInput (JSON)
+    incident_company = None
+    if session and session.incident_data_json:
+        try:
+            data = json.loads(session.incident_data_json)
+            incident_company = data.get("company") or None
+        except (json.JSONDecodeError, TypeError):
+            pass
 
     return SimilarIncident(
         result_id=row.result_id,
@@ -725,6 +734,7 @@ def _orm_to_similar(row: RCAResultORM, *, similarity: float) -> SimilarIncident:
         incident_description=incident_description,
         incident_date=incident_date,
         incident_location=incident_location,
+        incident_company=incident_company,
     )
 
 
