@@ -41,6 +41,8 @@ export default function App() {
   const [comparison, setComparison]     = useState(null)
   // viewMode: { type: 'single', result } | { type: 'compare', comparison } | null
   const [viewMode, setViewMode]         = useState(null)
+  // Откуда пришли в режим просмотра: 'history' | 'analyze-form' | 'analyze-result'
+  const [viewOrigin, setViewOrigin]     = useState(null)
   const [loading, setLoading]           = useState(false)
   const [multiProgressPayload, setMultiProgressPayload] = useState(null)
   const [analysisSignal, setAnalysisSignal] = useState(null)
@@ -92,6 +94,7 @@ export default function App() {
       abortControllerRef.current?.abort()
       abortControllerRef.current = null
       setViewMode(null)
+      setViewOrigin(null)
       setLoading(false)
       setMultiProgressPayload(null)
       setAnalysisSignal(null)
@@ -268,14 +271,16 @@ export default function App() {
   }
 
   // Открыть одиночный результат из истории — режим просмотра
-  function openResult(r) {
+  function openResult(r, origin) {
     setViewMode({ type: 'single', result: r })
+    setViewOrigin(origin || 'history')
     setPage('view')
   }
 
   // Открыть сравнение из истории — режим просмотра
-  function openComparison(comp) {
+  function openComparison(comp, origin) {
     setViewMode({ type: 'compare', comparison: comp })
+    setViewOrigin(origin || 'history')
     setPage('view')
   }
 
@@ -410,7 +415,7 @@ export default function App() {
                   loading={loading}
                   initialValues={formDraft}
                   onDraftChange={setFormDraft}
-                  onOpenResult={openResult}
+                  onOpenResult={(r) => openResult(r, 'analyze-form')}
                 />
                 {loading && !multiProgressPayload && (
                   <>
@@ -453,7 +458,7 @@ export default function App() {
             )}
 
             {comparison && <CompareView comparison={comparison} />}
-            {!comparison && result && <ResultView result={result} onOpenResult={openResult} />}
+            {!comparison && result && <ResultView result={result} onOpenResult={(r) => openResult(r, 'analyze-result')} />}
           </>
         )}
 
@@ -467,11 +472,44 @@ export default function App() {
 
         {page === 'view' && viewMode && (
           <>
-            <div className="view-actions">
-              <Button variant="secondary" size="sm" onClick={goToHistory}>← Назад в историю</Button>
-              <Button variant="primary" size="sm" onClick={startNewAnalysis}><Plus size={16} /> Новый анализ</Button>
+            <div className="view-header">
+              <div className="view-header__info">
+                <h2 className="view-header__title">
+                  {viewMode.type === 'single' ? '📄 Просмотр результата анализа' : '📊 Сравнение методик'}
+                </h2>
+                {viewMode.type === 'single' && viewMode.result && (
+                  <span className="view-header__id">
+                    #{viewMode.result.result_id?.slice(0, 8)}
+                    {' · '}
+                    {new Date(viewMode.result.created_at).toLocaleDateString('ru-RU', {
+                      day: '2-digit', month: '2-digit', year: 'numeric',
+                      hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                )}
+                <span className="view-header__origin">
+                  {viewOrigin === 'analyze-form' && 'Открыт из формы анализа'}
+                  {viewOrigin === 'analyze-result' && 'Открыт из результатов текущего анализа'}
+                  {viewOrigin === 'history' && 'Открыт из истории'}
+                </span>
+              </div>
+              <div className="view-header__actions">
+                {viewOrigin === 'analyze-form' && (
+                  <Button variant="secondary" size="sm" onClick={goToAnalyze}>
+                    ← Вернуться к форме
+                  </Button>
+                )}
+                {viewOrigin !== 'analyze-form' && (
+                  <Button variant="secondary" size="sm" onClick={goToHistory}>
+                    ← Назад в историю
+                  </Button>
+                )}
+                <Button variant="primary" size="sm" onClick={startNewAnalysis}>
+                  <Plus size={16} /> Новый анализ
+                </Button>
+              </div>
             </div>
-            {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={openResult} />}
+            {viewMode.type === 'single' && <ResultView result={viewMode.result} onOpenResult={(r) => openResult(r, viewOrigin)} />}
             {viewMode.type === 'compare' && <CompareView comparison={viewMode.comparison} />}
           </>
         )}

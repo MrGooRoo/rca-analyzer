@@ -311,6 +311,54 @@
   margin-bottom: var(--space-lg);
 }
 
+/* ── View header (режим просмотра) ───────────────────────── */
+.view-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-md);
+  margin-bottom: var(--space-lg);
+  padding: var(--space-md);
+  background: var(--fill-tertiary);
+  border-radius: var(--radius-md);
+  border: 1px solid var(--separator-thin);
+}
+
+.view-header__info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.view-header__title {
+  font-size: var(--text-body);
+  font-weight: var(--weight-semibold);
+  color: var(--label-primary);
+  margin: 0;
+  line-height: 1.3;
+}
+
+.view-header__id {
+  font-size: var(--text-footnote);
+  color: var(--label-secondary);
+  font-family: var(--font-mono);
+}
+
+.view-header__origin {
+  font-size: var(--text-caption1);
+  color: var(--label-tertiary);
+  font-style: italic;
+}
+
+.view-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+  align-items: center;
+}
+
 @media (max-width: 768px) {
   .analysis-cancel-toolbar,
   .analysis-result-toolbar {
