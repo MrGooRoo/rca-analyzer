@@ -91,6 +91,35 @@ export default function IncidentForm({ onSubmit, onSubmitMulti, loading, initial
         if (evt.status === 'reading') setUploadMessage('Извлечение текста из DOCX...')
         else if (evt.status === 'analyzing') setUploadMessage('Анализ текста в LLM...')
       })
+
+      // ── Нормализация victims после загрузки из файла ──
+      if (fields.victims_list?.length > 0) {
+        // Добавляем status ('injured'/'fatal'), если бэкенд его не отдал
+        const victimsWithStatus = fields.victims_list.map(v => ({
+          ...v,
+          status: v.status || 'injured',
+        }))
+
+        // Считаем реальное количество пострадавших/погибших по списку
+        const injuredCount = victimsWithStatus.filter(v => v.status === 'injured').length
+        const fatalitiesCount = victimsWithStatus.filter(v => v.status === 'fatal').length
+
+        // Если бэкенд не вернул числа или они не совпадают — проставляем из списка
+        const calcInjured = (fields.injured_count === undefined || fields.injured_count === null || fields.injured_count === 0)
+          && victimsWithStatus.length > 0
+          ? injuredCount
+          : fields.injured_count
+
+        const calcFatal = (fields.fatalities_count === undefined || fields.fatalities_count === null || fields.fatalities_count === 0)
+          && victimsWithStatus.length > 0
+          ? fatalitiesCount
+          : fields.fatalities_count
+
+        fields.victims_list = victimsWithStatus
+        fields.injured_count = calcInjured
+        fields.fatalities_count = calcFatal
+      }
+
       setForm(prev => ({ ...prev, ...fields }))
     } catch (e) {
       setUploadError(e.message)

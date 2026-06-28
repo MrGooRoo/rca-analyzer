@@ -76,10 +76,10 @@ class VictimFields(BaseModel):
     qualification_certificate: str | None = None
     introductory_briefing: str | None = None
     workplace_briefing: str | None = None
-    internship: str | None = None
     safety_knowledge_test: str | None = None
     medical_examination: str | None = None
     diagnosis_severity: str | None = None
+    status: str | None = None  # 'injured' | 'fatal'
 
 
 class ExtractedFields(BaseModel):
