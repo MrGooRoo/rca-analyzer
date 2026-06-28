@@ -1,13 +1,12 @@
-import React, { useMemo } from 'react'
-
 /**
- * 5 Why Tree — SVG визуализация дерева причин
+ * FiveWhyTree v2 — SVG визуализация дерева причин
  *
- * Layout:
- *   Vertical tree from top to bottom.
- *   Problem → Immediate Causes → Contributing Causes → Root Causes
- *   Each level is a colored tier with connecting lines.
+ * Исправления:
+ *   - Линии идут от фактических краёв узлов (учёт динамической высоты)
+ *   - Узлы не наезжают друг на друга (spacing >= реальная ширина)
+ *   - Корректное соединение при разном количестве узлов в ярусах
  */
+import React, { useMemo } from 'react'
 
 const TIERS = [
   { key: 'problem',     label: 'Проблема / Инцидент',        color: '#8E8E93' },
@@ -29,14 +28,13 @@ function useThemeColors() {
   }
 }
 
-function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
+/** Рассчитывает размеры узла по тексту */
+function calcNodeDims(text, compact = false) {
   const pad = compact ? 6 : 10
   const fontSize = compact ? 11 : 12
   const lineH = compact ? 14 : 16
   const estWidth = Math.min(text.length * (fontSize * 0.55) + pad * 2, 200)
   const boxW = Math.max(estWidth, 120)
-
-  // Multi-line text wrapping approximation
   const words = text.split(' ')
   const lines = []
   let cur = ''
@@ -46,13 +44,15 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
     else cur = cur ? cur + ' ' + w : w
   })
   if (cur) lines.push(cur)
-
   const textBlockH = lines.length * lineH
   const boxH = Math.max(compact ? 40 : 54, textBlockH + (compact ? 12 : 16))
+  return { boxW, boxH, lines }
+}
 
+function NodeBox({ x, y, text, boxW, boxH, color, colors }) {
+  const pad = 10
   return (
     <g>
-      {/* Card background */}
       <rect
         x={x - boxW / 2} y={y - boxH / 2}
         width={boxW} height={boxH}
@@ -62,18 +62,16 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
         strokeWidth="1.5"
         strokeOpacity="0.4"
       />
-      {/* Left accent bar */}
       <rect
         x={x - boxW / 2} y={y - boxH / 2 + 4}
         width="3" height={boxH - 8}
         rx="1.5"
         fill={color}
       />
-      {/* Text */}
-      <foreignObject x={x - boxW / 2 + pad + 6} y={y - boxH / 2 + 6} width={boxW - pad * 2 - 6} height={boxH - 12}>
+      <foreignObject x={x - boxW / 2 + pad} y={y - boxH / 2 + 6} width={boxW - pad * 2} height={boxH - 12}>
         <div style={{
-          fontSize: `${fontSize}px`,
-          lineHeight: `${lineH}px`,
+          fontSize: '12px',
+          lineHeight: '16px',
           color: colors.text,
           fontFamily: '-apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif',
           fontWeight: 500,
@@ -81,31 +79,6 @@ function NodeBox({ x, y, text, category, confidence, color, colors, compact }) {
           {text}
         </div>
       </foreignObject>
-
-      {/* Category + confidence footer */}
-      {category && (
-        <text
-          x={x - boxW / 2 + pad + 6}
-          y={y + boxH / 2 - 6}
-          fill={color}
-          fontSize="9"
-          fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
-          fontWeight="600"
-          opacity="0.8"
-        >
-          {category?.slice(0, 30)}
-        </text>
-      )}
-      <text
-        x={x + boxW / 2 - pad}
-        y={y + boxH / 2 - 6}
-        fill={colors.muted}
-        fontSize="9"
-        fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
-        textAnchor="end"
-      >
-        {confidence ? `${(confidence * 100).toFixed(0)}%` : ''}
-      </text>
     </g>
   )
 }
@@ -117,8 +90,7 @@ export default function FiveWhyTree({ result }) {
     const immed = (result.immediate_causes || []).map(n => ({ ...n, tier: 'immediate' }))
     const cont  = (result.contributing_causes || []).map(n => ({ ...n, tier: 'contributing' }))
     const root  = (result.root_causes || []).map(n => ({ ...n, tier: 'root' }))
-    const all = [...immed, ...cont, ...root]
-    return { immed, cont, root, all }
+    return { immed, cont, root, all: [...immed, ...cont, ...root] }
   }, [result])
 
   if (sections.all.length === 0) {
@@ -128,47 +100,74 @@ export default function FiveWhyTree({ result }) {
   const W = 800
   const TIER_GAP = 100
   const PROBLEM_HEIGHT = 70
-  const NODE_HEIGHT = 54
-  const NODE_GAP = 20
   const TIER_HEADER_H = 30
 
-  // Calculate how many rows per tier
-  const maxNodesPerTier = Math.max(
-    sections.immed.length,
-    sections.cont.length,
-    sections.root.length,
-    1
-  )
-  const gridW = Math.min(W - 40, 160 * maxNodesPerTier + (maxNodesPerTier - 1) * NODE_GAP)
-  const startX = W / 2
-  // Actually let's space nodes evenly per tier
-  function nodePositions(nodes, tierIndex) {
-    const y = PROBLEM_HEIGHT + TIER_GAP * (tierIndex + 1) + TIER_HEADER_H
-    if (nodes.length === 0) return []
-    const totalW = Math.min(W - 60, nodes.length * 180)
-    const spacing = nodes.length > 1 ? totalW / (nodes.length - 1) : 0
-    const firstX = (W - totalW) / 2
-    return nodes.map((n, i) => ({
-      ...n,
-      x: nodes.length > 1 ? firstX + spacing * i : W / 2,
-      y,
-    }))
-  }
-
+  // Рассчитываем размеры проблемного узла
+  const probDims = calcNodeDims(result.summary || 'Инцидент', true)
   const problemNode = {
     x: W / 2,
     y: PROBLEM_HEIGHT - 20,
-    text: result.summary,
-    category: result.methodology,
-    confidence: result.confidence_avg,
+    text: result.summary || 'Инцидент',
+    boxW: probDims.boxW,
+    boxH: probDims.boxH,
     color: '#8E8E93',
+  }
+
+  /** Позиционирует узлы яруса с учётом их реальной ширины */
+  function nodePositions(nodes, tierIndex) {
+    if (nodes.length === 0) return []
+    const y = PROBLEM_HEIGHT + TIER_GAP * (tierIndex + 1) + TIER_HEADER_H
+    // Рассчитываем ширину каждого узла
+    const withDims = nodes.map(n => {
+      const d = calcNodeDims(n.text || '', false)
+      return { ...n, ...d }
+    })
+    // Суммарная ширина всех узлов
+    const totalW = withDims.reduce((sum, n) => sum + n.boxW, 0)
+    // Минимальный зазор между узлами
+    const gap = 24
+    const fullW = totalW + gap * (nodes.length - 1)
+    // Если не влезает — уменьшаем до ширины контейнера
+    const maxW = W - 60
+    const scale = fullW > maxW ? maxW / fullW : 1
+    const adjustedGap = gap * scale
+    const adjustedTotalW = totalW * scale + adjustedGap * (nodes.length - 1)
+    const firstX = (W - adjustedTotalW) / 2
+    let cursor = firstX
+    return withDims.map((n, i) => {
+      const boxW = n.boxW * scale
+      const x = cursor + boxW / 2
+      cursor += boxW + adjustedGap
+      return { ...n, x, y, boxW, boxH: n.boxH }
+    })
   }
 
   const immedNodes = nodePositions(sections.immed, 0)
   const contNodes  = nodePositions(sections.cont, 1)
   const rootNodes  = nodePositions(sections.root, 2)
 
-  const H = PROBLEM_HEIGHT + TIER_GAP * 4 + TIER_HEADER_H * 3 + 60
+  // Высота SVG: динамическая, чтобы вместить все ярусы + запасы
+  const maxNodes = Math.max(immedNodes.length, contNodes.length, rootNodes.length)
+  const maxBoxH = maxNodes > 0 ? Math.max(...[...immedNodes, ...contNodes, ...rootNodes].map(n => n.boxH)) : 80
+  const H = PROBLEM_HEIGHT + TIER_GAP * 3 + TIER_HEADER_H * 3 + maxBoxH * 2 + 80
+
+  /** Соединяет узлы от края parent → к краю child */
+  function ConnLine({ from, to, color, key: lineKey }) {
+    if (!from || !to) return null
+    const x1 = from.x
+    const y1 = from.y + from.boxH / 2          // низ parent
+    const x2 = to.x
+    const y2 = to.y - to.boxH / 2               // верх child
+    return (
+      <line
+        key={lineKey}
+        x1={x1} y1={y1}
+        x2={x2} y2={y2}
+        stroke={color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5"
+        markerEnd="url(#tree-arrow)"
+      />
+    )
+  }
 
   return (
     <svg
@@ -183,100 +182,87 @@ export default function FiveWhyTree({ result }) {
         </marker>
       </defs>
 
-      {/* Background */}
       <rect x="0" y="0" width={W} height={H} fill={colors.bg} rx="12" opacity="0.95" />
 
       {/* Problem node */}
-      {NodeBox({
-        ...problemNode,
-        colors,
-        compact: true,
-      })}
+      <NodeBox {...problemNode} colors={colors} />
 
-      {/* Tier headers */}
-      {/* Immediate header */}
+      {/* Immediate tier */}
       {sections.immed.length > 0 && (
-        <text x={W / 2} y={PROBLEM_HEIGHT + 18} fill={TIERS[1].color} fontSize="11" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif" fontWeight="600" textAnchor="middle" opacity="0.7">
-          Почему? — {TIERS[1].label}
-        </text>
-      )}
-
-      {/* Connecting lines: problem → immediate */}
-      {sections.immed.length > 0 && immedNodes.map(n => (
-        <line key={n.id || `im-${n.text.slice(0, 10)}`}
-          x1={problemNode.x} y1={problemNode.y + 30}
-          x2={n.x} y2={n.y - NODE_HEIGHT / 2}
-          stroke={TIERS[1].color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5"
-          markerEnd="url(#tree-arrow)"
-        />
-      ))}
-
-      {immedNodes.map(n => NodeBox({ ...n, color: TIERS[1].color, colors }))}
-
-      {/* Contributing header + lines */}
-      {sections.cont.length > 0 && (
         <>
-          <text x={W / 2} y={PROBLEM_HEIGHT + TIER_GAP + TIER_HEADER_H + 18} fill={TIERS[2].color} fontSize="11" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif" fontWeight="600" textAnchor="middle" opacity="0.7">
-            Почему? — {TIERS[2].label}
+          <text x={W / 2} y={PROBLEM_HEIGHT + 18}
+            fill={TIERS[1].color}
+            fontSize="11" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+            fontWeight="600" textAnchor="middle" opacity="0.7">
+            Почему? — {TIERS[1].label}
           </text>
-          {sections.cont.length > 0 && sections.immed.length > 0 ? (
-            // Connect each contributing to closest immediate
-            contNodes.map((n, i) => {
-              const parent = immedNodes[Math.min(i, immedNodes.length - 1)] || immedNodes[0]
-              return (
-                <line key={n.id || `ct-${n.text.slice(0, 10)}`}
-                  x1={parent.x} y1={parent.y + NODE_HEIGHT / 2}
-                  x2={n.x} y2={n.y - NODE_HEIGHT / 2}
-                  stroke={TIERS[2].color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5"
-                  markerEnd="url(#tree-arrow)"
-                />
-              )
-            })
-          ) : sections.cont.length > 0 ? (
-            // Connect from problem when no immediate
-            contNodes.map(n => (
-              <line key={n.id || `ct-${n.text.slice(0, 10)}`}
-                x1={problemNode.x} y1={problemNode.y + 30}
-                x2={n.x} y2={n.y - NODE_HEIGHT / 2}
-                stroke={TIERS[2].color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5"
-                markerEnd="url(#tree-arrow)"
-              />
-            ))
-          ) : null}
-          {contNodes.map(n => NodeBox({ ...n, color: TIERS[2].color, colors }))}
+
+          {/* problem → immediate */}
+          {immedNodes.map(n => (
+            <ConnLine key={`im-line-${n.id || n.text.slice(0, 10)}`}
+              from={problemNode} to={n} color={TIERS[1].color} />
+          ))}
+
+          {immedNodes.map(n => <NodeBox key={n.id || n.text.slice(0, 10)} {...n} color={TIERS[1].color} colors={colors} />)}
         </>
       )}
 
-      {/* Root causes header + lines */}
+      {/* Contributing tier */}
+      {sections.cont.length > 0 && (
+        <>
+          <text x={W / 2} y={PROBLEM_HEIGHT + TIER_GAP + TIER_HEADER_H + 18}
+            fill={TIERS[2].color}
+            fontSize="11" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+            fontWeight="600" textAnchor="middle" opacity="0.7">
+            Почему? — {TIERS[2].label}
+          </text>
+
+          {immedNodes.length > 0
+            ? contNodes.map((n, i) => {
+                // Назначаем родителя пропорционально позиции: ближайший immediate
+                const pct = i / Math.max(contNodes.length - 1, 1)
+                const pIdx = Math.round(pct * (immedNodes.length - 1))
+                const parent = immedNodes[Math.min(pIdx, immedNodes.length - 1)]
+                return parent
+                  ? <ConnLine key={`ct-line-${n.id || n.text.slice(0, 10)}`}
+                      from={parent} to={n} color={TIERS[2].color} />
+                  : null
+              })
+            : contNodes.map(n => (
+                <ConnLine key={`ct-line-${n.id || n.text.slice(0, 10)}`}
+                  from={problemNode} to={n} color={TIERS[2].color} />
+              ))}
+
+          {contNodes.map(n => <NodeBox key={n.id || n.text.slice(0, 10)} {...n} color={TIERS[2].color} colors={colors} />)}
+        </>
+      )}
+
+      {/* Root causes tier */}
       {sections.root.length > 0 && (
         <>
-          <text x={W / 2} y={PROBLEM_HEIGHT + TIER_GAP * 2 + TIER_HEADER_H * 2 + 18} fill={TIERS[3].color} fontSize="11" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif" fontWeight="600" textAnchor="middle" opacity="0.7">
+          <text x={W / 2} y={PROBLEM_HEIGHT + TIER_GAP * 2 + TIER_HEADER_H * 2 + 18}
+            fill={TIERS[3].color}
+            fontSize="11" fontFamily="-apple-system, BlinkMacSystemFont, sans-serif"
+            fontWeight="600" textAnchor="middle" opacity="0.7">
             Почему? — {TIERS[3].label}
           </text>
-          {sections.root.length > 0 && sections.cont.length > 0 ? (
-            rootNodes.map((n, i) => {
-              const parent = contNodes[Math.min(i, contNodes.length - 1)] || contNodes[0]
-              if (!parent) return null
-              return (
-                <line key={n.id || `rt-${n.text.slice(0, 10)}`}
-                  x1={parent.x} y1={parent.y + NODE_HEIGHT / 2}
-                  x2={n.x} y2={n.y - NODE_HEIGHT / 2}
-                  stroke={TIERS[3].color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5"
-                  markerEnd="url(#tree-arrow)"
-                />
-              )
-            })
-          ) : sections.root.length > 0 ? (
-            rootNodes.map(n => (
-              <line key={n.id || `rt-${n.text.slice(0, 10)}`}
-                x1={problemNode.x} y1={problemNode.y + 30}
-                x2={n.x} y2={n.y - NODE_HEIGHT / 2}
-                stroke={TIERS[3].color} strokeWidth="1.5" strokeDasharray="4,3" opacity="0.5"
-                markerEnd="url(#tree-arrow)"
-              />
-            ))
-          ) : null}
-          {rootNodes.map(n => NodeBox({ ...n, color: TIERS[3].color, colors }))}
+
+          {contNodes.length > 0
+            ? rootNodes.map((n, i) => {
+                const pct = i / Math.max(rootNodes.length - 1, 1)
+                const pIdx = Math.round(pct * (contNodes.length - 1))
+                const parent = contNodes[Math.min(pIdx, contNodes.length - 1)]
+                return parent
+                  ? <ConnLine key={`rt-line-${n.id || n.text.slice(0, 10)}`}
+                      from={parent} to={n} color={TIERS[3].color} />
+                  : null
+              })
+            : rootNodes.map(n => (
+                <ConnLine key={`rt-line-${n.id || n.text.slice(0, 10)}`}
+                  from={problemNode} to={n} color={TIERS[3].color} />
+              ))}
+
+          {rootNodes.map(n => <NodeBox key={n.id || n.text.slice(0, 10)} {...n} color={TIERS[3].color} colors={colors} />)}
         </>
       )}
     </svg>
