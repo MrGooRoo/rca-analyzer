@@ -396,7 +396,111 @@
   padding: 0 16px 16px;
 }
 
-/* Photos */
+/* ── Severity colours ── */
+
+.incident-severity-chip.is-rose {
+  --chip-bg: oklch(0.59 0.19 25);
+}
+
+.incident-severity-chip.is-amber {
+  --chip-bg: oklch(0.7 0.18 60);
+}
+
+.incident-severity-chip.is-sky {
+  --chip-bg: oklch(0.65 0.14 220);
+}
+
+.incident-severity-chip.is-emerald {
+  --chip-bg: oklch(0.6 0.16 150);
+}
+
+.incident-severity-chip.is-slate {
+  --chip-bg: oklch(0.55 0.02 260);
+}
+
+/* ── Classification: compact two‑column row ── */
+
+.incident-classification-row {
+  display: flex;
+  gap: var(--space-xl);
+  align-items: flex-start;
+}
+
+.incident-classification-type {
+  flex: 0 0 220px;
+  min-width: 0;
+}
+
+.incident-classification-severity {
+  flex: 1;
+  min-width: 0;
+}
+
+.incident-severity-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.incident-severity-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px;
+  border-radius: 999px;
+  border: 1.5px solid transparent;
+  background: var(--chip-bg, oklch(0.55 0.02 260));
+  color: #fff;
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-semibold);
+  line-height: 1.3;
+  cursor: pointer;
+  transition:
+    opacity 0.15s,
+    transform 0.15s,
+    box-shadow 0.15s;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.incident-severity-chip:hover:not(:disabled) {
+  opacity: 0.85;
+  transform: scale(1.04);
+}
+
+.incident-severity-chip:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.incident-severity-chip--active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--chip-bg), 0 0 0 4px color-mix(in srgb, var(--chip-bg) 40%, transparent);
+}
+
+.incident-severity-chip--active.is-rose {
+  box-shadow: 0 0 0 2px oklch(0.59 0.19 25), 0 0 0 4px color-mix(in srgb, oklch(0.59 0.19 25) 30%, transparent);
+}
+
+.incident-severity-chip--active.is-amber {
+  box-shadow: 0 0 0 2px oklch(0.7 0.18 60), 0 0 0 4px color-mix(in srgb, oklch(0.7 0.18 60) 30%, transparent);
+}
+
+.incident-severity-chip--active.is-sky {
+  box-shadow: 0 0 0 2px oklch(0.65 0.14 220), 0 0 0 4px color-mix(in srgb, oklch(0.65 0.14 220) 30%, transparent);
+}
+
+.incident-severity-chip--active.is-emerald {
+  box-shadow: 0 0 0 2px oklch(0.6 0.16 150), 0 0 0 4px color-mix(in srgb, oklch(0.6 0.16 150) 30%, transparent);
+}
+
+.incident-severity-chip--active.is-slate {
+  box-shadow: 0 0 0 2px oklch(0.55 0.02 260), 0 0 0 4px color-mix(in srgb, oklch(0.55 0.02 260) 30%, transparent);
+}
+
+.incident-severity-chip:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 .incident-photo-links {
   display: flex;

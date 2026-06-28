@@ -11,10 +11,13 @@ function SubLabel({ icon, children }) {
   )
 }
 
-function SeverityCard(s, active, disabled) {
-  return `incident-severity-card ${
-    active ? 'incident-choice--active' : 'incident-severity-card--hoverable'
-  } ${disabled ? 'is-disabled' : ''}`
+/** Префикс CSS-класса для цвета тяжести */
+const SEVERITY_CLASS = {
+  rose:    'is-rose',
+  amber:   'is-amber',
+  sky:     'is-sky',
+  emerald: 'is-emerald',
+  slate:   'is-slate',
 }
 
 export default function ClassificationSection({ form, set, busy }) {
@@ -22,23 +25,40 @@ export default function ClassificationSection({ form, set, busy }) {
     <div className="incident-section">
       <SubLabel icon="🏷️">Классификация инцидента</SubLabel>
 
-      <Select label="Тип инцидента" value={form.incident_type}
-        onChange={e => set('incident_type', e.target.value)} disabled={busy}>
-        {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
-      </Select>
+      <div className="incident-classification-row">
+        {/* Левая колонка — тип инцидента */}
+        <div className="incident-classification-type">
+          <Select label="Тип инцидента" value={form.incident_type}
+            onChange={e => set('incident_type', e.target.value)} disabled={busy}>
+            {TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+          </Select>
+        </div>
 
-      <SubLabel>Тяжесть инцидента</SubLabel>
-      <div className="incident-severity-grid">
-        {SEVERITIES.map(s => (
-          <label key={s.value} className={SeverityCard(s, form.severity === s.value, busy)}>
-            <input type="radio" name="severity" value={s.value}
-              checked={form.severity === s.value}
-              onChange={() => set('severity', s.value)}
-              disabled={busy} className="incident-sr-only" />
-            <div className="incident-severity-card__title">{s.label}</div>
-            <div className="incident-severity-card__hint">{s.hint}</div>
-          </label>
-        ))}
+        {/* Правая колонка — тяжесть (цветные чипсы) */}
+        <div className="incident-classification-severity">
+          <div className="incident-sublabel">Тяжесть</div>
+          <div className="incident-severity-chips">
+            {SEVERITIES.map(s => {
+              const isActive = form.severity === s.value
+              const colorClass = SEVERITY_CLASS[s.color] || 'is-slate'
+              return (
+                <button
+                  key={s.value}
+                  type="button"
+                  className={
+                    `incident-severity-chip ${colorClass}` +
+                    (isActive ? ' incident-severity-chip--active' : '')
+                  }
+                  onClick={() => set('severity', s.value)}
+                  disabled={busy}
+                  title={s.hint}
+                >
+                  {s.label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
       </div>
     </div>
   )
