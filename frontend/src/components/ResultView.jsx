@@ -31,6 +31,8 @@ export default function ResultView({ result, onOpenResult = null }) {
   const [tab, setTab] = useState(
     isBowtie ? 'bowtie' : isFishbone ? 'fishbone' : 'tree'
   )
+  const [exporting, setExporting] = useState(null)
+  const [exportError, setExportError] = useState(null)
 
   async function handleExport(format) {
     setExporting(format)
