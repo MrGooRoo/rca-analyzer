@@ -1,0 +1,113 @@
+/* ---- Ishikawa Summary (grid view) ---- */
+
+.sw-ishikawa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+  animation: fadeIn 0.3s ease both;
+}
+
+.sw-ishikawa__problem {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background: linear-gradient(135deg, rgba(16,185,129,0.12), rgba(13,148,136,0.08));
+  border: 1px solid rgba(16,185,129,0.25);
+  border-radius: var(--radius-lg);
+  padding: var(--space-lg) var(--space-xl);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  color: var(--label-primary);
+  line-height: 1.5;
+  text-align: center;
+}
+
+.sw-ishikawa__problem-icon {
+  font-size: 22px;
+  line-height: 1;
+}
+
+.sw-ishikawa__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: var(--space-lg);
+}
+
+.sw-ishikawa__section {
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--separator);
+  background: var(--glass-bg);
+  overflow: hidden;
+}
+
+.sw-ishikawa__section-header {
+  padding: var(--space-sm) var(--space-md);
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-heavy);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  border-bottom: 1px solid;
+}
+
+.sw-ishikawa__section-body {
+  padding: var(--space-md);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.sw-ishikawa__cat-group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.sw-ishikawa__cat-name {
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-bold);
+  opacity: 0.8;
+}
+
+.sw-ishikawa__causes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.sw-ishikawa__cause {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: var(--text-footnote);
+  color: var(--label-tertiary);
+  line-height: 1.5;
+  padding: 3px 0;
+}
+
+.sw-ishikawa__dot {
+  flex: 0 0 6px;
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  margin-top: 7px;
+}
+
+.sw-ishikawa__cause-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.sw-ishikawa__conf {
+  flex: 0 0 auto;
+  font-family: var(--font-mono);
+  font-size: var(--text-caption2);
+  color: var(--label-quaternary);
+  margin-left: auto;
+  white-space: nowrap;
+}

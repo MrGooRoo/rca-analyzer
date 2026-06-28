@@ -1,0 +1,107 @@
+/* ---- 5 Why Summary (list view) ---- */
+
+.sw-5why {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xl);
+}
+
+.sw-5why__problem {
+  background: var(--glass-bg);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-lg);
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+.sw-5why__problem-text {
+  color: var(--label-primary);
+  font-size: var(--text-body);
+  font-weight: var(--weight-bold);
+  line-height: 1.5;
+}
+
+.sw-5why__tier {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.sw-5why__arrow {
+  text-align: center;
+  font-size: 20px;
+  color: var(--label-tertiary);
+  opacity: 0.5;
+  line-height: 1;
+  padding: 2px 0;
+}
+
+.sw-5why__tier-label {
+  font-size: var(--text-caption1);
+  font-weight: var(--weight-heavy);
+  letter-spacing: var(--ls-wide);
+  text-transform: uppercase;
+  opacity: 0.8;
+}
+
+.sw-5why__nodes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-md);
+}
+
+.sw-5why__item {
+  display: flex;
+  gap: var(--space-md);
+  align-items: flex-start;
+  animation: fadeIn 0.3s ease both;
+}
+
+.sw-5why__num {
+  flex: 0 0 28px;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-full);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: var(--text-footnote);
+  font-weight: var(--weight-heavy);
+  margin-top: 2px;
+}
+
+.sw-5why__content {
+  flex: 1;
+  min-width: 0;
+  background: var(--glass-bg);
+  border: 1px solid var(--separator);
+  border-radius: var(--radius-md);
+  padding: var(--space-md);
+}
+
+.sw-5why__text {
+  color: var(--label-primary);
+  font-size: var(--text-footnote);
+  line-height: 1.5;
+}
+
+.sw-5why__meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  margin-top: 6px;
+  flex-wrap: wrap;
+}
+
+.sw-5why__category {
+  font-size: var(--text-caption2);
+  font-weight: var(--weight-bold);
+  letter-spacing: 0.03em;
+}
+
+.sw-5why__confidence {
+  font-size: var(--text-caption2);
+  color: var(--label-tertiary);
+  font-family: var(--font-mono);
+}
