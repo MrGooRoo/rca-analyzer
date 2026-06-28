@@ -5,9 +5,9 @@ import { Zap, Scale, FileText } from 'lucide-react'
 import './ModelSelector.css'
 
 const CATEGORY_META = {
-  full:     { label: 'Полное',     icon: FileText, desc: '≥64K контекста — сложный анализ, длинные документы' },
-  balanced: { label: 'Сбалансированное', icon: Scale, desc: '16K–63K — универсальные задачи' },
-  express:  { label: 'Экспресс',   icon: Zap, desc: '<16K — простые вопросы, быстрые ответы' },
+  full:     { label: 'Большой контекст (≥64K)',     icon: FileText, desc: 'Сложный анализ с большим объёмом вводных данных' },
+  balanced: { label: 'Средний контекст (16K–63K)', icon: Scale,    desc: 'Универсальные задачи, средний объём' },
+  express:  { label: 'Малый контекст (<16K)',      icon: Zap,      desc: 'Небольшие инциденты, простые вопросы' },
 }
 
 export default function ModelSelector({ disabled, onPrefsChange }) {

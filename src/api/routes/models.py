@@ -56,10 +56,45 @@ def _classify(ctx: int) -> str:
 
 
 CATEGORIES = {
-    "full":     {"label": "Полное",     "icon": "FileText",      "context_min": FULL_MIN},
-    "balanced": {"label": "Сбалансированное", "icon": "EqualApprox", "context_min": BALANCED_MIN, "context_max": FULL_MIN - 1},
-    "express":  {"label": "Экспресс",   "icon": "Zap",           "context_max": BALANCED_MIN - 1},
+    "full":     {"label": "Большой контекст (≥64K)", "icon": "FileText",      "context_min": FULL_MIN},
+    "balanced": {"label": "Средний контекст (16K–63K)", "icon": "EqualApprox", "context_min": BALANCED_MIN, "context_max": FULL_MIN - 1},
+    "express":  {"label": "Малый контекст (<16K)", "icon": "Zap",           "context_max": BALANCED_MIN - 1},
 }
+
+
+async def _get_default_model_preferences(db: AsyncSession) -> dict[str, str]:
+    """Лучшие бесплатные модели для каждой категории (умные умолчания)."""
+    provider = (
+        await db.execute(
+            select(ProviderORM).where(ProviderORM.is_active == True).limit(1)
+        )
+    ).scalars().first()
+    if not provider:
+        return {}
+
+    rows = (
+        await db.execute(
+            select(ProviderModelORM)
+            .where(
+                ProviderModelORM.provider_id == provider.id,
+                ProviderModelORM.is_free == True,
+            )
+            .order_by(ProviderModelORM.context_length.desc(), ProviderModelORM.name)
+        )
+    ).scalars().all()
+
+    defaults: dict[str, str] = {}
+    for key, min_ctx, max_ctx in [
+        ("full", FULL_MIN, None),
+        ("balanced", BALANCED_MIN, FULL_MIN - 1),
+        ("express", 0, BALANCED_MIN - 1),
+    ]:
+        candidates = [m for m in rows if (m.context_length or 0) >= min_ctx]
+        if max_ctx is not None:
+            candidates = [m for m in candidates if (m.context_length or 0) <= max_ctx]
+        if candidates:
+            defaults[key] = candidates[0].model_id
+    return defaults
 
 
 @router.get(
@@ -134,7 +169,12 @@ async def get_model_preferences(
     current_user: CurrentUser,
 ) -> ModelPreferencesUpdate:
     user = await db.get(UserORM, current_user.user_id)
-    prefs = user.model_preferences or {}
+    prefs = user.model_preferences
+    # Если пользователь ещё не выбирал модели — даём умные умолчания
+    if not prefs:
+        prefs = await _get_default_model_preferences(db)
+    else:
+        prefs = dict(prefs)
     return ModelPreferencesUpdate(
         full=prefs.get("full"),
         balanced=prefs.get("balanced"),
