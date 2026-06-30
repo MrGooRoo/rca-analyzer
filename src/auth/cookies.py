@@ -25,6 +25,10 @@ COOKIE_SECURE: Final[bool] = os.environ.get("AUTH_COOKIE_SECURE", "false").lower
 
 def _cookie_kwargs(ttl: timedelta) -> dict:
     max_age = int(ttl.total_seconds())
+    # `expires` не задаём явно: Starlette сам вычисляет корректный абсолютный
+    # Expires из max_age. Передача сюда max_age (относительных секунд) трактуется
+    # как Unix-timestamp 1970 года, из-за чего некоторые прокси/браузеры
+    # немедленно удаляют cookie.
     return {
         "httponly": True,
         "secure": COOKIE_SECURE,
@@ -32,7 +36,6 @@ def _cookie_kwargs(ttl: timedelta) -> dict:
         "path": COOKIE_PATH,
         "domain": COOKIE_DOMAIN,
         "max_age": max_age,
-        "expires": max_age,
     }
 
 
