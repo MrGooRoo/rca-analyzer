@@ -216,6 +216,9 @@ async def upload_report_stream(
         cached = await repo.get(file_hash)
         if cached is not None:
             logger.info("[UploadStream] Кэш-попадание: hash=%s", file_hash[:16])
+            # repo.get() теперь только flush-ит hit_count (не commit), чтобы не
+            # ломать транзакцию; фиксируем статистику попадания явно перед возвратом.
+            await db.commit()
             cached["victims_list"] = _normalize_victims_as_dicts(cached)
             yield f"data: {json.dumps({'status': 'cache_hit', 'message': 'Результат из кэша (повторный файл)'})}\n\n"
             await asyncio.sleep(0.05)
@@ -268,9 +271,9 @@ async def upload_report_stream(
                     dup["_metadata"] = {"dedup_from": inc_hash[:16]}
                     await repo._hard_save(file_hash, inc_hash, dup)
                     dup["victims_list"] = _normalize_victims_as_dicts(dup)
-                    yield f"data: {json.dumps({'status': 'cache_hit', 'message': 'Найден дубликат инцидента (тот же title+description)'})}\\n\\n"
+                    yield f"data: {json.dumps({'status': 'cache_hit', 'message': 'Найден дубликат инцидента (тот же title+description)'})}\n\n"
                     await asyncio.sleep(0.05)
-                    yield f"data: {json.dumps({'status': 'done', 'result': dup})}\\n\\n"
+                    yield f"data: {json.dumps({'status': 'done', 'result': dup})}\n\n"
                     return
                 await repo._hard_save(file_hash, inc_hash, fields)
             else:
