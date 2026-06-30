@@ -79,9 +79,12 @@ async def get_or_extract(file_bytes: bytes, session: AsyncSession, llm_settings:
     cached = await repo.get(file_hash)
     if cached is not None:
         logger.info(
-            "[DocxCache] Кэш-попадание: hash=%s... — LLM-извлечение пропущено",
+            "[DocxCache] Кэш-попадание: hash=%s... — LLM-излечение пропущено",
             file_hash[:16],
         )
+        # repo.get() теперь только flush-ит hit_count (не commit), чтобы не
+        # ломать транзакцию caller'а; фиксируем статистику попадания явно.
+        await session.commit()
         return cached
 
     logger.info(

@@ -34,10 +34,12 @@ class ExtractionCacheRepository:
         if row is None:
             return None
 
-        # Обновляем статистику попаданий
+        # Обновляем статистику попаданий. flush(), а не commit(): get() —
+        # read-операция, а commit() закрыл бы транзакцию caller'а (напр. в
+        # upload.py), и последующий rollback уже не откатил бы hit_count.
         row.hit_count += 1
         row.last_hit_at = datetime.now(UTC)
-        await self._session.commit()
+        await self._session.flush()
 
         logger.info(
             "[ExtractionCache] Попадание в кэш: hash=%s hit_count=%d",
