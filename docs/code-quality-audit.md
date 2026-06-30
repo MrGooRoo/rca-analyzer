@@ -1,8 +1,10 @@
 # code-quality-audit.md — Аудит качества кода RCA Analyzer
 
-> **Дата:** 2026-06-15  
-> **Охват:** backend (FastAPI, domain, DB, integrations), frontend (React), тесты, безопасность.  
+> **Дата:** 2026-06-15
+> **Охват:** backend (FastAPI, domain, DB, integrations), frontend (React), тесты, безопасность.
 > **Связанные документы:** [architecture.md](architecture.md), [state.md](state.md), [refactoring-plan-sse-db.md](refactoring-plan-sse-db.md).
+>
+> **Дополнено внешним аудитом 2026-06-30** → см. [audit-2026-06-30.md](audit-2026-06-30.md): полный пересмотр (6 категорий, P0/P1/P2, frontend/UX/a11y, план действий). Находки ниже актуальны; новые критические баги и план закрытия — в новом документе.
 
 ---
 

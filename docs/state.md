@@ -8,6 +8,11 @@
 
 **ВАЖНО:** Frontend build проверен (Vite 8.0.16), npm audit — 0 vulnerabilities. Mypy — 0 errors (48 source files). Frontend тесты — 7 passed (4 suites).
 
+## Полный аудит 30.06.2026
+- [x] **Документ аудита** — [audit-2026-06-30.md](audit-2026-06-30.md): 6 категорий, оценка по каждой, P0/P1/P2, frontend/UX, план действий.
+- [ ] **P0 (6 шт.)** — в работе, ветка `fix/p0-audit-2026-06-30`: SSE `\\n\\n`, `import json`, cookie `expires`, JWT_SECRET fail-fast, Docker `USER`, cache `flush`.
+- Затронутые уровни: backend runtime-баги (#1, #2, #6), безопасность dev/production (#4, #5), корректность cookies (#3).
+
 ## Рефакторинг: PersistenceService — полноценный use-case слой (22.06.2026)
 - [x] `_save_kwargs()` helper — единое место для save_result kwargs (убрано дублирование)
 - [x] `_SessionManager` — контекстный менеджер сессии с rollback (вместо __aenter__/__aexit__ вручную)
@@ -431,8 +436,12 @@
 - [ ] **Frontend quality** — ESLint не настроен (есть Vitest, нет линтера)
 - [ ] **Nginx / reverse-proxy** — для продакшна
 - [ ] **Prometheus / OpenTelemetry метрики** — для продакшна
+- [ ] **P0 (аудит 30.06.2026)** — 6 критических багов, см. [audit-2026-06-30.md](audit-2026-06-30.md) §3
+- [ ] **P1 (аудит 30.06.2026)** — 10 высоких: generic handler ловит HTTPException, export owner-check, shared httpx, Redis rate limiter, plaintext API keys — см. §4
+- [ ] **Frontend a11y** — 8 нарушений WCAG 2.1 AA (модалки без role/aria, контраст ~2.5:1) — см. §6.2
 
 ## В работе / следующий приоритет
+- [ ] **P0-fixes** — ветка `fix/p0-audit-2026-06-30`: 6 критических багов (аудит 30.06.2026).
 - [ ] (Опционально) Прогнать e2e с `EMBEDDINGS_PROVIDER=openrouter` на реальном ключе.
 
 ## Аудит качества кода (15.06.2026)
