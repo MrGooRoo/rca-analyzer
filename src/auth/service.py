@@ -25,7 +25,15 @@ from src.db.base import get_db
 from src.db.orm_models import RefreshTokenORM, UserORM
 
 # ---- Конфиг -----------------------------------------------------------------
-SECRET_KEY: str = os.environ.get("JWT_SECRET", "change-me-in-production-please")
+# JWT_SECRET обязателен. Дефолтное значение в исходном коде небезопасно — оно
+# публично и позволяет подделать любой токен (включая admin) в любом окружении,
+# где секрет не задан явно. Поэтому падаем с понятной ошибкой.
+SECRET_KEY: str = os.environ.get("JWT_SECRET", "")
+if not SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET не задан. Установите длинный случайный секрет через "
+        "переменную окружения JWT_SECRET (см. .env.example)."
+    )
 ALGORITHM = "HS256"
 
 # Максимум неудачных попыток входа перед блокировкой на LOCKOUT_MINUTES минут
